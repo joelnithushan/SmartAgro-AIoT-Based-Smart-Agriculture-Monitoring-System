@@ -1,0 +1,196 @@
+import React, { useState, useEffect } from 'react';
+import { deviceRequestsService } from '../services/firestoreService';
+import toast from 'react-hot-toast';
+
+const FarmManagement = () => {
+  const [farms, setFarms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    loadFarmData();
+  }, []);
+
+  const loadFarmData = async () => {
+    try {
+      setLoading(true);
+      // Get all device requests to extract farm/location data
+      const result = await deviceRequestsService.getAllRequests();
+      
+      if (result.success) {
+        // Group by location to create farm entries
+        const farmMap = {};
+        result.requests.forEach(request => {
+          if (request.location && request.fullName) {
+            const farmKey = request.location.toLowerCase();
+            if (!farmMap[farmKey]) {
+              farmMap[farmKey] = {
+                id: farmKey,
+                location: request.location,
+                ownerName: request.fullName,
+                ownerEmail: request.email,
+                ownerNIC: request.nic,
+                deviceRequests: [],
+                totalRequests: 0,
+                activeDevices: 0,
+                status: 'active'
+              };
+            }
+            farmMap[farmKey].deviceRequests.push(request);
+            farmMap[farmKey].totalRequests++;
+            if (request.assignedDeviceId) {
+              farmMap[farmKey].activeDevices++;
+            }
+          }
+        });
+        
+        setFarms(Object.values(farmMap));
+      } else {
+        setError('Failed to load farm data');
+      }
+    } catch (error) {
+      console.error('Error loading farm data:', error);
+      setError('Error loading farm data: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      'active': 'bg-green-50 text-green-700 border-green-200',
+      'inactive': 'bg-gray-50 text-gray-700 border-gray-200',
+      'suspended': 'bg-red-50 text-red-700 border-red-200'
+    };
+    return colors[status] || 'bg-gray-50 text-gray-700 border-gray-200';
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+          <span className="ml-3 text-gray-600">Loading farm data...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+        <div className="text-center py-8">
+          <div className="text-red-500 text-4xl mb-4">⚠️</div>
+          <p className="text-red-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-3">
+          <div className="p-3 bg-green-100 rounded-lg">
+            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Farm Management</h2>
+            <p className="text-sm text-gray-600">
+              {farms.length} farm locations registered
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {farms.length === 0 ? (
+        <div className="text-center py-12">
+          <svg className="mx-auto h-16 w-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h3 className="mt-4 text-lg font-medium text-gray-900">No farms registered yet</h3>
+          <p className="mt-2 text-sm text-gray-600">Farm data will appear here when users submit device requests</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {farms.map((farm) => (
+            <div key={farm.id} className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+              {/* Header */}
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-900">
+                    {farm.location}
+                  </h4>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Managed by: {farm.ownerName}
+                  </p>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(farm.status)}`}>
+                  {farm.status.charAt(0).toUpperCase() + farm.status.slice(1)}
+                </span>
+              </div>
+
+              {/* Farm Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Owner Contact</label>
+                    <p className="text-sm text-gray-900 mt-1">{farm.ownerEmail}</p>
+                    <p className="text-sm text-gray-700">NIC: {farm.ownerNIC}</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Farm Statistics</label>
+                    <div className="mt-2 space-y-1">
+                      <p className="text-sm text-gray-900">Total Requests: <span className="font-medium">{farm.totalRequests}</span></p>
+                      <p className="text-sm text-gray-900">Active Devices: <span className="font-medium text-green-600">{farm.activeDevices}</span></p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Device Requests */}
+              <div className="border-t border-gray-200 pt-4">
+                <h5 className="text-sm font-medium text-gray-700 mb-3">Recent Device Requests</h5>
+                <div className="space-y-2">
+                  {farm.deviceRequests.slice(0, 3).map((request) => (
+                    <div key={request.id} className="flex items-center justify-between py-2 px-3 bg-white rounded border border-gray-100">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          Request #{request.id.substring(0, 8).toUpperCase()}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {request.createdAt?.toDate?.()?.toLocaleDateString() || 'Date not available'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(request.status === 'completed' ? 'active' : 'inactive')}`}>
+                          {request.status || 'pending'}
+                        </span>
+                        {request.assignedDeviceId && (
+                          <p className="text-xs text-green-600 mt-1">
+                            Device: {request.assignedDeviceId}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {farm.deviceRequests.length > 3 && (
+                    <p className="text-xs text-gray-500 text-center py-2">
+                      +{farm.deviceRequests.length - 3} more requests
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default FarmManagement;

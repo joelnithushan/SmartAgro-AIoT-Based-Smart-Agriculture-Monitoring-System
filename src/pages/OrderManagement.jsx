@@ -1,0 +1,315 @@
+import React, { useState, useEffect } from 'react';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import OrderDetailsModal from '../components/OrderDetailsModal';
+
+/**
+ * OrderManagement Component
+ * 
+ * Displays device order requests from Firebase Firestore
+ * Features: List view, status filtering, and order details modal trigger
+ * 
+ * Required npm packages:
+ * - firebase (already installed)
+ * 
+ * Install command: npm install firebase
+ */
+
+// Helper function to format timestamps
+const formatTimestamp = (timestamp) => {
+  if (!timestamp) return 'N/A';
+  
+  try {
+    // Handle Firestore Timestamp objects
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (error) {
+    console.error('Error formatting timestamp:', error);
+    return 'Invalid Date';
+  }
+};
+
+// Status options for filtering
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'All Statuses' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'cost-estimated', label: 'Cost Estimated' },
+  { value: 'user-accepted', label: 'User Accepted' },
+  { value: 'device-assigned', label: 'Device Assigned' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'rejected', label: 'Rejected' }
+];
+
+// Status badge styling
+const getStatusBadgeClass = (status) => {
+  const baseClass = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
+  
+  switch (status) {
+    case 'pending':
+      return `${baseClass} bg-yellow-100 text-yellow-800`;
+    case 'cost-estimated':
+      return `${baseClass} bg-blue-100 text-blue-800`;
+    case 'user-accepted':
+      return `${baseClass} bg-green-100 text-green-800`;
+    case 'device-assigned':
+      return `${baseClass} bg-purple-100 text-purple-800`;
+    case 'completed':
+      return `${baseClass} bg-emerald-100 text-emerald-800`;
+    case 'rejected':
+      return `${baseClass} bg-red-100 text-red-800`;
+    default:
+      return `${baseClass} bg-gray-100 text-gray-800`;
+  }
+};
+
+const OrderManagement = () => {
+  const [orders, setOrders] = useState([]);
+  const [filteredOrders, setFilteredOrders] = useState([]);
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+
+  // Fetch orders from Firebase Firestore
+  useEffect(() => {
+    console.log('🔍 Setting up Firestore listener for deviceRequests...');
+    
+    const q = query(
+      collection(db, 'deviceRequests'),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        try {
+          console.log('📥 Received Firestore snapshot with', snapshot.docs.length, 'documents');
+          
+          const ordersArray = snapshot.docs.map((doc) => ({
+            requestId: doc.id,
+            ...doc.data()
+          }));
+          
+          console.log('📋 Processed orders:', ordersArray.length);
+          setOrders(ordersArray);
+          setError(null);
+        } catch (err) {
+          console.error('❌ Error processing orders data:', err);
+          setError('Failed to process orders data');
+        } finally {
+          setLoading(false);
+        }
+      },
+      (error) => {
+        console.error('❌ Error fetching orders from Firestore:', error);
+        setError('Failed to fetch orders from database');
+        setLoading(false);
+      }
+    );
+
+    // Cleanup subscription on unmount
+    return () => {
+      console.log('🧹 Cleaning up Firestore listener');
+      unsubscribe();
+    };
+  }, []);
+
+  // Filter orders based on selected status
+  useEffect(() => {
+    if (selectedStatus === 'all') {
+      setFilteredOrders(orders);
+    } else {
+      setFilteredOrders(orders.filter(order => order.status === selectedStatus));
+    }
+  }, [orders, selectedStatus]);
+
+  // Handle opening order details modal
+  const handleOpenDetails = (requestId) => {
+    console.log('Opening details for order:', requestId);
+    setSelectedOrderId(requestId);
+    setShowModal(true);
+  };
+
+  // Handle closing modal
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setSelectedOrderId(null);
+  };
+
+  // Handle status filter change
+  const handleStatusFilter = (status) => {
+    setSelectedStatus(status);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading orders...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Orders</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Order Management</h1>
+              <p className="mt-1 text-sm text-gray-600">
+                Manage device order requests and track their status
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-sm text-gray-500">
+                Total Orders: <span className="font-semibold text-gray-900">{orders.length}</span>
+              </div>
+              <div className="text-sm text-gray-500">
+                Filtered: <span className="font-semibold text-gray-900">{filteredOrders.length}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Filters */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-lg font-medium text-gray-900 mb-4 sm:mb-0">Filter Orders</h2>
+            <div className="flex items-center space-x-4">
+              <label htmlFor="status-filter" className="text-sm font-medium text-gray-700">
+                Status:
+              </label>
+              <select
+                id="status-filter"
+                value={selectedStatus}
+                onChange={(e) => handleStatusFilter(e.target.value)}
+                className="block w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+              >
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Orders Table */}
+        <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+          {filteredOrders.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-gray-400 text-6xl mb-4">📦</div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Orders Found</h3>
+              <p className="text-gray-500">
+                {selectedStatus === 'all' 
+                  ? 'No device order requests have been submitted yet.'
+                  : `No orders found with status "${STATUS_OPTIONS.find(opt => opt.value === selectedStatus)?.label}".`
+                }
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Request ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      User Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      User Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Requested Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredOrders.map((order) => (
+                    <tr key={order.requestId} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
+                        {order.requestId}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {order.personalInfo?.fullName || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {order.userEmail || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={getStatusBadgeClass(order.status)}>
+                          {order.status || 'unknown'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatTimestamp(order.createdAt)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button
+                          onClick={() => handleOpenDetails(order.requestId)}
+                          className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors duration-200"
+                        >
+                          Open
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Order Details Modal */}
+        <OrderDetailsModal
+          isOpen={showModal}
+          onClose={handleCloseModal}
+          requestId={selectedOrderId}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default OrderManagement;

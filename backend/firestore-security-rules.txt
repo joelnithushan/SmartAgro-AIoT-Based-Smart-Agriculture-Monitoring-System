@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection - users can only access their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // User devices subcollection
+      match /devices/{deviceId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // Device requests collection
+    match /deviceRequests/{requestId} {
+      allow create: if request.auth != null && 
+                      request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && 
+                    (resource.data.userId == request.auth.uid || 
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      allow update: if request.auth != null && 
+                      (resource.data.userId == request.auth.uid || 
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      allow delete: if request.auth != null && 
+                      resource.data.userId == request.auth.uid &&
+                      resource.data.status == 'pending';
+    }
+    
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow create: if request.auth != null && 
+                      request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && 
+                    resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null && 
+                      resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null && 
+                      resource.data.userId == request.auth.uid;
+    }
+    
+    // Admin notifications (system-wide)
+    match /adminNotifications/{notificationId} {
+      allow read, write: if request.auth != null && 
+                           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Device metadata collection
+    match /devices/{deviceId} {
+      allow read, write: if request.auth != null && 
+                           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.devices[deviceId] != null;
+    }
+    
+    // Cost estimations collection
+    match /costEstimations/{estimationId} {
+      allow create: if request.auth != null && 
+                      request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && 
+                    (resource.data.userId == request.auth.uid || 
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      allow update: if request.auth != null && 
+                      (resource.data.userId == request.auth.uid || 
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+    
+    // System settings (admin only)
+    match /systemSettings/{settingId} {
+      allow read, write: if request.auth != null && 
+                           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Default deny all other documents
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

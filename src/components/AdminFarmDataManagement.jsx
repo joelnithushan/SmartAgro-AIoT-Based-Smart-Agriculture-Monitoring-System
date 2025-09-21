@@ -1,0 +1,474 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  ChartBarIcon, 
+  ArrowDownTrayIcon,
+  EyeIcon,
+  CpuChipIcon,
+  SignalIcon,
+  ClockIcon
+} from '@heroicons/react/24/outline';
+import { ref, onValue, off } from 'firebase/database';
+import { database } from '../config/firebase';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import toast from 'react-hot-toast';
+
+// Ensure toast.info is available (fallback to default toast)
+if (!toast.info) {
+  toast.info = toast;
+}
+
+const AdminFarmDataManagement = () => {
+  const [farmData, setFarmData] = useState([]);
+  const [devices, setDevices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedDevice, setSelectedDevice] = useState('all');
+  const [timeRange, setTimeRange] = useState('24h');
+  const [chartData, setChartData] = useState([]);
+
+  useEffect(() => {
+    loadDevices();
+    loadFarmData();
+  }, [selectedDevice, timeRange]);
+
+  const loadDevices = async () => {
+    try {
+      const devicesRef = ref(database, 'devices');
+      onValue(devicesRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const devicesData = snapshot.val();
+          const devicesList = Object.entries(devicesData).map(([deviceId, deviceData]) => ({
+            id: deviceId,
+            ...deviceData
+          }));
+          setDevices(devicesList);
+        } else {
+          setDevices([]);
+        }
+      });
+    } catch (error) {
+      console.error('Error loading devices:', error);
+    }
+  };
+
+  const loadFarmData = async () => {
+    try {
+      setLoading(true);
+      const allData = [];
+
+      if (selectedDevice === 'all') {
+        // Load data from all devices
+        for (const device of devices) {
+          const deviceDataRef = ref(database, `devices/${device.id}/sensors/history`);
+          onValue(deviceDataRef, (snapshot) => {
+            if (snapshot.exists()) {
+              const deviceData = snapshot.val();
+              const dataArray = Object.values(deviceData || {}).map(item => ({
+                ...item,
+                deviceId: device.id,
+                timestamp: new Date(item.timestamp)
+              }));
+              allData.push(...dataArray);
+            }
+          }, { onlyOnce: true });
+        }
+      } else {
+        // Load data from specific device
+        const deviceDataRef = ref(database, `devices/${selectedDevice}/sensors/history`);
+        onValue(deviceDataRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const deviceData = snapshot.val();
+            const dataArray = Object.values(deviceData || {}).map(item => ({
+              ...item,
+              deviceId: selectedDevice,
+              timestamp: new Date(item.timestamp)
+            }));
+            allData.push(...dataArray);
+          }
+        }, { onlyOnce: true });
+      }
+
+      // Filter by time range
+      const now = new Date();
+      const filteredData = allData.filter(item => {
+        const itemTime = new Date(item.timestamp);
+        switch (timeRange) {
+          case '1h':
+            return now - itemTime <= 60 * 60 * 1000;
+          case '24h':
+            return now - itemTime <= 24 * 60 * 60 * 1000;
+          case '7d':
+            return now - itemTime <= 7 * 24 * 60 * 60 * 1000;
+          case '30d':
+            return now - itemTime <= 30 * 24 * 60 * 60 * 1000;
+          default:
+            return true;
+        }
+      });
+
+      // Sort by timestamp
+      filteredData.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+      setFarmData(filteredData);
+      processChartData(filteredData);
+    } catch (error) {
+      console.error('Error loading farm data:', error);
+      toast.error('Error loading farm data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const processChartData = (data) => {
+    // Group data by hour for better visualization
+    const groupedData = {};
+    
+    data.forEach(item => {
+      const hour = new Date(item.timestamp).toISOString().slice(0, 13) + ':00:00';
+      if (!groupedData[hour]) {
+        groupedData[hour] = {
+          time: new Date(hour).toLocaleTimeString(),
+          soilMoisture: 0,
+          temperature: 0,
+          humidity: 0,
+          ph: 0,
+          count: 0
+        };
+      }
+      
+      groupedData[hour].soilMoisture += item.soilMoisture || item.soil_moisture || 0;
+      groupedData[hour].temperature += item.temperature || item.airTemperature || 0;
+      groupedData[hour].humidity += item.humidity || 0;
+      groupedData[hour].ph += item.ph || item.pH || 0;
+      groupedData[hour].count += 1;
+    });
+
+    // Calculate averages
+    const chartData = Object.values(groupedData).map(item => ({
+      ...item,
+      soilMoisture: item.count > 0 ? item.soilMoisture / item.count : 0,
+      temperature: item.count > 0 ? item.temperature / item.count : 0,
+      humidity: item.count > 0 ? item.humidity / item.count : 0,
+      ph: item.count > 0 ? item.ph / item.count : 0
+    }));
+
+    setChartData(chartData);
+  };
+
+  const exportData = (format) => {
+    try {
+      if (format === 'csv') {
+        const csvContent = [
+          'Timestamp,Device ID,Soil Moisture,Temperature,Humidity,pH',
+          ...farmData.map(item => 
+            `${new Date(item.timestamp).toISOString()},${item.deviceId},${item.soilMoisture || item.soil_moisture || 0},${item.temperature || 0},${item.humidity || 0},${item.ph || item.pH || 0}`
+          ).join('\n')
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `farm-data-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        toast.success('Data exported as CSV');
+      } else if (format === 'pdf') {
+        // For PDF export, you would typically use a library like jsPDF
+        toast('PDF export feature coming soon');
+      }
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      toast.error('Export failed');
+    }
+  };
+
+  const getDeviceStatus = (deviceId) => {
+    const device = devices.find(d => d.id === deviceId);
+    return device?.status || 'unknown';
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'assigned': return 'text-green-600';
+      case 'available': return 'text-blue-600';
+      case 'offline': return 'text-red-600';
+      default: return 'text-gray-600';
+    }
+  };
+
+  const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6'];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Farm Data Management</h1>
+          <p className="text-gray-600">Monitor and analyze farm sensor data</p>
+        </div>
+        <div className="flex space-x-3">
+          <button
+            onClick={() => exportData('csv')}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+          >
+            <ArrowDownTrayIcon className="w-4 h-4 mr-2" />
+            Export CSV
+          </button>
+          <button
+            onClick={() => exportData('pdf')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+          >
+            <ArrowDownTrayIcon className="w-4 h-4 mr-2" />
+            Export PDF
+          </button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Device</label>
+            <select
+              value={selectedDevice}
+              onChange={(e) => setSelectedDevice(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="all">All Devices</option>
+              {devices.map(device => (
+                <option key={device.id} value={device.id}>
+                  {device.id} ({device.assignedToEmail || 'Unassigned'})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Time Range</label>
+            <select
+              value={timeRange}
+              onChange={(e) => setTimeRange(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="1h">Last Hour</option>
+              <option value="24h">Last 24 Hours</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <ChartBarIcon className="w-6 h-6 text-blue-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Data Points</p>
+              <p className="text-2xl font-bold text-gray-900">{farmData.length}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-green-100 rounded-lg">
+              <CpuChipIcon className="w-6 h-6 text-green-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Active Devices</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {devices.filter(d => d.status === 'assigned').length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-yellow-100 rounded-lg">
+              <SignalIcon className="w-6 h-6 text-yellow-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Avg Soil Moisture</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {farmData.length > 0 
+                  ? Math.round(farmData.reduce((sum, item) => sum + (item.soilMoisture || item.soil_moisture || 0), 0) / farmData.length)
+                  : 0}%
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <ClockIcon className="w-6 h-6 text-purple-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Avg Temperature</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {farmData.length > 0 
+                  ? Math.round(farmData.reduce((sum, item) => sum + (item.temperature || 0), 0) / farmData.length)
+                  : 0}°C
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Soil Moisture Trend */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Soil Moisture Trend</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="time" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="soilMoisture" stroke="#10B981" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Temperature & Humidity */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Temperature & Humidity</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="time" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="temperature" stroke="#3B82F6" strokeWidth={2} />
+              <Line type="monotone" dataKey="humidity" stroke="#F59E0B" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* pH Levels */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">pH Levels</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="time" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="ph" fill="#8B5CF6" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Device Distribution */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Device Status Distribution</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={[
+                  { name: 'Assigned', value: devices.filter(d => d.status === 'assigned').length },
+                  { name: 'Available', value: devices.filter(d => d.status === 'available').length },
+                  { name: 'Offline', value: devices.filter(d => d.status === 'offline').length }
+                ]}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {[0, 1, 2].map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Recent Data Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">Recent Sensor Data</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Device
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Soil Moisture
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Temperature
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Humidity
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  pH
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Timestamp
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {farmData.slice(-10).reverse().map((item, index) => (
+                <tr key={index} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <CpuChipIcon className="w-4 h-4 text-blue-600 mr-2" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{item.deviceId}</div>
+                        <div className={`text-xs ${getStatusColor(getDeviceStatus(item.deviceId))}`}>
+                          {getDeviceStatus(item.deviceId)}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {Math.round(item.soilMoisture || item.soil_moisture || 0)}%
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {Math.round(item.temperature || 0)}°C
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {Math.round(item.humidity || 0)}%
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {Math.round(item.ph || item.pH || 0)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {new Date(item.timestamp).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AdminFarmDataManagement;

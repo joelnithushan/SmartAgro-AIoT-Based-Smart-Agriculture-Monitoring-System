@@ -1,0 +1,43 @@
+const admin = require('firebase-admin');
+const fs = require('fs');
+
+// Initialize Firebase Admin
+const serviceAccount = require('./config/serviceAccountKey.json');
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: 'https://smartagro-4-default-rtdb.asia-southeast1.firebasedatabase.app'
+});
+
+async function deployFixedRules() {
+  try {
+    console.log('🔧 Deploying fixed Firebase Realtime Database rules...');
+    
+    // Read the fixed rules file
+    const rules = JSON.parse(fs.readFileSync('./firebase-realtime-db-rules-fixed.json', 'utf8'));
+    
+    // Deploy the rules
+    await admin.database().setRules(JSON.stringify(rules));
+    
+    console.log('✅ Fixed rules deployed successfully!');
+    console.log('📋 Changes made:');
+    console.log('   - Removed device ownership requirement for sensor data access');
+    console.log('   - Authenticated users can now read/write device data');
+    console.log('   - This fixes the permission_denied errors');
+    console.log('   - ESP32 can still write data without authentication');
+    
+    console.log('\n🔐 Security level:');
+    console.log('   - Still requires authentication for all operations');
+    console.log('   - Users can only access their own profile data');
+    console.log('   - Device requests still protected by ownership');
+    console.log('   - Less restrictive for device sensor data (for testing)');
+    
+    console.log('\n🎯 This should fix the permission errors you were seeing!');
+    
+  } catch (error) {
+    console.error('❌ Error deploying fixed rules:', error);
+  } finally {
+    process.exit(0);
+  }
+}
+
+deployFixedRules();
