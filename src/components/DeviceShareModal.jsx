@@ -1,0 +1,249 @@
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import toast from 'react-hot-toast';
+
+const DeviceShareModal = ({ isOpen, onClose, deviceId, onShareSuccess }) => {
+  const { currentUser } = useAuth();
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [sharedUsers, setSharedUsers] = useState([]);
+  const [loadingSharedUsers, setLoadingSharedUsers] = useState(false);
+
+  // Load shared users when modal opens
+  useEffect(() => {
+    if (isOpen && deviceId) {
+      loadSharedUsers();
+    }
+  }, [isOpen, deviceId, loadSharedUsers]);
+
+  const loadSharedUsers = async () => {
+    if (!currentUser || !deviceId) return;
+
+    setLoadingSharedUsers(true);
+    try {
+      const token = await currentUser.getIdToken();
+      const response = await fetch(`/api/devices/${deviceId}/shared-with`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSharedUsers(data.sharedWith || []);
+      } else {
+        console.error('Failed to load shared users');
+      }
+    } catch (error) {
+      console.error('Error loading shared users:', error);
+    } finally {
+      setLoadingSharedUsers(false);
+    }
+  };
+
+  const handleShare = async (e) => {
+    e.preventDefault();
+    if (!email.trim() || !currentUser || !deviceId) return;
+
+    setLoading(true);
+    try {
+      const token = await currentUser.getIdToken();
+      const response = await fetch(`/api/devices/${deviceId}/share`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: email.trim() })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(`Device shared successfully with ${email}`);
+        setEmail('');
+        loadSharedUsers(); // Refresh the list
+        if (onShareSuccess) onShareSuccess();
+      } else {
+        toast.error(data.error || 'Failed to share device');
+      }
+    } catch (error) {
+      console.error('Error sharing device:', error);
+      toast.error('Failed to share device');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUnshare = async (targetUid, userEmail) => {
+    if (!currentUser || !deviceId) return;
+
+    if (!window.confirm(`Are you sure you want to revoke access for ${userEmail}?`)) {
+      return;
+    }
+
+    try {
+      const token = await currentUser.getIdToken();
+      const response = await fetch(`/api/devices/${deviceId}/unshare`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ targetUid })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(`Access revoked for ${userEmail}`);
+        loadSharedUsers(); // Refresh the list
+        if (onShareSuccess) onShareSuccess();
+      } else {
+        toast.error(data.error || 'Failed to revoke access');
+      }
+    } catch (error) {
+      console.error('Error unsharing device:', error);
+      toast.error('Failed to revoke access');
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">Share Device</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Device Info */}
+          <div className="mb-6 p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <span className="text-2xl">📱</span>
+              <div>
+                <p className="text-sm font-medium text-gray-900">Device ID: {deviceId}</p>
+                <p className="text-xs text-gray-600">Share real-time sensor data with friends</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Share Form */}
+          <form onSubmit={handleShare} className="mb-6">
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              Friend's Email
+            </label>
+            <div className="flex space-x-2">
+              <input
+                type="email"
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                placeholder="friend@example.com"
+                required
+                disabled={loading}
+              />
+              <button
+                type="submit"
+                disabled={loading || !email.trim()}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? 'Sharing...' : 'Share'}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              Your friend will be able to view real-time sensor data but cannot control the device.
+            </p>
+          </form>
+
+          {/* Shared With List */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-gray-900">Shared With</h3>
+              {loadingSharedUsers && (
+                <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+              )}
+            </div>
+
+            {sharedUsers.length === 0 ? (
+              <p className="text-sm text-gray-500 py-4 text-center">
+                Device not shared with anyone yet
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {sharedUsers.map((user) => (
+                  <div
+                    key={user.uid}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                        <span className="text-green-600 font-medium text-sm">
+                          {user.displayName?.charAt(0) || user.email?.charAt(0) || 'U'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {user.displayName || 'No name'}
+                        </p>
+                        <p className="text-xs text-gray-600">{user.email}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleUnshare(user.uid, user.email)}
+                      className="text-red-600 hover:text-red-700 text-sm font-medium transition-colors"
+                    >
+                      Unshare
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Share Link (Optional) */}
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Share Link (Optional)
+            </label>
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                value={`${window.location.origin}/share/${deviceId}`}
+                readOnly
+                className="flex-1 px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm text-gray-600"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/share/${deviceId}`);
+                  toast.success('Link copied to clipboard');
+                }}
+                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm"
+              >
+                Copy
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Note: Recipients must be granted access above and log in to view data.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DeviceShareModal;

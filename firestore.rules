@@ -1,0 +1,298 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ========================================
+    // ADMIN ACCESS RULES
+    // ========================================
+    function isAdmin() {
+      return request.auth != null && 
+             request.auth.token.email == "joelnithushan6@gmail.com";
+    }
+    
+    // ========================================
+    // USER AUTHENTICATION RULES
+    // ========================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    
+    // ========================================
+    // USERS COLLECTION
+    // ========================================
+    match /users/{userId} {
+      // User can read/update their own profile
+      allow read, update: if isOwner(userId);
+      
+      // User can create their own profile
+      allow create: if isOwner(userId);
+      
+      // Admin has full access
+      allow read, write: if isAdmin();
+    }
+    
+    // ========================================
+    // DEVICE REQUESTS COLLECTION
+    // ========================================
+    match /deviceRequests/{requestId} {
+      // User can create request for themselves
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      // User can read their own requests
+      allow read: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
+      
+      // User can delete (cancel) their own pending request
+      allow delete: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid &&
+                       resource.data.status == 'pending';
+      
+      // User can update their own request (only if status is pending or for accepting cost)
+      allow update: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid &&
+                       (resource.data.status == 'pending' || 
+                        (resource.data.status == 'accepted' && 
+                         request.resource.data.status in ['user-accepted', 'user-rejected']));
+      
+      // Admin has full access
+      allow read, write: if isAdmin();
+    }
+    
+    // ========================================
+    // ORDERS COLLECTION (Alternative naming)
+    // ========================================
+    match /orders/{orderId} {
+      // User can read their own orders
+      allow read: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
+      
+      // User can create orders for themselves
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      // User can update their own orders
+      allow update: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+      
+      // User can delete their own orders
+      allow delete: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+      
+      // Admin has full access
+      allow read, write: if isAdmin();
+    }
+    
+    // ========================================
+    // DEVICES COLLECTION
+    // ========================================
+    match /devices/{deviceId} {
+      // Device owner can read their device
+      allow read: if isAuthenticated() && 
+                     resource.data.ownerId == request.auth.uid;
+      
+      // Device owner can update their device
+      allow update: if isAuthenticated() && 
+                       resource.data.ownerId == request.auth.uid;
+      
+      // Admin has full access
+      allow read, write: if isAdmin();
+    }
+    
+    // ========================================
+    // FARM DATA COLLECTION
+    // ========================================
+    match /farmData/{dataId} {
+      // User can read their own farm data
+      allow read: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
+      
+      // User can create farm data for themselves
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      // User can update their own farm data
+      allow update: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+      
+      // User can delete their own farm data
+      allow delete: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+      
+      // Admin has full access
+      allow read, write: if isAdmin();
+    }
+    
+    // ========================================
+    // SENSOR DATA COLLECTION
+    // ========================================
+    match /sensorData/{sensorId} {
+      // Device owner can read their sensor data
+      allow read: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
+      
+      // Device owner can create sensor data
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      // Device owner can update their sensor data
+      allow update: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+      
+      // Admin has full access
+      allow read, write: if isAdmin();
+    }
+    
+    // ========================================
+    // CHAT SESSIONS COLLECTION
+    // ========================================
+    match /chatSessions/{sessionId} {
+      // User can read their own chat sessions
+      allow read: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
+      
+      // User can create chat sessions for themselves
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      // User can update their own chat sessions
+      allow update: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+      
+      // User can delete their own chat sessions
+      allow delete: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+      
+      // Admin has full access
+      allow read, write: if isAdmin();
+    }
+    
+    // ========================================
+    // MESSAGES COLLECTION
+    // ========================================
+    match /messages/{messageId} {
+      // User can read messages from their chat sessions
+      allow read: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
+      
+      // User can create messages in their chat sessions
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      // User can update their own messages
+      allow update: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+      
+      // User can delete their own messages
+      allow delete: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+      
+      // Admin has full access
+      allow read, write: if isAdmin();
+    }
+    
+    // ========================================
+    // FAQS COLLECTION
+    // ========================================
+    match /faqs/{faqId} {
+      // All authenticated users can read FAQs
+      allow read: if isAuthenticated();
+      
+      // Only admin can create/update/delete FAQs
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // ========================================
+    // NOTIFICATIONS COLLECTION
+    // ========================================
+    match /notifications/{notificationId} {
+      // User can read their own notifications
+      allow read: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
+      
+      // User can create notifications for themselves
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      // User can update their own notifications
+      allow update: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+      
+      // User can delete their own notifications
+      allow delete: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+      
+      // Admin has full access
+      allow read, write: if isAdmin();
+    }
+    
+    // ========================================
+    // SYSTEM SETTINGS COLLECTION
+    // ========================================
+    match /systemSettings/{settingId} {
+      // All authenticated users can read system settings
+      allow read: if isAuthenticated();
+      
+      // Only admin can create/update/delete system settings
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // ========================================
+    // AUDIT LOGS COLLECTION
+    // ========================================
+    match /auditLogs/{logId} {
+      // Only admin can read audit logs
+      allow read: if isAdmin();
+      
+      // Only admin can create audit logs
+      allow create: if isAdmin();
+      
+      // No one can update or delete audit logs
+      allow update, delete: if false;
+    }
+    
+    // ========================================
+    // BACKUP DATA COLLECTION
+    // ========================================
+    match /backupData/{backupId} {
+      // Only admin can access backup data
+      allow read, write: if isAdmin();
+    }
+    
+    // ========================================
+    // CROPS COLLECTION
+    // ========================================
+    match /crops/{cropId} {
+      // User can read their own crops
+      allow read: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
+      
+      // User can create crops for themselves
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      // User can update their own crops
+      allow update: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+      
+      // User can delete their own crops
+      allow delete: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+      
+      // Admin has full access
+      allow read, write: if isAdmin();
+    }
+    
+    // ========================================
+    // DEFAULT DENY RULE
+    // ========================================
+    // Deny access to any other collections not explicitly defined
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

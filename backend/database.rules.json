@@ -1,0 +1,22 @@
+{
+  "rules": {
+    "devices": {
+      "$deviceId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "sensors": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        "irrigation": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    },
+    "test": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}

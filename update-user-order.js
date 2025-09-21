@@ -1,0 +1,112 @@
+const admin = require('firebase-admin');
+const serviceAccount = require('./backend/config/smartagro-4-firebase-adminsdk-7dd04-7dd04716707e.json');
+
+// Initialize Firebase Admin SDK
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: 'https://smartagro-4-default-rtdb.firebasedatabase.app'
+});
+
+const db = admin.firestore();
+
+async function updateUserOrder() {
+  try {
+    console.log('🔍 Looking for user with email: joelnithushan4@gmail.com');
+    
+    // First, find the user by email
+    const usersSnapshot = await db.collection('users').where('email', '==', 'joelnithushan4@gmail.com').get();
+    
+    if (usersSnapshot.empty) {
+      console.log('❌ User not found with email: joelnithushan4@gmail.com');
+      return;
+    }
+    
+    const userDoc = usersSnapshot.docs[0];
+    const userId = userDoc.id;
+    const userData = userDoc.data();
+    
+    console.log('✅ Found user:', userData.email, 'with ID:', userId);
+    
+    // Find device requests for this user
+    const requestsSnapshot = await db.collection('deviceRequests').where('userId', '==', userId).get();
+    
+    if (requestsSnapshot.empty) {
+      console.log('❌ No device requests found for this user');
+      return;
+    }
+    
+    console.log(`📋 Found ${requestsSnapshot.size} device request(s) for this user`);
+    
+    // Update the first request to completed status with ESP32_001
+    const firstRequest = requestsSnapshot.docs[0];
+    const requestId = firstRequest.id;
+    const requestData = firstRequest.data();
+    
+    console.log('📝 Current request data:', {
+      id: requestId,
+      status: requestData.status,
+      farmName: requestData.farmName,
+      email: requestData.email
+    });
+    
+    // Update the request to completed status
+    await db.collection('deviceRequests').doc(requestId).update({
+      status: 'completed',
+      deviceId: 'ESP32_001',
+      assignedAt: admin.firestore.FieldValue.serverTimestamp(),
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      assignedBy: 'admin',
+      completionNotes: 'Device successfully assigned and order completed'
+    });
+    
+    console.log('✅ Successfully updated request to completed status with ESP32_001');
+    console.log('📊 Updated request details:', {
+      requestId: requestId,
+      status: 'completed',
+      deviceId: 'ESP32_001',
+      farmName: requestData.farmName,
+      userEmail: requestData.email
+    });
+    
+    // Also create a device entry in the devices collection if it doesn't exist
+    const deviceRef = db.collection('devices').doc('ESP32_001');
+    const deviceDoc = await deviceRef.get();
+    
+    if (!deviceDoc.exists) {
+      await deviceRef.set({
+        deviceId: 'ESP32_001',
+        userId: userId,
+        userEmail: 'joelnithushan4@gmail.com',
+        userName: requestData.fullName || 'Joel Nithushan',
+        farmName: requestData.farmName || 'Green Lotus',
+        farmLocation: requestData.farmLocation || 'Jaffna',
+        status: 'active',
+        assignedAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastSeen: admin.firestore.FieldValue.serverTimestamp(),
+        parameters: requestData.selectedParameters || [
+          'soilMoisture',
+          'airHumidity', 
+          'airTemperature',
+          'soilTemperature',
+          'rainDetection',
+          'lightLevel',
+          'waterPumpControl',
+          'airQuality'
+        ]
+      });
+      
+      console.log('✅ Created device entry for ESP32_001');
+    } else {
+      console.log('ℹ️ Device ESP32_001 already exists in devices collection');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error updating user order:', error);
+  } finally {
+    process.exit(0);
+  }
+}
+
+updateUserOrder();

@@ -1,0 +1,15 @@
+# SmartAgro Environment Variables
+# Copy this file to .env in the backend directory and fill in your values
+
+# Google Gemini AI API Key
+GEMINI_API_KEY=your-gemini-api-key-here
+
+# Firebase Configuration
+FIREBASE_PROJECT_ID=your-firebase-project-id
+FIREBASE_CLIENT_EMAIL=your-firebase-client-email
+FIREBASE_PRIVATE_KEY="your-firebase-private-key"
+
+# Server Configuration
+PORT=5000
+NODE_ENV=development
+FRONTEND_URL=http://localhost:3000
