@@ -208,7 +208,7 @@ const DeviceMetricsCard = ({ sensorData, isOnline, deviceInfo }) => {
       {/* Last Update */}
       <div className="mt-4 pt-4 border-t border-gray-200">
         {isOnline ? (
-          sensorData.timestamp && (
+          sensorData.timestamp && sensorData.timestamp !== 0 && (
             <p className="text-sm text-gray-500">
               Last updated: {new Date(sensorData.timestamp).toLocaleString()}
             </p>

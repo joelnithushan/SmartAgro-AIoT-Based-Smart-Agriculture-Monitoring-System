@@ -33,16 +33,32 @@ const RealtimeCharts = ({ deviceId, isOnline }) => {
         const unsubscribe = onValue(historyRef, (snapshot) => {
           if (snapshot.exists()) {
             const data = snapshot.val();
+            console.log('📊 RealtimeCharts: Received history data:', Object.keys(data || {}).length, 'entries');
             const dataArray = Object.entries(data)
-              .map(([timestamp, values]) => ({
-                timestamp: parseInt(timestamp),
-                time: new Date(parseInt(timestamp)).toLocaleTimeString(),
-                ...values
-              }))
-              .filter(item => item.timestamp >= cutoffTime)
+              .map(([timestamp, values]) => {
+                let normalizedTimestamp = parseInt(timestamp);
+                
+                // Skip invalid timestamps
+                if (!normalizedTimestamp || normalizedTimestamp === 0 || normalizedTimestamp < 86400000) {
+                  return null;
+                }
+                
+                // Normalize timestamp if it's in seconds
+                if (normalizedTimestamp < 1000000000000) {
+                  normalizedTimestamp = normalizedTimestamp * 1000;
+                }
+                
+                return {
+                  timestamp: normalizedTimestamp,
+                  time: new Date(normalizedTimestamp).toLocaleTimeString(),
+                  ...values
+                };
+              })
+              .filter(item => item !== null && item.timestamp >= cutoffTime)
               .sort((a, b) => a.timestamp - b.timestamp)
               .slice(-timeWindows[timeWindow].maxPoints);
 
+            console.log('📊 RealtimeCharts: Processed data points:', dataArray.length);
             setChartData(dataArray);
           } else {
             // If device is offline, show empty chart with zeroed axes
@@ -101,11 +117,6 @@ const RealtimeCharts = ({ deviceId, isOnline }) => {
 
   // Format data for display
   const formatChartData = (data) => {
-    if (!isOnline) {
-      // Return empty data for offline state
-      return [];
-    }
-
     if (data.length === 0) {
       return [];
     }
@@ -159,13 +170,7 @@ const RealtimeCharts = ({ deviceId, isOnline }) => {
       </div>
 
       {/* Charts */}
-      {!isOnline ? (
-        <div className="text-center py-12">
-          <div className="text-gray-400 text-4xl mb-4">📊</div>
-          <h4 className="text-lg font-medium text-gray-900 mb-2">Device Offline</h4>
-          <p className="text-gray-600">Charts will appear when the device comes online</p>
-        </div>
-      ) : formattedData.length === 0 ? (
+      {formattedData.length === 0 ? (
         <div className="text-center py-12">
           <div className="text-gray-400 text-4xl mb-4">📈</div>
           <h4 className="text-lg font-medium text-gray-900 mb-2">No Data Available</h4>

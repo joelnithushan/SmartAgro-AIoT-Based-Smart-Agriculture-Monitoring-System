@@ -86,10 +86,19 @@ const UserNavbar = () => {
 
   const handleLogout = async () => {
     try {
-      await logout();
-      navigate('/');
+      console.log('🚪 Logout button clicked');
+      const result = await logout();
+      console.log('🚪 Logout result:', result);
+      if (result.success) {
+        console.log('✅ Logout successful, navigating to home');
+        navigate('/');
+      } else {
+        console.error('❌ Logout failed:', result.error);
+        alert('Logout failed: ' + result.error);
+      }
     } catch (error) {
-      console.error('Failed to log out', error);
+      console.error('❌ Logout error:', error);
+      alert('Logout failed: ' + error.message);
     }
   };
 
@@ -108,8 +117,8 @@ const UserNavbar = () => {
           {/* Logo */}
           <div className="flex items-center">
             <Link to="/user/dashboard" className="flex-shrink-0 flex items-center">
-              <span className="text-xl font-bold text-green-600">
-                SmartAgro Dashboard
+              <span className="text-2xl font-black text-green-600" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                SmartAgro
               </span>
             </Link>
           </div>
@@ -169,8 +178,13 @@ const UserNavbar = () => {
 
             {/* Logout Button */}
             <button
-              onClick={handleLogout}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-gray-700 hover:text-red-600 hover:bg-red-50"
+              onClick={(e) => {
+                e.preventDefault();
+                console.log('🖱️ Logout button clicked (desktop)');
+                handleLogout();
+              }}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-gray-700 hover:text-red-600 hover:bg-red-50 border border-gray-200 hover:border-red-200"
+              type="button"
             >
               <span>Logout</span>
             </button>
@@ -277,11 +291,14 @@ const UserNavbar = () => {
                 </div>
               </div>
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log('🖱️ Logout button clicked (mobile)');
                   handleLogout();
                   setIsMenuOpen(false);
                 }}
-                className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 transition-colors duration-200"
+                className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 transition-colors duration-200 border border-gray-200 hover:border-red-200"
+                type="button"
               >
                 Logout
               </button>

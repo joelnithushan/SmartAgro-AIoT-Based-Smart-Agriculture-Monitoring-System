@@ -5,6 +5,9 @@ import {
   createUser,
   signOutUser,
   resetPassword,
+  sendEmailVerificationToUser,
+  sendEmailOTP,
+  verifyEmailOTP,
   signInWithGoogle,
   signInWithApple,
   sendPhoneVerification,
@@ -14,6 +17,7 @@ import {
 } from '../config/firebase';
 import { usersService } from '../services/firestoreService';
 import { getUserRole } from '../services/roleService';
+import { otpService } from '../services/otpService';
 
 const AuthContext = createContext();
 
@@ -44,6 +48,23 @@ export const AuthProvider = ({ children }) => {
         setError(signupError);
         return { success: false, error: signupError };
       }
+      
+      // Automatically send email verification after successful signup
+      if (user && !user.emailVerified) {
+        try {
+          const verificationResult = await sendEmailVerificationToUser(user);
+          if (verificationResult.error) {
+            console.warn('Email verification failed:', verificationResult.error);
+            // Don't fail the signup if verification email fails
+          } else {
+            console.log('Email verification sent successfully');
+          }
+        } catch (verificationError) {
+          console.warn('Email verification error:', verificationError);
+          // Don't fail the signup if verification email fails
+        }
+      }
+      
       return { success: true, user };
     } catch (error) {
       setError(error.message);
@@ -62,6 +83,33 @@ export const AuthProvider = ({ children }) => {
         setError(loginError);
         return { success: false, error: loginError };
       }
+      
+      // Check if email is verified (check both Firebase and Firestore)
+      if (user) {
+        let isEmailVerified = user.emailVerified;
+        console.log('🔍 Firebase emailVerified status:', isEmailVerified);
+        
+        // If Firebase says email is not verified, check Firestore
+        if (!isEmailVerified) {
+          try {
+            const userDoc = await usersService.getUser(user.uid);
+            console.log('🔍 Firestore user data:', userDoc);
+            isEmailVerified = userDoc?.user?.emailVerified || false;
+            console.log('🔍 Firestore emailVerified status:', isEmailVerified);
+          } catch (error) {
+            console.warn('Failed to check email verification status from Firestore:', error);
+          }
+        }
+        
+        if (!isEmailVerified) {
+          console.log('❌ Email not verified, signing out user and redirecting to verification');
+          // Sign out the user since they shouldn't be authenticated
+          await signOutUser();
+          setError('Please verify your email address before logging in. Check your inbox for the verification code.');
+          return { success: false, error: 'Email not verified', needsVerification: true, user: null };
+        }
+      }
+      
       return { success: true, user };
     } catch (error) {
       setError(error.message);
@@ -71,12 +119,24 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     setError(null);
-    const { error: logoutError } = await signOutUser();
-    if (logoutError) {
-      setError(logoutError);
-      return { success: false, error: logoutError };
+    try {
+      console.log('🔐 AuthContext: Starting logout process');
+      const result = await signOutUser();
+      console.log('🔐 AuthContext: signOutUser result:', result);
+      
+      if (result.error) {
+        console.error('❌ AuthContext: Logout error:', result.error);
+        setError(result.error);
+        return { success: false, error: result.error };
+      }
+      
+      console.log('✅ AuthContext: Logout successful');
+      return { success: true };
+    } catch (error) {
+      console.error('❌ AuthContext: Logout exception:', error);
+      setError(error.message);
+      return { success: false, error: error.message };
     }
-    return { success: true };
   };
 
   const resetUserPassword = async (email) => {
@@ -87,6 +147,81 @@ export const AuthProvider = ({ children }) => {
       return { success: false, error: resetError };
     }
     return { success: true };
+  };
+
+  // Email verification
+  const sendEmailVerification = async (user) => {
+    setError(null);
+    try {
+      const result = await sendEmailVerificationToUser(user);
+      if (result.error) {
+        setError(result.error);
+        return { success: false, error: result.error };
+      }
+      return { success: true };
+    } catch (error) {
+      setError(error.message);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Email OTP verification (custom OTP service)
+  const sendEmailOTPVerification = async (email) => {
+    setError(null);
+    try {
+      if (!currentUser) {
+        return { success: false, error: 'User not authenticated' };
+      }
+      
+      const result = await otpService.sendOTP(currentUser.uid, email);
+      if (!result.success) {
+        setError(result.error);
+        return { success: false, error: result.error };
+      }
+      return { success: true, fallback: result.fallback, otp: result.otp };
+    } catch (error) {
+      setError(error.message);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Verify email OTP (custom OTP service)
+  const verifyEmailOTPCode = async (email, otp) => {
+    setError(null);
+    try {
+      if (!currentUser) {
+        return { success: false, error: 'User not authenticated' };
+      }
+      
+      const result = await otpService.verifyOTP(currentUser.uid, otp);
+      if (!result.success) {
+        setError(result.error);
+        return { success: false, error: result.error };
+      }
+      
+      // If OTP is verified, we need to mark the email as verified
+      // Since we're using custom OTP, we'll update the user's emailVerified status in Firestore
+      try {
+        // Update user document in Firestore to mark email as verified
+        await usersService.createOrUpdateUser(currentUser.uid, {
+          email: currentUser.email,
+          displayName: currentUser.displayName || '',
+          emailVerified: true,
+          lastLogin: new Date().toISOString()
+        });
+        
+        // Reload the user to get updated status
+        await currentUser.reload();
+      } catch (updateError) {
+        console.warn('Failed to update email verification status:', updateError);
+        // Don't fail the verification if Firestore update fails
+      }
+      
+      return { success: true, user: currentUser };
+    } catch (error) {
+      setError(error.message);
+      return { success: false, error: error.message };
+    }
   };
 
   // Google Sign-in
@@ -232,6 +367,9 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     resetUserPassword,
+    sendEmailVerification,
+    sendEmailOTPVerification,
+    verifyEmailOTPCode,
     googleSignIn,
     appleSignIn,
     sendPhoneOTP,

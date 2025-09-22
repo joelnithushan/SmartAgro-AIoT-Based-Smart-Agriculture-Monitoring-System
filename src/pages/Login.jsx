@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import toast from 'react-hot-toast';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -9,9 +10,11 @@ const Login = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
 
-  const { login, googleSignIn, appleSignIn } = useAuth();
+  const { login, googleSignIn, appleSignIn, resetUserPassword } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -24,67 +27,94 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
 
     try {
       const result = await login(formData.email, formData.password);
       if (result.success) {
+        toast.success('Login successful!');
         // Redirect to role-based dashboard
         navigate('/redirect');
+      } else if (result.needsVerification) {
+        toast.error('Please verify your email address before logging in.');
+        // Redirect to waiting page for unverified users
+        navigate('/waiting', { 
+          state: { 
+            email: formData.email,
+            fromLogin: true 
+          } 
+        });
       } else {
-        setError(result.error);
+        toast.error(result.error || 'Login failed');
       }
     } catch (err) {
-      setError('Failed to log in');
+      toast.error('Failed to log in');
     }
     setLoading(false);
   };
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
-    setError('');
 
     try {
       const result = await googleSignIn();
       if (result.success) {
+        toast.success('Google sign-in successful!');
         // Redirect to role-based dashboard
         navigate('/redirect');
       } else {
-        setError(result.error);
+        toast.error(result.error || 'Google sign-in failed');
       }
     } catch (err) {
-      setError('Failed to sign in with Google');
+      toast.error('Failed to sign in with Google');
     }
     setLoading(false);
   };
 
   const handleAppleSignIn = async () => {
     setLoading(true);
-    setError('');
 
     try {
       const result = await appleSignIn();
       if (result.success) {
+        toast.success('Apple sign-in successful!');
         // Redirect to role-based dashboard
         navigate('/redirect');
       } else {
-        setError(result.error);
+        toast.error(result.error || 'Apple sign-in failed');
       }
     } catch (err) {
-      setError('Failed to sign in with Apple');
+      toast.error('Failed to sign in with Apple');
     }
     setLoading(false);
   };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setForgotPasswordLoading(true);
+
+    try {
+      const result = await resetUserPassword(forgotPasswordEmail);
+      if (result.success) {
+        toast.success('Password reset email sent! Please check your inbox.');
+        setForgotPasswordEmail('');
+        setShowForgotPassword(false);
+      } else {
+        toast.error(result.error || 'Failed to send password reset email');
+      }
+    } catch (err) {
+      toast.error('Failed to send password reset email');
+    }
+    setForgotPasswordLoading(false);
+  };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-green-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-4xl font-black mb-2">
-            <span className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent">
-              SmartAgro
-            </span>
+          <h1 className="text-4xl font-black mb-2 text-green-600 tracking-wide drop-shadow-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            SmartAgro
           </h1>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Welcome to SmartAgro
@@ -96,12 +126,6 @@ const Login = () => {
 
         {/* Login Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
 
           {/* Social Login Buttons */}
           <div className="space-y-3 mb-6">
@@ -195,6 +219,17 @@ const Login = () => {
               </div>
             </div>
 
+            {/* Forgot Password Link */}
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm text-green-600 hover:text-green-500 transition-colors duration-200"
+              >
+                Forgot your password?
+              </button>
+            </div>
+
             <div>
               <button
                 type="submit"
@@ -219,6 +254,62 @@ const Login = () => {
             </p>
           </div>
         </div>
+
+        {/* Forgot Password Modal */}
+        {showForgotPassword && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
+              <div className="text-center mb-6">
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  Reset Password
+                </h3>
+                <p className="text-gray-600">
+                  Enter your email address and we'll send you a link to reset your password.
+                </p>
+              </div>
+
+
+
+              <form onSubmit={handleForgotPassword} className="space-y-6">
+                <div>
+                  <label htmlFor="forgot-email" className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Address
+                  </label>
+                  <input
+                    id="forgot-email"
+                    type="email"
+                    required
+                    value={forgotPasswordEmail}
+                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                    placeholder="Enter your email address"
+                  />
+                </div>
+
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForgotPassword(false);
+                      setForgotPasswordEmail('');
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={forgotPasswordLoading}
+                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 px-4 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {forgotPasswordLoading ? 'Sending...' : 'Send Reset Link'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

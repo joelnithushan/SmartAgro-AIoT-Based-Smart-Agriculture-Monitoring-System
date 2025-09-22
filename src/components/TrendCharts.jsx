@@ -9,7 +9,7 @@ const TrendCharts = ({ deviceId, isOnline }) => {
   const [timeRange, setTimeRange] = useState('24h'); // 24h, 7d, 30d
 
   useEffect(() => {
-    if (!deviceId || !isOnline) {
+    if (!deviceId) {
       setLoading(false);
       return;
     }
@@ -21,23 +21,40 @@ const TrendCharts = ({ deviceId, isOnline }) => {
     const unsubscribe = onValue(historyRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
+        console.log('📈 TrendCharts: Received history data:', Object.keys(data || {}).length, 'entries');
         const historyArray = Object.values(data || {})
-          .map(item => ({
-            time: new Date(item.timestamp).toLocaleTimeString(),
-            date: new Date(item.timestamp).toLocaleDateString(),
-            timestamp: item.timestamp,
-            soilMoisture: item.soilMoisturePct || 0,
-            airTemperature: item.airTemperature || 0,
-            airHumidity: item.airHumidity || 0,
-            soilTemperature: item.soilTemperature || 0,
-            airQuality: item.airQualityIndex || 0,
-            rainLevel: item.rainLevelRaw || 0,
-            relayStatus: item.relayStatus === 'on' ? 1 : 0
-          }))
+          .map(item => {
+            // Handle timestamp properly
+            let timestamp = item.timestamp;
+            if (!timestamp || timestamp === 0 || timestamp < 86400000) {
+              // Skip invalid timestamps
+              return null;
+            }
+            
+            // Normalize timestamp if it's in seconds
+            if (timestamp < 1000000000000) {
+              timestamp = timestamp * 1000;
+            }
+            
+            return {
+              time: new Date(timestamp).toLocaleTimeString(),
+              date: new Date(timestamp).toLocaleDateString(),
+              timestamp: timestamp,
+              soilMoisture: item.soilMoisturePct || 0,
+              airTemperature: item.airTemperature || 0,
+              airHumidity: item.airHumidity || 0,
+              soilTemperature: item.soilTemperature || 0,
+              airQuality: item.airQualityIndex || 0,
+              rainLevel: item.rainLevelRaw || 0,
+              relayStatus: item.relayStatus === 'on' ? 1 : 0
+            };
+          })
+          .filter(item => item !== null) // Remove null entries
           .sort((a, b) => a.timestamp - b.timestamp);
 
         // Filter data based on time range
         const filteredData = filterDataByTimeRange(historyArray, timeRange);
+        console.log('📈 TrendCharts: Filtered data points:', filteredData.length);
         setHistoryData(filteredData);
       } else {
         setHistoryData([]);
@@ -105,20 +122,18 @@ const TrendCharts = ({ deviceId, isOnline }) => {
     );
   }
 
-  if (!isOnline || historyData.length === 0) {
+  if (historyData.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Trend Charts</h3>
         <div className="text-center py-12">
           <div className="text-4xl mb-4">📊</div>
           <p className="text-gray-500">
-            {!isOnline ? 'Device offline - all data shows 0' : 'No historical data available'}
+            No historical data available
           </p>
-          {!isOnline && (
-            <p className="text-sm text-red-600 mt-2">
-              When device is offline, all sensor readings show 0
-            </p>
-          )}
+          <p className="text-sm text-gray-400 mt-2">
+            Historical data will appear as the device collects sensor readings
+          </p>
         </div>
       </div>
     );
