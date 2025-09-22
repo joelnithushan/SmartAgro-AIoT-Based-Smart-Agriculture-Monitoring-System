@@ -28,7 +28,8 @@ const AlertTestButton = () => {
       alert('Test alert created successfully!');
     } catch (error) {
       console.error('Error creating test alert:', error);
-      alert('Error creating test alert');
+      console.error('Error details:', error.message, error.code);
+      alert(`Error creating test alert: ${error.message}`);
     } finally {
       setIsCreating(false);
     }
@@ -58,7 +59,8 @@ const AlertTestButton = () => {
       alert('Test triggered alert created successfully!');
     } catch (error) {
       console.error('Error creating test triggered alert:', error);
-      alert('Error creating test triggered alert');
+      console.error('Error details:', error.message, error.code);
+      alert(`Error creating test triggered alert: ${error.message}`);
     } finally {
       setIsCreating(false);
     }

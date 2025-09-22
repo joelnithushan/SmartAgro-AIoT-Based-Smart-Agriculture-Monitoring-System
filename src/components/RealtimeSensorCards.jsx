@@ -93,10 +93,42 @@ const RealtimeSensorCards = ({ sensorData, isOnline, deviceId }) => {
   };
 
   const formatTimestamp = (timestamp) => {
-    if (!timestamp) return 'No data';
+    if (!timestamp || timestamp === 0) return 'No data';
+    
+    console.log('🕐 formatTimestamp called with:', timestamp, 'Type:', typeof timestamp);
+    
     try {
-      return new Date(timestamp).toLocaleString();
-    } catch {
+      // Handle different timestamp formats
+      let date;
+      if (timestamp.toDate) {
+        // Firestore timestamp
+        date = timestamp.toDate();
+      } else if (timestamp.seconds) {
+        // Firestore timestamp object
+        date = new Date(timestamp.seconds * 1000);
+      } else {
+        // Regular timestamp - handle both seconds and milliseconds
+        let normalizedTimestamp = timestamp;
+        if (timestamp < 1000000000000) { // If timestamp is in seconds, convert to milliseconds
+          normalizedTimestamp = timestamp * 1000;
+        }
+        date = new Date(normalizedTimestamp);
+      }
+      
+      // Check if the date is valid and not the Unix epoch or very close to it
+      console.log('🕐 Final date object:', date, 'getTime():', date.getTime());
+      
+      if (isNaN(date.getTime()) || date.getTime() === 0 || date.getTime() < 86400000) {
+        // 86400000 = 1 day in milliseconds, anything before 1970-01-02 is likely invalid
+        console.log('🕐 Date rejected as invalid or too old');
+        return 'No data';
+      }
+      
+      const result = date.toLocaleString();
+      console.log('🕐 Final formatted result:', result);
+      return result;
+    } catch (error) {
+      console.error('Error formatting timestamp:', error, 'Original timestamp:', timestamp);
       return 'Invalid date';
     }
   };

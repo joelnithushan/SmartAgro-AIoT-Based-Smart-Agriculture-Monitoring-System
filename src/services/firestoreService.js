@@ -429,6 +429,27 @@ export const usersService = {
     }
   },
 
+  // Get user by ID
+  async getUser(userId) {
+    try {
+      console.log('🔍 Getting user:', userId);
+      const userRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        console.log('✅ User found:', userId);
+        return { success: true, user: { id: userDoc.id, ...userData } };
+      } else {
+        console.log('❌ User not found:', userId);
+        return { success: false, error: 'User not found' };
+      }
+    } catch (error) {
+      console.error('❌ Error getting user:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
   // Get all users (admin only)
   async getAllUsers() {
     try {

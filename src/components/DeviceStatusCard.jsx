@@ -320,7 +320,9 @@ const DeviceStatusCard = ({ device }) => {
       {/* Last Update */}
       <div className="mt-4 pt-4 border-t border-gray-200">
         <p className="text-xs text-gray-500 text-center">
-          Last updated: {new Date(sensorData.timestamp).toLocaleString()}
+          Last updated: {sensorData.timestamp && sensorData.timestamp !== 0 
+            ? new Date(sensorData.timestamp).toLocaleString() 
+            : 'No data'}
         </p>
       </div>
     </div>

@@ -67,6 +67,9 @@ export const useRealtimeSensorData = (deviceId) => {
 
         // Always process and display data if it exists, regardless of age
         if (data && Object.keys(data).length > 0) {
+          // Debug timestamp
+          console.log('🕐 Raw timestamp from Firebase:', data.timestamp, 'Type:', typeof data.timestamp);
+          
           // Data is fresh - process and display it
           const processedData = {
             soilMoistureRaw: data.soilMoistureRaw || 0,
@@ -82,7 +85,7 @@ export const useRealtimeSensorData = (deviceId) => {
             lightDetected: data.lightDetected || 0,
             rainLevelRaw: data.rainLevelRaw || 0,
             relayStatus: data.relayStatus || "off",
-            timestamp: data.timestamp || new Date().toISOString(),
+            timestamp: data.timestamp && data.timestamp > 86400000 ? data.timestamp : Date.now(),
             deviceOnline: true
           };
           setSensorData(processedData);

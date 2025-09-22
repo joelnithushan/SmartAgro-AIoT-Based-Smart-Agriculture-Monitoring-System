@@ -2,20 +2,25 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ADMIN_EMAIL } from '../config/config';
+import toast from 'react-hot-toast';
 
 const Register = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    phoneNumber: '',
+    registrationType: 'email' // 'email' or 'phone'
   });
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [phoneVerificationLoading, setPhoneVerificationLoading] = useState(false);
 
-  const { signup, googleSignIn, appleSignIn } = useAuth();
+  const { signup, googleSignIn, appleSignIn, sendPhoneOTP, verifyPhoneOTP } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -28,35 +33,64 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match!');
+      toast.error('Passwords do not match!');
       return;
     }
 
     if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long!');
+      toast.error('Password must be at least 6 characters long!');
+      return;
+    }
+
+    if (formData.registrationType === 'email' && !formData.email) {
+      toast.error('Email is required!');
+      return;
+    }
+
+    if (formData.registrationType === 'phone' && !formData.phoneNumber) {
+      toast.error('Phone number is required!');
       return;
     }
 
     setLoading(true);
 
     try {
-      const result = await signup(formData.email, formData.password);
-      
-      if (result.success) {
-        // Check if user is admin and redirect accordingly
-        if (formData.email === ADMIN_EMAIL) {
-          navigate('/admin');
+      if (formData.registrationType === 'email') {
+        const result = await signup(formData.email, formData.password);
+        
+        if (result.success) {
+          toast.success('Account created successfully! Please verify your email.');
+          // Navigate to waiting page after successful registration
+          navigate('/waiting', { 
+            state: { 
+              email: formData.email
+            } 
+          });
         } else {
-          navigate('/dashboard');
+          toast.error(result.error || 'Registration failed');
         }
       } else {
-        setError(result.error);
+        // Phone registration - send OTP first
+        const phoneResult = await sendPhoneOTP(formData.phoneNumber);
+        if (phoneResult.success) {
+          toast.success('SMS verification code sent!');
+          setShowPhoneVerification(true);
+          // Clear the form after successful OTP sending
+          setFormData({
+            email: '',
+            password: '',
+            confirmPassword: '',
+            phoneNumber: '',
+            registrationType: 'phone'
+          });
+        } else {
+          toast.error(phoneResult.error || 'Failed to send SMS verification');
+        }
       }
     } catch (err) {
-      setError('Failed to create account');
+      toast.error('Failed to create account');
     }
     
     setLoading(false);
@@ -64,46 +98,66 @@ const Register = () => {
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
-    setError('');
 
     try {
       const result = await googleSignIn();
       if (result.success) {
+        toast.success('Google sign-up successful!');
         // Check if user is admin and redirect accordingly
         if (result.user?.email === ADMIN_EMAIL) {
           navigate('/admin');
         } else {
-          navigate('/dashboard');
+          navigate('/user/dashboard');
         }
       } else {
-        setError(result.error);
+        toast.error(result.error || 'Google sign-up failed');
       }
     } catch (err) {
-      setError('Failed to sign up with Google');
+      toast.error('Failed to sign up with Google');
     }
     setLoading(false);
   };
 
   const handleAppleSignIn = async () => {
     setLoading(true);
-    setError('');
 
     try {
       const result = await appleSignIn();
       if (result.success) {
+        toast.success('Apple sign-up successful!');
         // Check if user is admin and redirect accordingly
         if (result.user?.email === ADMIN_EMAIL) {
           navigate('/admin');
         } else {
-          navigate('/dashboard');
+          navigate('/user/dashboard');
         }
       } else {
-        setError(result.error);
+        toast.error(result.error || 'Apple sign-up failed');
       }
     } catch (err) {
-      setError('Failed to sign up with Apple');
+      toast.error('Failed to sign up with Apple');
     }
     setLoading(false);
+  };
+
+
+  const handlePhoneVerification = async (e) => {
+    e.preventDefault();
+    setPhoneVerificationLoading(true);
+
+    try {
+      const result = await verifyPhoneOTP(verificationCode);
+      if (result.success) {
+        toast.success('Phone verification successful!');
+        // Phone verification successful, redirect to dashboard
+        navigate('/user/dashboard');
+      } else {
+        toast.error(result.error || 'Phone verification failed');
+      }
+    } catch (err) {
+      toast.error('Failed to verify phone number');
+    }
+    setPhoneVerificationLoading(false);
   };
 
   return (
@@ -111,10 +165,8 @@ const Register = () => {
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-4xl font-black mb-2">
-            <span className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent">
-              SmartAgro
-            </span>
+          <h1 className="text-4xl font-black mb-2 text-green-600 tracking-wide drop-shadow-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            SmartAgro
           </h1>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Create your SmartAgro Account
@@ -126,12 +178,6 @@ const Register = () => {
 
         {/* Register Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
 
           {/* Social Sign Up Buttons */}
           <div className="space-y-3 mb-6">
@@ -173,22 +219,87 @@ const Register = () => {
 
           {/* Register Form */}
           <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Registration Type Selector */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email/Mobile
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Registration Method
               </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                placeholder="Enter your email or mobile number"
-              />
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormData({...formData, registrationType: 'email'})}
+                  className={`px-4 py-3 rounded-lg border-2 transition-all duration-200 ${
+                    formData.registrationType === 'email'
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                  }`}
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span className="font-medium">Email</span>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({...formData, registrationType: 'phone'})}
+                  className={`px-4 py-3 rounded-lg border-2 transition-all duration-200 ${
+                    formData.registrationType === 'phone'
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                  }`}
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                    <span className="font-medium">Phone</span>
+                  </div>
+                </button>
+              </div>
             </div>
+
+
+            {/* Email or Phone Input */}
+            {formData.registrationType === 'email' ? (
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Address
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                  placeholder="Enter your email address"
+                />
+              </div>
+            ) : (
+              <div>
+                <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone Number
+                </label>
+                <input
+                  id="phoneNumber"
+                  name="phoneNumber"
+                  type="tel"
+                  autoComplete="tel"
+                  required
+                  value={formData.phoneNumber}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                  placeholder="Enter your phone number (e.g., +1234567890)"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Include country code (e.g., +94 for Sri Lanka)
+                </p>
+              </div>
+            )}
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
@@ -284,6 +395,82 @@ const Register = () => {
             </p>
           </div>
         </div>
+
+
+        {/* Phone Verification Modal */}
+        {showPhoneVerification && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
+              <div className="text-center mb-6">
+                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+                  <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  Verify Your Phone
+                </h3>
+                <p className="text-gray-600">
+                  We've sent a verification code to:
+                </p>
+                <p className="text-green-600 font-semibold mt-2">
+                  {formData.phoneNumber}
+                </p>
+                <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-700">
+                    ✅ SMS verification code sent automatically! Please check your messages.
+                  </p>
+                </div>
+              </div>
+
+
+              <form onSubmit={handlePhoneVerification} className="space-y-6">
+                <div>
+                  <label htmlFor="verificationCode" className="block text-sm font-medium text-gray-700 mb-2">
+                    Verification Code
+                  </label>
+                  <input
+                    id="verificationCode"
+                    type="text"
+                    required
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 text-center text-lg tracking-widest"
+                    placeholder="Enter 6-digit code"
+                    maxLength="6"
+                  />
+                </div>
+
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPhoneVerification(false);
+                      setVerificationCode('');
+                      setError('');
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={phoneVerificationLoading || verificationCode.length !== 6}
+                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 px-4 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {phoneVerificationLoading ? 'Verifying...' : 'Verify Code'}
+                  </button>
+                </div>
+              </form>
+
+              <div className="mt-6 text-center">
+                <p className="text-xs text-gray-500">
+                  Didn't receive the code? Check your messages or try again.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

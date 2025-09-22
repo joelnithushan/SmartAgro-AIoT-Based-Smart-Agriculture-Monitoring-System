@@ -5,6 +5,7 @@ import {
   signInWithEmailAndPassword, 
   signOut, 
   sendPasswordResetEmail,
+  sendEmailVerification,
   GoogleAuthProvider,
   signInWithPopup,
   OAuthProvider,
@@ -12,7 +13,10 @@ import {
   signInWithPhoneNumber,
   PhoneAuthProvider,
   signInWithCredential,
-  onAuthStateChanged as firebaseOnAuthStateChanged
+  onAuthStateChanged as firebaseOnAuthStateChanged,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink
 } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
@@ -36,10 +40,67 @@ export const db = getFirestore(app);
 export const database = getDatabase(app);
 
 // Auth functions
-export const createUser = createUserWithEmailAndPassword;
-export const signInUser = signInWithEmailAndPassword;
-export const signOutUser = signOut;
-export const resetPassword = sendPasswordResetEmail;
+export const createUser = (email, password) => createUserWithEmailAndPassword(auth, email, password);
+export const signInUser = (email, password) => signInWithEmailAndPassword(auth, email, password);
+export const signOutUser = async () => {
+  try {
+    console.log('🔥 Firebase: Starting signOut');
+    const result = await signOut(auth);
+    console.log('🔥 Firebase: signOut completed successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('🔥 Firebase: signOut error:', error);
+    return { success: false, error: error.message };
+  }
+};
+export const resetPassword = (email) => sendPasswordResetEmail(auth, email);
+
+// Email verification
+export const sendEmailVerificationToUser = async (user) => {
+  try {
+    console.log('📧 Firebase: Sending email verification');
+    await sendEmailVerification(user);
+    console.log('📧 Firebase: Email verification sent successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('📧 Firebase: Email verification error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Email OTP verification
+export const sendEmailOTP = async (email) => {
+  try {
+    console.log('📧 Firebase: Sending email OTP to:', email);
+    const actionCodeSettings = {
+      url: `${window.location.origin}/verify-email`,
+      handleCodeInApp: true,
+    };
+    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+    console.log('📧 Firebase: Email OTP sent successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('📧 Firebase: Email OTP error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Verify email OTP
+export const verifyEmailOTP = async (email, emailLink) => {
+  try {
+    console.log('📧 Firebase: Verifying email OTP');
+    if (isSignInWithEmailLink(auth, emailLink)) {
+      const result = await signInWithEmailLink(auth, email, emailLink);
+      console.log('📧 Firebase: Email OTP verified successfully');
+      return { success: true, user: result.user };
+    } else {
+      return { success: false, error: 'Invalid email link' };
+    }
+  } catch (error) {
+    console.error('📧 Firebase: Email OTP verification error:', error);
+    return { success: false, error: error.message };
+  }
+};
 
 // Google Auth
 export const signInWithGoogle = () => {

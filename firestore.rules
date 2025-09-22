@@ -33,6 +33,83 @@ service cloud.firestore {
       
       // Admin has full access
       allow read, write: if isAdmin();
+      
+      // ========================================
+      // USER ALERTS SUBCOLLECTION
+      // ========================================
+      match /alerts/{alertId} {
+        // User can read/write their own alerts
+        allow read, write: if isOwner(userId);
+        
+        // Admin has full access
+        allow read, write: if isAdmin();
+      }
+      
+      // ========================================
+      // USER TRIGGERED ALERTS SUBCOLLECTION
+      // ========================================
+      match /triggeredAlerts/{triggeredAlertId} {
+        // User can read/write their own triggered alerts
+        allow read, write: if isOwner(userId);
+        
+        // Admin has full access
+        allow read, write: if isAdmin();
+      }
+      
+      // ========================================
+      // USER CHATS SUBCOLLECTION
+      // ========================================
+      match /chats/{chatId} {
+        // User can read/write their own chats
+        allow read, write: if isOwner(userId);
+        
+        // Admin has full access
+        allow read, write: if isAdmin();
+        
+        // ========================================
+        // CHAT MESSAGES SUBCOLLECTION
+        // ========================================
+        match /messages/{messageId} {
+          // User can read/write their own chat messages
+          allow read, write: if isOwner(userId);
+          
+          // Admin has full access
+          allow read, write: if isAdmin();
+        }
+      }
+      
+      // ========================================
+      // USER CROPS SUBCOLLECTION
+      // ========================================
+      match /crops/{cropId} {
+        // User can read/write their own crops
+        allow read, write: if isOwner(userId);
+        
+        // Admin has full access
+        allow read, write: if isAdmin();
+      }
+      
+      // ========================================
+      // USER FERTILIZERS SUBCOLLECTION
+      // ========================================
+      match /fertilizers/{fertilizerId} {
+        // User can read/write their own fertilizers
+        allow read, write: if isOwner(userId);
+        
+        // Admin has full access
+        allow read, write: if isAdmin();
+      }
+      
+      // ========================================
+      // USER RECOMMENDATIONS SUBCOLLECTION
+      // ========================================
+      match /recommendations/{recommendationId} {
+        // User can read/write their own recommendations
+        allow read, write: if isOwner(userId);
+        
+        // Admin has full access
+        allow read, write: if isAdmin();
+      }
     }
     
     // ========================================
@@ -263,29 +340,6 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
     
-    // ========================================
-    // CROPS COLLECTION
-    // ========================================
-    match /crops/{cropId} {
-      // User can read their own crops
-      allow read: if isAuthenticated() && 
-                     resource.data.userId == request.auth.uid;
-      
-      // User can create crops for themselves
-      allow create: if isAuthenticated() && 
-                       request.resource.data.userId == request.auth.uid;
-      
-      // User can update their own crops
-      allow update: if isAuthenticated() && 
-                       resource.data.userId == request.auth.uid;
-      
-      // User can delete their own crops
-      allow delete: if isAuthenticated() && 
-                       resource.data.userId == request.auth.uid;
-      
-      // Admin has full access
-      allow read, write: if isAdmin();
-    }
     
     // ========================================
     // DEFAULT DENY RULE

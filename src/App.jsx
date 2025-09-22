@@ -15,9 +15,11 @@ import Services from './pages/Services';
 import Contact from './pages/Contact';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import VerifyOTP from './pages/VerifyOTP';
+import WaitingPage from './pages/WaitingPage';
 import UserDashboardNew from './pages/UserDashboardNew';
 import AIChatbot from './pages/AIChatbot';
-import CropManagement from './pages/CropManagement';
+import CropFertilizer from './pages/user/CropFertilizer';
 import UserOrders from './pages/UserOrders';
 import UserProfile from './pages/UserProfile';
 import ShareDevice from './pages/ShareDevice';
@@ -25,6 +27,7 @@ import Alerts from './pages/user/Alerts';
 import UserRouteHandler from './components/UserRouteHandler';
 import PostLoginRedirect from './components/PostLoginRedirect';
 import ModernAdminDashboardPage from './pages/ModernAdminDashboardPage';
+import Footer from './components/Footer';
 
 function App() {
   return (
@@ -58,6 +61,22 @@ function App() {
               } 
             />
             <Route 
+              path="/verify-otp" 
+              element={
+                <PublicRoute>
+                  <VerifyOTP />
+                </PublicRoute>
+              } 
+            />
+            <Route 
+              path="/waiting" 
+              element={
+                <PublicRoute>
+                  <WaitingPage />
+                </PublicRoute>
+              } 
+            />
+            <Route 
               path="/admin/*" 
               element={
                 <RoleGuard requiredRole="admin">
@@ -69,7 +88,7 @@ function App() {
               path="/crops" 
               element={
                 <ProtectedRoute>
-                  <CropManagement />
+                  <CropFertilizer />
                 </ProtectedRoute>
               } 
             />
@@ -106,7 +125,7 @@ function App() {
               element={
                 <RoleGuard requiredRole="user">
                   <UserRouteHandler routeType="crops">
-                    <CropManagement />
+                    <CropFertilizer />
                   </UserRouteHandler>
                 </RoleGuard>
               } 
@@ -157,6 +176,7 @@ function App() {
               } 
             />
           </Routes>
+          <Footer />
         </div>
       </Router>
       
