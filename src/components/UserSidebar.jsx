@@ -32,6 +32,7 @@ const UserSidebar = ({ children }) => {
     { name: 'My Requests', href: '/user/orders', icon: ClipboardDocumentListIcon, current: location.pathname === '/user/orders' },
     { name: 'My Devices', href: '/user/devices', icon: CpuChipIcon, current: location.pathname === '/user/devices' },
     { name: 'Crop & Fertilizer', href: '/user/crops', icon: '🌱', current: location.pathname === '/user/crops' },
+    { name: 'Alerts', href: '/user/alerts', icon: '🔔', current: location.pathname === '/user/alerts' },
     { name: 'AI Chatbot', href: '/user/ai-chatbot', icon: ChatBubbleLeftRightIcon, current: location.pathname === '/user/ai-chatbot' },
     { name: 'Profile', href: '/user/profile', icon: UserCircleIcon, current: location.pathname === '/user/profile' },
   ];

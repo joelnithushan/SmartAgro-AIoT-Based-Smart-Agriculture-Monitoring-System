@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import AlertBell from './AlertBell';
 
 const UserNavbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -96,6 +97,7 @@ const UserNavbar = () => {
     { path: '/user/dashboard', label: 'Dashboard' },
     { path: '/user/orders', label: 'Orders' },
     { path: '/user/crops', label: 'Crop & Fertilizer' },
+    { path: '/user/alerts', label: 'Alerts' },
     { path: '/user/ai-chatbot', label: 'AI Chatbot' },
   ];
 
@@ -131,6 +133,9 @@ const UserNavbar = () => {
 
           {/* User Profile & Actions */}
           <div className="flex items-center space-x-4">
+            {/* Alert Bell */}
+            <AlertBell />
+            
             {/* Profile Avatar */}
             <Link
               to="/user/profile"
@@ -232,6 +237,13 @@ const UserNavbar = () => {
                 <span>{link.label}</span>
               </Link>
             ))}
+
+            {/* Mobile Alert Bell */}
+            <div className="px-3 py-2">
+              <div className="flex items-center justify-center">
+                <AlertBell />
+              </div>
+            </div>
 
             {/* Mobile User Info & Logout */}
             <div className="pt-4 pb-3 border-t border-gray-200">

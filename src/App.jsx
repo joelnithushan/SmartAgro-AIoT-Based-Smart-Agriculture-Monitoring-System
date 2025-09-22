@@ -21,6 +21,7 @@ import CropManagement from './pages/CropManagement';
 import UserOrders from './pages/UserOrders';
 import UserProfile from './pages/UserProfile';
 import ShareDevice from './pages/ShareDevice';
+import Alerts from './pages/user/Alerts';
 import UserRouteHandler from './components/UserRouteHandler';
 import PostLoginRedirect from './components/PostLoginRedirect';
 import ModernAdminDashboardPage from './pages/ModernAdminDashboardPage';
@@ -106,6 +107,16 @@ function App() {
                 <RoleGuard requiredRole="user">
                   <UserRouteHandler routeType="crops">
                     <CropManagement />
+                  </UserRouteHandler>
+                </RoleGuard>
+              } 
+            />
+            <Route 
+              path="/user/alerts" 
+              element={
+                <RoleGuard requiredRole="user">
+                  <UserRouteHandler routeType="alerts">
+                    <Alerts />
                   </UserRouteHandler>
                 </RoleGuard>
               } 

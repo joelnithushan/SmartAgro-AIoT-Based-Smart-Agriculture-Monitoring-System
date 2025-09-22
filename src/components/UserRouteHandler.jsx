@@ -46,6 +46,9 @@ const UserRouteHandler = ({ children, routeType = 'dashboard' }) => {
             return;
           }
           // Has assigned devices -> allow dashboard access
+        } else if (routeType === 'alerts') {
+          // Alerts page is accessible to all authenticated users
+          // No special redirect logic needed
         }
 
         setIsChecking(false);

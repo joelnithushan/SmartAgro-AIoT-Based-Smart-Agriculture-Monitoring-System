@@ -7,6 +7,8 @@ import RelayControl from '../../components/RelayControl';
 import RealtimeCharts from '../../components/RealtimeCharts';
 import WeeklyReportExport from '../../components/WeeklyReportExport';
 import RequestDeviceModal from '../../components/RequestDeviceModal';
+import AlertBell from '../../components/AlertBell';
+import { useAlertProcessor } from '../../hooks/useAlertProcessor';
 import toast from 'react-hot-toast';
 
 const Dashboard = () => {
@@ -26,6 +28,9 @@ const Dashboard = () => {
     loading: sensorLoading,
     error: sensorError
   } = useDeviceRealtime(activeDeviceId);
+
+  // Process alerts when sensor data changes
+  useAlertProcessor(sensorData, activeDeviceId);
 
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
@@ -122,6 +127,9 @@ const Dashboard = () => {
                 {activeDevice ? `${activeDevice.farmName} • ${activeDevice.location}` : 'Select a device to view data'}
               </p>
             </div>
+            
+            {/* Alert Bell */}
+            <AlertBell />
             
             {/* Device Switcher */}
             {assignedDevices.length > 1 && (

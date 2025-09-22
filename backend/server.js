@@ -3,6 +3,9 @@ import fetch from "node-fetch";
 import dotenv from "dotenv";
 import cors from "cors";
 import admin from "firebase-admin";
+import { processAlerts } from "./functions/alertProcessor.js";
+import notificationTestRouter from "./routes/notificationTest.js";
+import { getSLTimeForLogging, getSLTimezoneOffset } from "./utils/timeUtils.js";
 
 dotenv.config();
 
@@ -505,11 +508,37 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Alert processing endpoint (called when sensor data is updated)
+app.post('/process-alerts', async (req, res) => {
+  try {
+    const { sensorData, deviceId } = req.body;
+    
+    if (!sensorData || !deviceId) {
+      return res.status(400).json({ error: 'Missing sensorData or deviceId' });
+    }
+
+    // Process alerts asynchronously
+    processAlerts(sensorData, deviceId).catch(error => {
+      console.error('Error in async alert processing:', error);
+    });
+
+    res.json({ success: true, message: 'Alert processing initiated' });
+  } catch (error) {
+    console.error('Error in alert processing endpoint:', error);
+    res.status(500).json({ error: 'Failed to process alerts' });
+  }
+});
+
+// Notification testing endpoints
+app.use('/api/notifications', notificationTestRouter);
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 AI Chatbot Server running on port ${PORT}`);
   console.log(`📡 Gemini API configured: ${!!GEMINI_API_KEY}`);
   console.log(`🔥 Firebase configured: ${!!process.env.FIREBASE_SERVICE_ACCOUNT}`);
+  console.log(`🕐 Server started at: ${getSLTimeForLogging()} (${getSLTimezoneOffset()})`);
+  console.log(`🌍 Timezone: Asia/Colombo (Sri Lanka)`);
   console.log(`🔗 Health check: http://localhost:${PORT}/health`);
   console.log(`💬 Chat endpoint: http://localhost:${PORT}/chat`);
 });
