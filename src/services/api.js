@@ -1,7 +1,7 @@
 // API service helper for making authenticated requests
 import { auth } from '../config/firebase';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
 class ApiService {
   async makeRequest(endpoint, options = {}) {

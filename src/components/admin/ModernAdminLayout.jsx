@@ -19,7 +19,6 @@ const ModernAdminLayout = ({ children }) => {
     { name: 'Users', href: '/admin/users', icon: UsersIcon, current: false },
     { name: 'Orders', href: '/admin/orders', icon: ClipboardDocumentListIcon, current: false },
     { name: 'Devices', href: '/admin/devices', icon: DevicePhoneMobileIcon, current: false },
-    { name: 'Forms', href: '/admin/forms', icon: DocumentTextIcon, current: false },
     { name: 'Settings', href: '/admin/settings', icon: Cog6ToothIcon, current: false },
   ];
 
