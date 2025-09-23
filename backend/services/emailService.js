@@ -1,7 +1,16 @@
 import sgMail from '@sendgrid/mail';
 
-// Initialize SendGrid
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+// Initialize SendGrid only if API key is available
+if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY !== 'placeholder') {
+  try {
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    console.log('✅ SendGrid client initialized successfully');
+  } catch (error) {
+    console.log('⚠️  SendGrid client initialization failed:', error.message);
+  }
+} else {
+  console.log('⚠️  SendGrid API key not configured - Email features will be disabled');
+}
 
 /**
  * Send email alert using SendGrid
@@ -12,7 +21,7 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
  */
 export async function sendEmailAlert(alert, currentValue, deviceId) {
   try {
-    if (!process.env.SENDGRID_API_KEY) {
+    if (!process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY === 'placeholder') {
       console.log('📧 SendGrid API key not configured, logging email content instead');
       logEmailContent(alert, currentValue, deviceId);
       return true;

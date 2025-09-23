@@ -37,7 +37,7 @@ const ChatWindow = ({ currentChat, onNewMessage, onEditMessage, isLoading, user,
     if (currentChat?.id) {
       try {
         const token = await user?.getIdToken();
-        const response = await fetch('http://localhost:5000/chat', {
+        const response = await fetch('http://localhost:5001/chat', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,

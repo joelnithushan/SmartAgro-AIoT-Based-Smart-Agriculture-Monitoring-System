@@ -1,10 +1,23 @@
 import twilio from 'twilio';
 
-// Initialize Twilio client
-const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+// Initialize Twilio client only if credentials are available
+let twilioClient = null;
+if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && 
+    process.env.TWILIO_ACCOUNT_SID !== 'placeholder' && 
+    process.env.TWILIO_AUTH_TOKEN !== 'placeholder-twilio-auth-token') {
+  try {
+    twilioClient = twilio(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_AUTH_TOKEN
+    );
+    console.log('✅ Twilio client initialized successfully');
+  } catch (error) {
+    console.log('⚠️  Twilio client initialization failed:', error.message);
+    twilioClient = null;
+  }
+} else {
+  console.log('⚠️  Twilio credentials not configured - SMS features will be disabled');
+}
 
 /**
  * Send SMS alert using Twilio
@@ -15,8 +28,8 @@ const twilioClient = twilio(
  */
 export async function sendSMSAlert(alert, currentValue, deviceId) {
   try {
-    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
-      console.log('📱 Twilio credentials not configured, logging SMS content instead');
+    if (!twilioClient) {
+      console.log('📱 Twilio client not available, logging SMS content instead');
       logSMSContent(alert, currentValue, deviceId);
       return true;
     }
@@ -180,8 +193,8 @@ export function validatePhoneNumber(phoneNumber) {
  */
 export async function testTwilioConnection() {
   try {
-    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
-      return { success: false, error: 'Twilio credentials not configured' };
+    if (!twilioClient) {
+      return { success: false, error: 'Twilio client not initialized' };
     }
     
     // Try to fetch account info to test connection

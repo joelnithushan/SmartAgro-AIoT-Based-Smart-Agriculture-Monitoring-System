@@ -1,6 +1,9 @@
-const admin = require('firebase-admin');
-const { initializeApp } = require('firebase/app');
-const { getFirestore } = require('firebase/firestore');
+import admin from 'firebase-admin';
+import { initializeApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 // Initialize Firebase Admin SDK (for server-side operations)
 if (!admin.apps.length) {
@@ -51,7 +54,4 @@ try {
 }
 
 // Export both admin and client instances
-module.exports = {
-  admin,
-  db
-};
+export { admin, db };
