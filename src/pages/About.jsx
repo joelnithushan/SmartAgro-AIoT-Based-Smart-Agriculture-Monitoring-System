@@ -8,7 +8,7 @@ const About = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-              About AgriIoT
+              About SmartAgro
             </h1>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               We're revolutionizing agriculture through innovative IoT technology, helping farmers 
@@ -107,12 +107,13 @@ const About = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
             {[
-              { name: "Dr. Sarah Chen", role: "Chief Technology Officer", emoji: "👩‍💻" },
-              { name: "Marcus Rodriguez", role: "Head of Agriculture", emoji: "👨‍🌾" },
-              { name: "Dr. Emily Watson", role: "IoT Solutions Architect", emoji: "👩‍🔬" },
-              { name: "James Thompson", role: "Customer Success Lead", emoji: "👨‍💼" }
+              { name: "Joel Nithushan A.T", role: "Project Lead", emoji: "👨‍💻" },
+              { name: "Kageepan K", role: "Team Member", emoji: "👨‍🔬" },
+              { name: "Diltan T", role: "Team Member", emoji: "👨‍🌾" },
+              { name: "Shiromy K.B", role: "Team Member", emoji: "👩‍💼" },
+              { name: "Kanistan T", role: "Team Member", emoji: "👨‍🔧" }
             ].map((member, index) => (
               <div key={index} className="text-center p-6 bg-white rounded-lg shadow-sm">
                 <div className="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">

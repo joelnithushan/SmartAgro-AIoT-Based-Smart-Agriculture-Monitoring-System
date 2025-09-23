@@ -44,7 +44,7 @@ const ModernAdminLayout = ({ children }) => {
             <div className="h-8 w-8 bg-green-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">SA</span>
             </div>
-            <span className="ml-3 text-xl font-bold text-gray-900">SmartAgro</span>
+            <span className="ml-3 text-2xl font-black text-green-600" style={{ fontFamily: 'Poppins, sans-serif' }}>SmartAgro</span>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
