@@ -6,8 +6,8 @@ import AdminSidebar from './admin/AdminSidebar';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import UserManagement from '../pages/admin/UserManagement';
 import OrderManagement from '../pages/admin/OrderManagement';
-import FormManagement from '../pages/admin/FormManagement';
 import DeviceManagement from '../pages/admin/DeviceManagement';
+import Farms from '../pages/admin/Farms';
 import AdminProfile from '../pages/admin/AdminProfile';
 
 // FIXED: AdminRouteHandler component with proper function declaration order
@@ -97,10 +97,10 @@ const AdminRouteHandler = () => {
         return <UserManagement />;
       case '/admin/orders':
         return <OrderManagement />;
-      case '/admin/forms':
-        return <FormManagement />;
       case '/admin/devices':
         return <DeviceManagement />;
+      case '/admin/farms':
+        return <Farms />;
       case '/admin/profile':
         return <AdminProfile />;
       default:

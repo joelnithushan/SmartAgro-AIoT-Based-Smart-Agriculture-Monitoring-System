@@ -33,7 +33,7 @@ const ChatApp = () => {
     setIsLoadingChats(true);
     try {
       const token = await user.getIdToken();
-      const response = await fetch('http://localhost:5000/chats', {
+      const response = await fetch('http://localhost:5001/chats', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -59,7 +59,7 @@ const ChatApp = () => {
     
     try {
       const token = await user.getIdToken();
-      const response = await fetch(`http://localhost:5000/chats/${chatId}`, {
+      const response = await fetch(`http://localhost:5001/chats/${chatId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -84,7 +84,7 @@ const ChatApp = () => {
     setIsLoading(true);
     try {
       const token = await user.getIdToken();
-      const response = await fetch('http://localhost:5000/chat', {
+      const response = await fetch('http://localhost:5001/chat', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -127,7 +127,7 @@ const ChatApp = () => {
     setIsLoading(true);
     try {
       const token = await user.getIdToken();
-      const response = await fetch('http://localhost:5000/chat', {
+      const response = await fetch('http://localhost:5001/chat', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -171,7 +171,7 @@ const ChatApp = () => {
     
     try {
       const token = await user.getIdToken();
-      const response = await fetch(`http://localhost:5000/chats/${chatId}`, {
+      const response = await fetch(`http://localhost:5001/chats/${chatId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -200,7 +200,7 @@ const ChatApp = () => {
     
     try {
       const token = await user.getIdToken();
-      const response = await fetch(`http://localhost:5000/chats/${chatId}`, {
+      const response = await fetch(`http://localhost:5001/chats/${chatId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

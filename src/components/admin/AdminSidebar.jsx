@@ -41,7 +41,7 @@ const AdminSidebar = ({ children }) => {
     { name: 'Users', path: '/admin/users', icon: '👥' },
     { name: 'Orders', path: '/admin/orders', icon: '📋' },
     { name: 'Devices', path: '/admin/devices', icon: '📱' },
-    { name: 'Farm Data', path: '/admin/forms', icon: '🌱' },
+    { name: 'Farms', path: '/admin/farms', icon: '🚜' },
   ];
 
   const isActive = (path) => location.pathname === path;

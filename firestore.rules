@@ -10,6 +10,15 @@ service cloud.firestore {
              request.auth.token.email == "joelnithushan6@gmail.com";
     }
     
+    function isSuperAdmin() {
+      return request.auth != null && 
+             request.auth.token.email == "joelnithushan6@gmail.com";
+    }
+    
+    function canModifyRoles() {
+      return isSuperAdmin();
+    }
+    
     // ========================================
     // USER AUTHENTICATION RULES
     // ========================================
@@ -25,14 +34,21 @@ service cloud.firestore {
     // USERS COLLECTION
     // ========================================
     match /users/{userId} {
-      // User can read/update their own profile
-      allow read, update: if isOwner(userId);
+      // User can read/update their own profile (but not role)
+      allow read: if isOwner(userId);
+      allow update: if isOwner(userId) && !('role' in request.resource.data.diff(resource.data).affectedKeys());
       
       // User can create their own profile
       allow create: if isOwner(userId);
       
-      // Admin has full access
-      allow read, write: if isAdmin();
+      // Admin role modifications (only super admin can modify roles)
+      allow update: if canModifyRoles();
+      
+      // Admin can delete users (except super admin)
+      allow delete: if canModifyRoles() && !(resource.data.email == "joelnithushan6@gmail.com");
+      
+      // Admin has full read access
+      allow read: if isAdmin();
       
       // ========================================
       // USER ALERTS SUBCOLLECTION
@@ -170,11 +186,39 @@ service cloud.firestore {
     match /devices/{deviceId} {
       // Device owner can read their device
       allow read: if isAuthenticated() && 
-                     resource.data.ownerId == request.auth.uid;
+                     resource.data.assignedTo == request.auth.uid;
       
       // Device owner can update their device
       allow update: if isAuthenticated() && 
-                       resource.data.ownerId == request.auth.uid;
+                       resource.data.assignedTo == request.auth.uid;
+      
+      // Admin has full access
+      allow read, write: if isAdmin();
+    }
+    
+    // ========================================
+    // FARMS COLLECTION
+    // ========================================
+    match /farms/{farmId} {
+      // Farm owner can read their farm
+      allow read: if isAuthenticated() && 
+                     (resource.data.ownerId == request.auth.uid || 
+                      resource.data.userId == request.auth.uid);
+      
+      // Farm owner can create farms for themselves
+      allow create: if isAuthenticated() && 
+                       (request.resource.data.ownerId == request.auth.uid || 
+                        request.resource.data.userId == request.auth.uid);
+      
+      // Farm owner can update their farm
+      allow update: if isAuthenticated() && 
+                       (resource.data.ownerId == request.auth.uid || 
+                        resource.data.userId == request.auth.uid);
+      
+      // Farm owner can delete their farm
+      allow delete: if isAuthenticated() && 
+                       (resource.data.ownerId == request.auth.uid || 
+                        resource.data.userId == request.auth.uid);
       
       // Admin has full access
       allow read, write: if isAdmin();
@@ -339,7 +383,6 @@ service cloud.firestore {
       // Only admin can access backup data
       allow read, write: if isAdmin();
     }
-    
     
     // ========================================
     // DEFAULT DENY RULE

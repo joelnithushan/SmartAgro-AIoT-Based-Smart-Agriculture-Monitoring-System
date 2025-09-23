@@ -140,7 +140,7 @@ export const useAlertProcessor = (sensorData, deviceId) => {
    */
   const triggerAlert = async (alert, currentValue, deviceId) => {
     try {
-      const response = await fetch('http://localhost:5000/process-alerts', {
+      const response = await fetch('http://localhost:5001/process-alerts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

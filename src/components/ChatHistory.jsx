@@ -17,7 +17,7 @@ const ChatHistory = ({ onSessionSelect, currentSessionId, onNewChat, isCollapsib
       
       try {
         const token = await currentUser.getIdToken();
-        const response = await fetch('http://localhost:5000/api/chat/history', {
+        const response = await fetch('http://localhost:5001/api/chat/history', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -51,7 +51,7 @@ const ChatHistory = ({ onSessionSelect, currentSessionId, onNewChat, isCollapsib
     
     try {
       const token = await currentUser.getIdToken();
-      const response = await fetch(`http://localhost:5000/api/chat/${sessionId}`, {
+      const response = await fetch(`http://localhost:5001/api/chat/${sessionId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
