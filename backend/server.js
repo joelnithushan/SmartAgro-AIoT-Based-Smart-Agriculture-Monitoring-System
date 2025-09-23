@@ -4,7 +4,6 @@ import dotenv from "dotenv";
 import cors from "cors";
 import admin from "firebase-admin";
 import { processAlerts } from "./functions/alertProcessor.js";
-import notificationTestRouter from "./routes/notificationTest.js";
 import { getSLTimeForLogging, getSLTimezoneOffset } from "./utils/timeUtils.js";
 
 dotenv.config();
@@ -529,8 +528,6 @@ app.post('/process-alerts', async (req, res) => {
   }
 });
 
-// Notification testing endpoints
-app.use('/api/notifications', notificationTestRouter);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

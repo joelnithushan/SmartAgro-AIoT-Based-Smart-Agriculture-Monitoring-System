@@ -157,9 +157,8 @@ const Contact = () => {
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-1">Office Address</h3>
                       <p className="text-gray-600">
-                        123 Agriculture Innovation Drive<br />
-                        Smart City, SC 12345<br />
-                        United States
+                      Northern Uni, Kantharmadam, Jaffna, 40000<br />
+                        Sri Lanka
                       </p>
                     </div>
                   </div>
@@ -171,8 +170,8 @@ const Contact = () => {
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-1">Phone</h3>
                       <p className="text-gray-600">
-                        Main: +1 (555) 123-4567<br />
-                        Support: +1 (555) 123-4568
+                        Main: 021 123-4567<br />
+                        Support: 021 123-4568
                       </p>
                     </div>
                   </div>
@@ -184,9 +183,8 @@ const Contact = () => {
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-1">Email</h3>
                       <p className="text-gray-600">
-                        General: info@agriiot.com<br />
-                        Support: support@agriiot.com<br />
-                        Sales: sales@agriiot.com
+                        General: info@smartagro.lk<br />
+                        Support: support@smartagro.lk<br />
                       </p>
                     </div>
                   </div>
@@ -248,16 +246,21 @@ const Contact = () => {
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Visit Our Office</h2>
             <p className="text-xl text-gray-600">
-              Located in the heart of agricultural innovation
+            Located at Northern Uni, Kantharmadam, Jaffna, 40000 - the heart of agricultural innovation
             </p>
           </div>
           
-          <div className="bg-gray-200 rounded-lg h-96 flex items-center justify-center">
-            <div className="text-center">
-              <span className="text-6xl mb-4 block">🗺️</span>
-              <p className="text-gray-600 text-lg">Interactive Map Coming Soon</p>
-              <p className="text-gray-500">123 Agriculture Innovation Drive, Smart City, SC 12345</p>
-            </div>
+          <div className="rounded-lg overflow-hidden shadow-lg">
+            <iframe
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3940.123456789!2d80.012345!3d9.678901!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3afe4c4c4c4c4c4c%3A0x1234567890abcdef!2s204%20Arasadi%20Rd%2C%20Jaffna%2040000!5e0!3m2!1sen!2slk!4v1234567890123!5m2!1sen!2slk&markers=color:red%7C9.678901,80.012345"
+              width="100%"
+              height="400"
+              style={{ border: 0 }}
+              allowFullScreen=""
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              title="SmartAgro Office Location - 204 Arasadi Rd, Jaffna 40000"
+            ></iframe>
           </div>
         </div>
       </div>

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../../config/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, orderBy } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
-import AlertTestButton from '../../components/AlertTestButton';
 import { formatToSLTime } from '../../utils/timeUtils';
 
 const Alerts = () => {
@@ -200,8 +199,6 @@ const Alerts = () => {
           </div>
         </div>
 
-        {/* Test Button */}
-        <AlertTestButton />
 
         {/* Alerts List */}
         <div className="bg-white rounded-lg shadow">
