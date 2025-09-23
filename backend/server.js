@@ -4,33 +4,38 @@ import dotenv from "dotenv";
 import cors from "cors";
 import admin from "firebase-admin";
 import { processAlerts } from "./functions/alertProcessor.js";
-import notificationTestRouter from "./routes/notificationTest.js";
 import { getSLTimeForLogging, getSLTimezoneOffset } from "./utils/timeUtils.js";
+import adminRouter from "./routes/admin.js";
 
 dotenv.config();
 
 // Initialize Firebase Admin
 if (!admin.apps.length) {
   try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
+    // Try to load service account key from file
+    const serviceAccount = require('./config/serviceAccountKey.json');
     
     if (serviceAccount.private_key && !serviceAccount.private_key.includes('MOCK')) {
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
-        databaseURL: process.env.FIREBASE_DATABASE_URL
+        databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://smartagro-solution-default-rtdb.asia-southeast1.firebasedatabase.app'
       });
-      console.log('✅ Firebase Admin SDK initialized');
+      console.log('✅ Firebase Admin SDK initialized with service account key');
     } else {
       console.log('⚠️  Firebase service account not configured - using demo mode');
     }
   } catch (error) {
     console.log('⚠️  Firebase initialization failed:', error.message);
+    console.log('   Using demo mode for development');
   }
 }
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Mount admin routes
+app.use('/api/admin', adminRouter);
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const db = admin.apps.length > 0 ? admin.firestore() : null;
@@ -529,8 +534,6 @@ app.post('/process-alerts', async (req, res) => {
   }
 });
 
-// Notification testing endpoints
-app.use('/api/notifications', notificationTestRouter);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

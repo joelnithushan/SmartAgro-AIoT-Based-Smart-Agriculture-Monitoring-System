@@ -41,7 +41,7 @@ const AdminSidebar = ({ children }) => {
     { name: 'Users', path: '/admin/users', icon: '👥' },
     { name: 'Orders', path: '/admin/orders', icon: '📋' },
     { name: 'Devices', path: '/admin/devices', icon: '📱' },
-    { name: 'Farm Data', path: '/admin/forms', icon: '🌱' },
+    { name: 'Farms', path: '/admin/farms', icon: '🚜' },
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -56,7 +56,7 @@ const AdminSidebar = ({ children }) => {
             <div className="flex items-center">
               {/* Logo */}
               <div className="flex-shrink-0 flex items-center">
-                <Link to="/admin/dashboard" className="text-2xl font-bold text-green-600">
+                <Link to="/admin/dashboard" className="text-2xl font-black text-green-600" style={{ fontFamily: 'Poppins, sans-serif' }}>
                   SmartAgro Admin
                 </Link>
               </div>

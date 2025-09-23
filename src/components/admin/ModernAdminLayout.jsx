@@ -19,7 +19,6 @@ const ModernAdminLayout = ({ children }) => {
     { name: 'Users', href: '/admin/users', icon: UsersIcon, current: false },
     { name: 'Orders', href: '/admin/orders', icon: ClipboardDocumentListIcon, current: false },
     { name: 'Devices', href: '/admin/devices', icon: DevicePhoneMobileIcon, current: false },
-    { name: 'Forms', href: '/admin/forms', icon: DocumentTextIcon, current: false },
     { name: 'Settings', href: '/admin/settings', icon: Cog6ToothIcon, current: false },
   ];
 
@@ -44,7 +43,7 @@ const ModernAdminLayout = ({ children }) => {
             <div className="h-8 w-8 bg-green-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">SA</span>
             </div>
-            <span className="ml-3 text-xl font-bold text-gray-900">SmartAgro</span>
+            <span className="ml-3 text-2xl font-black text-green-600" style={{ fontFamily: 'Poppins, sans-serif' }}>SmartAgro</span>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
