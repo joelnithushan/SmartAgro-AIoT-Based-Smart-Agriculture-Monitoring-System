@@ -8,6 +8,7 @@ import RealtimeCharts from '../../components/RealtimeCharts';
 import WeeklyReportExport from '../../components/WeeklyReportExport';
 import RequestDeviceModal from '../../components/RequestDeviceModal';
 import AlertBell from '../../components/AlertBell';
+import WeatherWidget from '../../components/WeatherWidget';
 import { useAlertProcessor } from '../../hooks/useAlertProcessor';
 import toast from 'react-hot-toast';
 
@@ -122,7 +123,10 @@ const Dashboard = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Smart Agriculture Dashboard</h1>
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+                <span className="mr-3 text-4xl">🍃</span>
+                Smart Agriculture Dashboard
+              </h1>
               <p className="text-gray-600 mt-2">
                 {activeDevice ? `${activeDevice.farmName} • ${activeDevice.location}` : 'Select a device to view data'}
               </p>
@@ -214,8 +218,8 @@ const Dashboard = () => {
                 deviceInfo={activeDevice}
               />
               
-              {/* Quick Actions */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Quick Actions and Weather */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
                   <div className="space-y-3">
@@ -260,6 +264,8 @@ const Dashboard = () => {
                     <p className="text-gray-500">No device selected</p>
                   )}
                 </div>
+
+                <WeatherWidget />
 
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">System Status</h3>

@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
 
 const CropEditorModal = ({ isOpen, onClose, onSave, editingCrop }) => {
+  const defaultRanges = {
+    airTemperature: { min: 20, max: 30 },
+    airHumidity: { min: 40, max: 80 },
+    soilMoisturePct: { min: 30, max: 70 },
+    soilTemperature: { min: 15, max: 35 },
+    airQualityIndex: { min: 0, max: 500 }
+  };
+
   const [formData, setFormData] = useState({
     cropName: '',
     variety: '',
     notes: '',
-    recommendedRanges: {
-      temperature: { min: 20, max: 30 },
-      humidity: { min: 40, max: 80 },
-      soilMoisture: { min: 30, max: 70 },
-      ph: { min: 6.0, max: 7.5 },
-      lightIntensity: { min: 1000, max: 10000 }
-    }
+    recommendedRanges: { ...defaultRanges }
   });
 
   useEffect(() => {
@@ -20,20 +22,17 @@ const CropEditorModal = ({ isOpen, onClose, onSave, editingCrop }) => {
         cropName: editingCrop.cropName || '',
         variety: editingCrop.variety || '',
         notes: editingCrop.notes || '',
-        recommendedRanges: editingCrop.recommendedRanges || formData.recommendedRanges
+        recommendedRanges: {
+          ...defaultRanges,
+          ...(editingCrop.recommendedRanges || {})
+        }
       });
     } else {
       setFormData({
         cropName: '',
         variety: '',
         notes: '',
-        recommendedRanges: {
-          temperature: { min: 20, max: 30 },
-          humidity: { min: 40, max: 80 },
-          soilMoisture: { min: 30, max: 70 },
-          ph: { min: 6.0, max: 7.5 },
-          lightIntensity: { min: 1000, max: 10000 }
-        }
+        recommendedRanges: { ...defaultRanges }
       });
     }
   }, [editingCrop]);
@@ -89,6 +88,173 @@ const CropEditorModal = ({ isOpen, onClose, onSave, editingCrop }) => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
               rows={3}
             />
+          </div>
+
+          {/* Recommended Ranges */}
+          <div className="border-t pt-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-3">Recommended Ranges</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Air Temperature (°C)
+                </label>
+                <div className="flex space-x-2">
+                  <input
+                    type="number"
+                    value={formData.recommendedRanges?.airTemperature?.min || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      recommendedRanges: {
+                        ...formData.recommendedRanges,
+                        airTemperature: { 
+                          ...(formData.recommendedRanges?.airTemperature || {}), 
+                          min: parseFloat(e.target.value) || 0 
+                        }
+                      }
+                    })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                    placeholder="Min"
+                  />
+                  <input
+                    type="number"
+                    value={formData.recommendedRanges?.airTemperature?.max || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      recommendedRanges: {
+                        ...formData.recommendedRanges,
+                        airTemperature: { 
+                          ...(formData.recommendedRanges?.airTemperature || {}), 
+                          max: parseFloat(e.target.value) || 0 
+                        }
+                      }
+                    })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                    placeholder="Max"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Air Humidity (%)
+                </label>
+                <div className="flex space-x-2">
+                  <input
+                    type="number"
+                    value={formData.recommendedRanges?.airHumidity?.min || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      recommendedRanges: {
+                        ...formData.recommendedRanges,
+                        airHumidity: { 
+                          ...(formData.recommendedRanges?.airHumidity || {}), 
+                          min: parseFloat(e.target.value) || 0 
+                        }
+                      }
+                    })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                    placeholder="Min"
+                  />
+                  <input
+                    type="number"
+                    value={formData.recommendedRanges?.airHumidity?.max || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      recommendedRanges: {
+                        ...formData.recommendedRanges,
+                        airHumidity: { 
+                          ...(formData.recommendedRanges?.airHumidity || {}), 
+                          max: parseFloat(e.target.value) || 0 
+                        }
+                      }
+                    })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                    placeholder="Max"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Soil Moisture (%)
+                </label>
+                <div className="flex space-x-2">
+                  <input
+                    type="number"
+                    value={formData.recommendedRanges?.soilMoisturePct?.min || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      recommendedRanges: {
+                        ...formData.recommendedRanges,
+                        soilMoisturePct: { 
+                          ...(formData.recommendedRanges?.soilMoisturePct || {}), 
+                          min: parseFloat(e.target.value) || 0 
+                        }
+                      }
+                    })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                    placeholder="Min"
+                  />
+                  <input
+                    type="number"
+                    value={formData.recommendedRanges?.soilMoisturePct?.max || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      recommendedRanges: {
+                        ...formData.recommendedRanges,
+                        soilMoisturePct: { 
+                          ...(formData.recommendedRanges?.soilMoisturePct || {}), 
+                          max: parseFloat(e.target.value) || 0 
+                        }
+                      }
+                    })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                    placeholder="Max"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Soil Temperature (°C)
+                </label>
+                <div className="flex space-x-2">
+                  <input
+                    type="number"
+                    value={formData.recommendedRanges?.soilTemperature?.min || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      recommendedRanges: {
+                        ...formData.recommendedRanges,
+                        soilTemperature: { 
+                          ...(formData.recommendedRanges?.soilTemperature || {}), 
+                          min: parseFloat(e.target.value) || 0 
+                        }
+                      }
+                    })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                    placeholder="Min"
+                  />
+                  <input
+                    type="number"
+                    value={formData.recommendedRanges?.soilTemperature?.max || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      recommendedRanges: {
+                        ...formData.recommendedRanges,
+                        soilTemperature: { 
+                          ...(formData.recommendedRanges?.soilTemperature || {}), 
+                          max: parseFloat(e.target.value) || 0 
+                        }
+                      }
+                    })}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                    placeholder="Max"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
           
           <div className="flex space-x-3 pt-4">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../config/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, orderBy } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatToSLTime } from '../../utils/timeUtils';
 
@@ -76,7 +76,7 @@ const Alerts = () => {
         return false;
       }
     } else if (formData.type === 'sms') {
-      const phoneRegex = /^\+?[\d\s\-\(\)]{10,}$/;
+      const phoneRegex = /^\+?[\d\s\-()]{10,}$/;
       if (!phoneRegex.test(formData.value)) {
         alert('Please enter a valid phone number');
         return false;

@@ -1,399 +1,1 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  CheckCircleIcon, 
-  XCircleIcon, 
-  ClockIcon,
-  EyeIcon,
-  DevicePhoneMobileIcon,
-  UserIcon,
-  CalendarIcon
-} from '@heroicons/react/24/outline';
-import { deviceRequestsService } from '../services/firestoreService';
-import toast from 'react-hot-toast';
-
-const AdminOrderManagement = () => {
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedRequest, setSelectedRequest] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [action, setAction] = useState('');
-  const [deviceId, setDeviceId] = useState('');
-
-  useEffect(() => {
-    loadRequests();
-  }, []);
-
-  const loadRequests = async () => {
-    try {
-      setLoading(true);
-      const result = await deviceRequestsService.getAllRequests();
-      if (result.success) {
-        setRequests(result.requests);
-      } else {
-        toast.error('Failed to load requests');
-      }
-    } catch (error) {
-      console.error('Error loading requests:', error);
-      toast.error('Error loading requests');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAction = async (requestId, actionType) => {
-    setSelectedRequest(requests.find(req => req.id === requestId));
-    setAction(actionType);
-    setShowModal(true);
-  };
-
-  const confirmAction = async () => {
-    if (!selectedRequest) return;
-
-    try {
-      let result;
-      if (action === 'approve') {
-        if (!deviceId.trim()) {
-          toast.error('Please enter a device ID');
-          return;
-        }
-        result = await deviceRequestsService.assignDevice(selectedRequest.id, deviceId);
-        if (result.success) {
-          toast.success('Device assigned successfully');
-        }
-      } else if (action === 'cancel') {
-        result = await deviceRequestsService.adminCancelRequest(selectedRequest.id, 'admin');
-        if (result.success) {
-          toast.success('Request cancelled');
-        }
-      }
-
-      if (result?.success) {
-        setShowModal(false);
-        setSelectedRequest(null);
-        setDeviceId('');
-        loadRequests();
-      } else {
-        toast.error(result?.error || 'Action failed');
-      }
-    } catch (error) {
-      console.error('Error performing action:', error);
-      toast.error('Action failed');
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'pending': return 'text-yellow-600 bg-yellow-100';
-      case 'approved': return 'text-green-600 bg-green-100';
-      case 'assigned': return 'text-blue-600 bg-blue-100';
-      case 'cancelled': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'pending': return <ClockIcon className="w-4 h-4" />;
-      case 'approved': 
-      case 'assigned': return <CheckCircleIcon className="w-4 h-4" />;
-      case 'cancelled': return <XCircleIcon className="w-4 h-4" />;
-      default: return <ClockIcon className="w-4 h-4" />;
-    }
-  };
-
-  const formatDate = (date) => {
-    if (!date) return 'N/A';
-    const d = date.toDate ? date.toDate() : new Date(date);
-    return d.toLocaleString();
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Order Management</h1>
-          <p className="text-gray-600">Manage device requests and assignments</p>
-        </div>
-        <button
-          onClick={loadRequests}
-          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-        >
-          Refresh
-        </button>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <ClockIcon className="w-6 h-6 text-yellow-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Pending</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {requests.filter(req => req.status === 'pending').length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <CheckCircleIcon className="w-6 h-6 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Approved</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {requests.filter(req => req.status === 'approved' || req.status === 'assigned').length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <XCircleIcon className="w-6 h-6 text-red-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Cancelled</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {requests.filter(req => req.status === 'cancelled').length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <DevicePhoneMobileIcon className="w-6 h-6 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total</p>
-              <p className="text-2xl font-bold text-gray-900">{requests.length}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Requests Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Device Requests</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  User Info
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Request Details
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {requests.length > 0 ? (
-                requests.map((request) => (
-                  <tr key={request.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                          <UserIcon className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {request.fullName || 'N/A'}
-                          </div>
-                          <div className="text-sm text-gray-500">{request.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        <div>NIC: {request.nicNumber || request.nic || 'N/A'}</div>
-                        <div className="text-gray-500">Phone: {request.mobileNumber || request.phone || 'N/A'}</div>
-                        <div className="text-gray-500">Age: {request.age || 'N/A'}</div>
-                        {request.deviceId && (
-                          <div className="text-green-600 font-medium">
-                            Device: {request.deviceId}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
-                        {getStatusIcon(request.status)}
-                        <span className="ml-1">{request.status}</span>
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex items-center">
-                        <CalendarIcon className="w-4 h-4 mr-1" />
-                        {formatDate(request.createdAt)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        {request.status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => handleAction(request.id, 'approve')}
-                              className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => handleAction(request.id, 'cancel')}
-                              className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        )}
-                        <button
-                          onClick={() => {
-                            setSelectedRequest(request);
-                            setShowModal(true);
-                            setAction('view');
-                          }}
-                          className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors"
-                        >
-                          <EyeIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="5" className="px-6 py-12 text-center">
-                    <div className="text-gray-500">
-                      <ClockIcon className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                      <p>No device requests found</p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Action Modal */}
-      {showModal && selectedRequest && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                {action === 'approve' && 'Approve Device Request'}
-                {action === 'cancel' && 'Cancel Device Request'}
-                {action === 'view' && 'Request Details'}
-              </h3>
-              
-              {action === 'view' ? (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">User</label>
-                    <p className="text-sm text-gray-900">{selectedRequest.fullName} ({selectedRequest.email})</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">NIC</label>
-                    <p className="text-sm text-gray-900">{selectedRequest.nic || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Phone</label>
-                    <p className="text-sm text-gray-900">{selectedRequest.phone || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Status</label>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedRequest.status)}`}>
-                      {selectedRequest.status}
-                    </span>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Created</label>
-                    <p className="text-sm text-gray-900">{formatDate(selectedRequest.createdAt)}</p>
-                  </div>
-                </div>
-              ) : action === 'approve' ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Assign Device ID
-                    </label>
-                    <input
-                      type="text"
-                      value={deviceId}
-                      onChange={(e) => setDeviceId(e.target.value)}
-                      placeholder="Enter device ID (e.g., DEV001)"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    />
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    This will assign the device to {selectedRequest.email} and update their dashboard.
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <p className="text-sm text-gray-600">
-                    Are you sure you want to cancel this request from {selectedRequest.email}?
-                  </p>
-                </div>
-              )}
-
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowModal(false);
-                    setSelectedRequest(null);
-                    setDeviceId('');
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-                >
-                  {action === 'view' ? 'Close' : 'Cancel'}
-                </button>
-                {action !== 'view' && (
-                  <button
-                    onClick={confirmAction}
-                    className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors ${
-                      action === 'approve' 
-                        ? 'bg-green-600 hover:bg-green-700' 
-                        : 'bg-red-600 hover:bg-red-700'
-                    }`}
-                  >
-                    {action === 'approve' ? 'Assign Device' : 'Cancel Request'}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default AdminOrderManagement;
+import React, { useState, useEffect } from 'react';import {   CheckCircleIcon,   XCircleIcon,   ClockIcon,  EyeIcon,  DevicePhoneMobileIcon,  UserIcon,  CalendarIcon} from '@heroicons/react/24/outline';import { deviceRequestsService } from '../services/firestoreService';import toast from 'react-hot-toast';const AdminOrderManagement = () => {  const [requests, setRequests] = useState([]);  const [loading, setLoading] = useState(true);  const [selectedRequest, setSelectedRequest] = useState(null);  const [showModal, setShowModal] = useState(false);  const [action, setAction] = useState('');  const [deviceId, setDeviceId] = useState('');  useEffect(() => {    loadRequests();  }, []);  const loadRequests = async () => {    try {      setLoading(true);      const result = await deviceRequestsService.getAllRequests();      if (result.success) {        setRequests(result.requests);      } else {        toast.error('Failed to load requests');      }    } catch (error) {      console.error('Error loading requests:', error);      toast.error('Error loading requests');    } finally {      setLoading(false);    }  };  const handleAction = async (requestId, actionType) => {    setSelectedRequest(requests.find(req => req.id === requestId));    setAction(actionType);    setShowModal(true);  };  const confirmAction = async () => {    if (!selectedRequest) return;    try {      let result;      if (action === 'approve') {        if (!deviceId.trim()) {          toast.error('Please enter a device ID');          return;        }        result = await deviceRequestsService.assignDevice(selectedRequest.id, deviceId);        if (result.success) {          toast.success('Device assigned successfully');        }      } else if (action === 'cancel') {        result = await deviceRequestsService.adminCancelRequest(selectedRequest.id, 'admin');        if (result.success) {          toast.success('Request cancelled');        }      }      if (result?.success) {        setShowModal(false);        setSelectedRequest(null);        setDeviceId('');        loadRequests();      } else {        toast.error(result?.error || 'Action failed');      }    } catch (error) {      console.error('Error performing action:', error);      toast.error('Action failed');    }  };  const getStatusColor = (status) => {    switch (status) {      case 'pending': return 'text-yellow-600 bg-yellow-100';      case 'approved': return 'text-green-600 bg-green-100';      case 'assigned': return 'text-blue-600 bg-blue-100';      case 'cancelled': return 'text-red-600 bg-red-100';      default: return 'text-gray-600 bg-gray-100';    }  };  const getStatusIcon = (status) => {    switch (status) {      case 'pending': return <ClockIcon className="w-4 h-4" />;      case 'approved':       case 'assigned': return <CheckCircleIcon className="w-4 h-4" />;      case 'cancelled': return <XCircleIcon className="w-4 h-4" />;      default: return <ClockIcon className="w-4 h-4" />;    }  };  const formatDate = (date) => {    if (!date) return 'N/A';    const d = date.toDate ? date.toDate() : new Date(date);    return d.toLocaleString();  };  if (loading) {    return (      <div className="flex items-center justify-center h-64">        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>      </div>    );  }  return (    <div className="space-y-6">      {}      <div className="flex justify-between items-center">        <div>          <h1 className="text-2xl font-bold text-gray-900">Order Management</h1>          <p className="text-gray-600">Manage device requests and assignments</p>        </div>        <button          onClick={loadRequests}          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"        >          Refresh        </button>      </div>      {}      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">          <div className="flex items-center">            <div className="p-2 bg-yellow-100 rounded-lg">              <ClockIcon className="w-6 h-6 text-yellow-600" />            </div>            <div className="ml-4">              <p className="text-sm font-medium text-gray-600">Pending</p>              <p className="text-2xl font-bold text-gray-900">                {requests.filter(req => req.status === 'pending').length}              </p>            </div>          </div>        </div>        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">          <div className="flex items-center">            <div className="p-2 bg-green-100 rounded-lg">              <CheckCircleIcon className="w-6 h-6 text-green-600" />            </div>            <div className="ml-4">              <p className="text-sm font-medium text-gray-600">Approved</p>              <p className="text-2xl font-bold text-gray-900">                {requests.filter(req => req.status === 'approved' || req.status === 'assigned').length}              </p>            </div>          </div>        </div>        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">          <div className="flex items-center">            <div className="p-2 bg-red-100 rounded-lg">              <XCircleIcon className="w-6 h-6 text-red-600" />            </div>            <div className="ml-4">              <p className="text-sm font-medium text-gray-600">Cancelled</p>              <p className="text-2xl font-bold text-gray-900">                {requests.filter(req => req.status === 'cancelled').length}              </p>            </div>          </div>        </div>        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">          <div className="flex items-center">            <div className="p-2 bg-blue-100 rounded-lg">              <DevicePhoneMobileIcon className="w-6 h-6 text-blue-600" />            </div>            <div className="ml-4">              <p className="text-sm font-medium text-gray-600">Total</p>              <p className="text-2xl font-bold text-gray-900">{requests.length}</p>            </div>          </div>        </div>      </div>      {}      <div className="bg-white rounded-lg shadow-sm border border-gray-200">        <div className="px-6 py-4 border-b border-gray-200">          <h3 className="text-lg font-medium text-gray-900">Device Requests</h3>        </div>        <div className="overflow-x-auto">          <table className="min-w-full divide-y divide-gray-200">            <thead className="bg-gray-50">              <tr>                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">                  User Info                </th>                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">                  Request Details                </th>                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">                  Status                </th>                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">                  Date                </th>                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">                  Actions                </th>              </tr>            </thead>            <tbody className="bg-white divide-y divide-gray-200">              {requests.length > 0 ? (                requests.map((request) => (                  <tr key={request.id} className="hover:bg-gray-50">                    <td className="px-6 py-4 whitespace-nowrap">                      <div className="flex items-center">                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">                          <UserIcon className="w-5 h-5 text-green-600" />                        </div>                        <div className="ml-4">                          <div className="text-sm font-medium text-gray-900">                            {request.fullName || 'N/A'}                          </div>                          <div className="text-sm text-gray-500">{request.email}</div>                        </div>                      </div>                    </td>                    <td className="px-6 py-4 whitespace-nowrap">                      <div className="text-sm text-gray-900">                        <div>NIC: {request.nicNumber || request.nic || 'N/A'}</div>                        <div className="text-gray-500">Phone: {request.mobileNumber || request.phone || 'N/A'}</div>                        <div className="text-gray-500">Age: {request.age || 'N/A'}</div>                        {request.deviceId && (                          <div className="text-green-600 font-medium">                            Device: {request.deviceId}                          </div>                        )}                      </div>                    </td>                    <td className="px-6 py-4 whitespace-nowrap">                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>                        {getStatusIcon(request.status)}                        <span className="ml-1">{request.status}</span>                      </span>                    </td>                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">                      <div className="flex items-center">                        <CalendarIcon className="w-4 h-4 mr-1" />                        {formatDate(request.createdAt)}                      </div>                    </td>                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">                      <div className="flex space-x-2">                        {request.status === 'pending' && (                          <>                            <button                              onClick={() => handleAction(request.id, 'approve')}                              className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors"                            >                              Approve                            </button>                            <button                              onClick={() => handleAction(request.id, 'cancel')}                              className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors"                            >                              Cancel                            </button>                          </>                        )}                        <button                          onClick={() => {                            setSelectedRequest(request);                            setShowModal(true);                            setAction('view');                          }}                          className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors"                        >                          <EyeIcon className="w-4 h-4" />                        </button>                      </div>                    </td>                  </tr>                ))              ) : (                <tr>                  <td colSpan="5" className="px-6 py-12 text-center">                    <div className="text-gray-500">                      <ClockIcon className="w-12 h-12 mx-auto mb-4 text-gray-400" />                      <p>No device requests found</p>                    </div>                  </td>                </tr>              )}            </tbody>          </table>        </div>      </div>      {}      {showModal && selectedRequest && (        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">            <div className="mt-3">              <h3 className="text-lg font-medium text-gray-900 mb-4">                {action === 'approve' && 'Approve Device Request'}                {action === 'cancel' && 'Cancel Device Request'}                {action === 'view' && 'Request Details'}              </h3>              {action === 'view' ? (                <div className="space-y-3">                  <div>                    <label className="block text-sm font-medium text-gray-700">User</label>                    <p className="text-sm text-gray-900">{selectedRequest.fullName} ({selectedRequest.email})</p>                  </div>                  <div>                    <label className="block text-sm font-medium text-gray-700">NIC</label>                    <p className="text-sm text-gray-900">{selectedRequest.nic || 'N/A'}</p>                  </div>                  <div>                    <label className="block text-sm font-medium text-gray-700">Phone</label>                    <p className="text-sm text-gray-900">{selectedRequest.phone || 'N/A'}</p>                  </div>                  <div>                    <label className="block text-sm font-medium text-gray-700">Status</label>                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedRequest.status)}`}>                      {selectedRequest.status}                    </span>                  </div>                  <div>                    <label className="block text-sm font-medium text-gray-700">Created</label>                    <p className="text-sm text-gray-900">{formatDate(selectedRequest.createdAt)}</p>                  </div>                </div>              ) : action === 'approve' ? (                <div className="space-y-4">                  <div>                    <label className="block text-sm font-medium text-gray-700 mb-2">                      Assign Device ID                    </label>                    <input                      type="text"                      value={deviceId}                      onChange={(e) => setDeviceId(e.target.value)}                      placeholder="Enter device ID (e.g., DEV001)"                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"                    />                  </div>                  <p className="text-sm text-gray-600">                    This will assign the device to {selectedRequest.email} and update their dashboard.                  </p>                </div>              ) : (                <div>                  <p className="text-sm text-gray-600">                    Are you sure you want to cancel this request from {selectedRequest.email}?                  </p>                </div>              )}              <div className="flex justify-end space-x-3 mt-6">                <button                  onClick={() => {                    setShowModal(false);                    setSelectedRequest(null);                    setDeviceId('');                  }}                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"                >                  {action === 'view' ? 'Close' : 'Cancel'}                </button>                {action !== 'view' && (                  <button                    onClick={confirmAction}                    className={`px-4 py-2 text-sm font-medium text-white rounded-md transition-colors ${                      action === 'approve'                         ? 'bg-green-600 hover:bg-green-700'                         : 'bg-red-600 hover:bg-red-700'                    }`}                  >                    {action === 'approve' ? 'Assign Device' : 'Cancel Request'}                  </button>                )}              </div>            </div>          </div>        </div>      )}    </div>  );};export default AdminOrderManagement;

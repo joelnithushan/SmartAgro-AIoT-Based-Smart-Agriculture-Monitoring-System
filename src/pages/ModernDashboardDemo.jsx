@@ -1,12 +1,1 @@
-import React from 'react';
-import ModernAdminDashboard from '../components/admin/ModernAdminDashboard';
-
-const ModernDashboardDemo = () => {
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <ModernAdminDashboard />
-    </div>
-  );
-};
-
-export default ModernDashboardDemo;
+import React from 'react';import ModernAdminDashboard from '../components/admin/ModernAdminDashboard';const ModernDashboardDemo = () => {  return (    <div className="min-h-screen bg-gray-50">      <ModernAdminDashboard />    </div>  );};export default ModernDashboardDemo;

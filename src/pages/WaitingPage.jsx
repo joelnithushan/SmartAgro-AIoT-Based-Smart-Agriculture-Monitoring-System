@@ -12,6 +12,7 @@ const WaitingPage = () => {
   const [otpLoading, setOtpLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [canResend, setCanResend] = useState(true);
+  const [error, setError] = useState('');
 
   const { 
     currentUser, 

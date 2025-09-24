@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 // Import toast polyfill to ensure all methods are available
 import './utils/toastPolyfill';
@@ -28,6 +28,22 @@ import UserRouteHandler from './components/UserRouteHandler';
 import PostLoginRedirect from './components/PostLoginRedirect';
 import ModernAdminDashboardPage from './pages/ModernAdminDashboardPage';
 import Footer from './components/Footer';
+
+// Component to conditionally render Footer
+const ConditionalFooter = () => {
+  const location = useLocation();
+  const isChatbotPage = location.pathname === '/user/ai-chatbot' || 
+                        location.pathname.includes('ai-chatbot') ||
+                        location.pathname.includes('chatbot');
+  
+  console.log('Current path:', location.pathname, 'Is chatbot page:', isChatbotPage);
+  
+  if (isChatbotPage) {
+    return null; // Don't render footer on chatbot page
+  }
+  
+  return <Footer />;
+};
 
 function App() {
   return (
@@ -176,7 +192,7 @@ function App() {
               } 
             />
           </Routes>
-          <Footer />
+          <ConditionalFooter />
         </div>
       </Router>
       

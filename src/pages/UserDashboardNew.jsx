@@ -1,416 +1,1 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
-import { collection, query, where, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
-import RequestDeviceModal from '../components/RequestDeviceModal';
-import CostEstimationCard from '../components/CostEstimationCard';
-import DeviceStatusCard from '../components/DeviceStatusCard';
-import RealtimeSensorCards from '../components/RealtimeSensorCards';
-import SmartIrrigationSystem from '../components/SmartIrrigationSystem';
-import TrendCharts from '../components/TrendCharts';
-import WeeklyReportExport from '../components/WeeklyReportExport';
-import { useRealtimeSensorData } from '../hooks/useRealtimeSensorData';
-import toast from 'react-hot-toast';
-
-const UserDashboardNew = () => {
-  const { currentUser } = useAuth();
-  const [deviceRequests, setDeviceRequests] = useState([]);
-  const [assignedDevices, setAssignedDevices] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showRequestModal, setShowRequestModal] = useState(false);
-  const [canRequestDevice, setCanRequestDevice] = useState(true);
-  const [activeRequestCount, setActiveRequestCount] = useState(0);
-  
-  const [currentDeviceId, setCurrentDeviceId] = useState(null);
-  
-  // Use the real-time sensor data hook
-  const { sensorData, isOnline, loading: sensorLoading, error: sensorError } = useRealtimeSensorData(currentDeviceId);
-
-  // Load user's device requests and devices
-  useEffect(() => {
-    if (!currentUser?.uid) {
-      setLoading(false);
-      return;
-    }
-
-    console.log('🔍 Loading user dashboard data for:', currentUser.uid);
-
-    // Subscribe to device requests (without orderBy to avoid index issues)
-    const requestsQuery = query(
-      collection(db, 'deviceRequests'),
-      where('userId', '==', currentUser.uid)
-    );
-
-    const unsubscribeRequests = onSnapshot(requestsQuery, (snapshot) => {
-      const requests = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      // Sort manually by createdAt
-      const sortedRequests = requests.sort((a, b) => {
-        const aTime = a.createdAt?.toDate?.() || a.createdAt || new Date(0);
-        const bTime = b.createdAt?.toDate?.() || b.createdAt || new Date(0);
-        return new Date(bTime) - new Date(aTime);
-      });
-
-      console.log('📋 Device requests loaded:', sortedRequests.length);
-      setDeviceRequests(sortedRequests);
-
-      // Check if user can make more requests (max 3 active)
-      const activeStatuses = ['pending', 'cost-estimated', 'user-accepted', 'device-assigned'];
-      const activeRequests = sortedRequests.filter(req => activeStatuses.includes(req.status));
-      const assignedRequests = sortedRequests.filter(req => req.status === 'assigned' || req.status === 'completed');
-      
-      setCanRequestDevice(activeRequests.length < 3);
-      setActiveRequestCount(activeRequests.length);
-      setAssignedDevices(assignedRequests);
-
-      // Set current device ID for real-time data
-      if (assignedRequests.length > 0 && assignedRequests[0].deviceId) {
-        console.log('🔧 Setting currentDeviceId to:', assignedRequests[0].deviceId);
-        setCurrentDeviceId(assignedRequests[0].deviceId);
-      } else {
-        console.log('❌ No assigned device found for real-time data');
-        console.log('   Assigned requests:', assignedRequests.length);
-        if (assignedRequests.length > 0) {
-          console.log('   First request deviceId:', assignedRequests[0].deviceId);
-        }
-      }
-
-      console.log('📊 Active requests:', activeRequests.length);
-      console.log('📊 Assigned devices:', assignedRequests.length);
-      setLoading(false);
-    }, (error) => {
-      console.error('❌ Error loading device requests:', error);
-      console.error('Error details:', error.code, error.message);
-      
-      // Handle different error types
-      if (error.code === 'permission-denied') {
-        console.log('⚠️ Permission denied - user may not have access to deviceRequests collection');
-        setDeviceRequests([]);
-        setLoading(false);
-        // Don't show error toast for permission issues - this is expected for new users
-      } else if (error.code === 'failed-precondition') {
-        console.log('⚠️ Failed precondition - likely missing Firestore index');
-        setDeviceRequests([]);
-        setLoading(false);
-        // Don't show error toast for index issues
-      } else if (error.code === 'unavailable') {
-        console.log('⚠️ Service unavailable - network or Firebase issue');
-        setDeviceRequests([]);
-        setLoading(false);
-        toast.error('Service temporarily unavailable. Please try again.');
-      } else {
-        // Only show error toast for unexpected errors
-        console.log('⚠️ Unexpected error:', error);
-        setDeviceRequests([]);
-        setLoading(false);
-        toast.error('Failed to load device requests');
-      }
-    });
-
-    return () => {
-      unsubscribeRequests();
-    };
-  }, [currentUser?.uid]);
-
-
-  const handleRequestSuccess = () => {
-    setShowRequestModal(false);
-    toast.success('Device request submitted successfully!');
-  };
-
-  const handleCostEstimationUpdate = () => {
-    toast.success('Cost estimation updated!');
-  };
-
-
-  if (!currentUser) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-      </div>
-    );
-  }
-
-  // Get pending cost estimations
-  const pendingCostEstimations = deviceRequests.filter(req => req.status === 'cost-estimated');
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-4">
-                <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-                {currentDeviceId && (
-                  <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    isOnline 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {isOnline ? '🟢 Device Online' : '🔴 Device Offline'}
-                  </div>
-                )}
-              </div>
-              <p className="mt-1 text-sm text-gray-600">
-                Welcome back, {currentUser?.displayName || currentUser?.email}!
-              </p>
-            </div>
-            {canRequestDevice && (
-              <button
-                onClick={() => setShowRequestModal(true)}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
-              >
-                Request Device
-              </button>
-            )}
-            {!canRequestDevice && (
-              <div className="text-sm text-gray-500">
-                Device requests: {activeRequestCount}/3 (Maximum reached)
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <span className="text-2xl">📱</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Active Devices</p>
-                <p className="text-2xl font-bold text-gray-900">{assignedDevices.length}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-yellow-100 rounded-lg">
-                <span className="text-2xl">⏳</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Pending Requests</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {deviceRequests.filter(req => req.status === 'pending').length}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-lg">
-                <span className="text-2xl">✅</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Approved Requests</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {deviceRequests.filter(req => req.status === 'assigned').length}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <span className="text-2xl">💰</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Cost Estimates</p>
-                <p className="text-2xl font-bold text-gray-900">{pendingCostEstimations.length}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Real-time Sensor Data Section - Only show if device is assigned */}
-        {currentDeviceId ? (
-          <div className="mb-8">
-            <RealtimeSensorCards 
-              sensorData={sensorData} 
-              isOnline={isOnline} 
-              deviceId={currentDeviceId} 
-            />
-            
-            {/* Smart Irrigation System */}
-            <div className="mt-8">
-              <SmartIrrigationSystem 
-                deviceId={currentDeviceId} 
-                sensorData={sensorData}
-                isOnline={isOnline}
-              />
-            </div>
-
-            {/* Trend Charts */}
-            <div className="mt-8">
-              <TrendCharts 
-                deviceId={currentDeviceId} 
-                isOnline={isOnline} 
-              />
-            </div>
-
-            {/* Weekly Report Export */}
-            <div className="mt-8">
-              <WeeklyReportExport 
-                deviceId={currentDeviceId} 
-                isOnline={isOnline} 
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="mb-8">
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">📱</div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No Active Devices</h3>
-              <p className="text-gray-600 mb-6">
-                You don't have any devices assigned yet. Request a device to start monitoring your farm.
-              </p>
-              <button
-                onClick={() => setShowRequestModal(true)}
-                className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-md text-sm font-medium transition-colors duration-200"
-              >
-                Request Device
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Pending Cost Estimations */}
-        {pendingCostEstimations.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Pending Cost Estimations</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {pendingCostEstimations.map((request) => (
-                <CostEstimationCard
-                  key={request.id}
-                  request={request}
-                  onUpdate={handleCostEstimationUpdate}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* My Devices */}
-        {assignedDevices.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">My Devices</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {assignedDevices.map((device) => (
-                <DeviceStatusCard
-                  key={device.id}
-                  device={device}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* No Devices State */}
-        {assignedDevices.length === 0 && deviceRequests.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">🌱</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Devices Yet</h3>
-            <p className="text-gray-600 mb-6">
-              Start your smart farming journey by requesting your first IoT device.
-            </p>
-            <button
-              onClick={() => setShowRequestModal(true)}
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-md text-sm font-medium transition-colors duration-200"
-            >
-              Request Your First Device
-            </button>
-          </div>
-        )}
-
-        {/* Recent Requests */}
-        {deviceRequests.length > 0 && (
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Requests</h2>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Request ID
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Farm Name
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Created
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {deviceRequests.slice(0, 5).map((request) => (
-                      <tr key={request.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          #{request.id.slice(-8)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {request.farmName || request.farmInfo?.farmName || 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            request.status === 'cost-estimated' ? 'bg-blue-100 text-blue-800' :
-                            request.status === 'user-accepted' ? 'bg-green-100 text-green-800' :
-                            request.status === 'user-rejected' ? 'bg-red-100 text-red-800' :
-                            request.status === 'device-assigned' ? 'bg-purple-100 text-purple-800' :
-                            request.status === 'completed' ? 'bg-gray-100 text-gray-800' :
-                            request.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                            request.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {request.status === 'user-accepted' ? 'User Accepted' :
-                             request.status === 'user-rejected' ? 'User Rejected' :
-                             request.status === 'cost-estimated' ? 'Cost Estimated' :
-                             request.status === 'device-assigned' ? 'Device Assigned' :
-                             request.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {request.createdAt?.toDate?.()?.toLocaleDateString() || 'N/A'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Request Device Modal */}
-      {showRequestModal && (
-        <RequestDeviceModal
-          isOpen={showRequestModal}
-          onClose={() => setShowRequestModal(false)}
-          onSuccess={handleRequestSuccess}
-          canRequestMore={canRequestDevice}
-        />
-      )}
-    </div>
-  );
-};
-
-export default UserDashboardNew;
+import React, { useState, useEffect } from 'react';import { useAuth } from '../contexts/AuthContext';import { Navigate } from 'react-router-dom';import { collection, query, where, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore';import { db } from '../config/firebase';import RequestDeviceModal from '../components/RequestDeviceModal';import CostEstimationCard from '../components/CostEstimationCard';import DeviceStatusCard from '../components/DeviceStatusCard';import RealtimeSensorCards from '../components/RealtimeSensorCards';import SmartIrrigationSystem from '../components/SmartIrrigationSystem';import TrendCharts from '../components/TrendCharts';import WeeklyReportExport from '../components/WeeklyReportExport';import { useRealtimeSensorData } from '../hooks/useRealtimeSensorData';import toast from 'react-hot-toast';const UserDashboardNew = () => {  const { currentUser } = useAuth();  const [deviceRequests, setDeviceRequests] = useState([]);  const [assignedDevices, setAssignedDevices] = useState([]);  const [loading, setLoading] = useState(true);  const [showRequestModal, setShowRequestModal] = useState(false);  const [canRequestDevice, setCanRequestDevice] = useState(true);  const [activeRequestCount, setActiveRequestCount] = useState(0);  const [currentDeviceId, setCurrentDeviceId] = useState(null);  const { sensorData, isOnline, loading: sensorLoading, error: sensorError } = useRealtimeSensorData(currentDeviceId);  useEffect(() => {    if (!currentUser?.uid) {      setLoading(false);      return;    }    console.log('🔍 Loading user dashboard data for:', currentUser.uid);    const requestsQuery = query(      collection(db, 'deviceRequests'),      where('userId', '==', currentUser.uid)    );    const unsubscribeRequests = onSnapshot(requestsQuery, (snapshot) => {      const requests = snapshot.docs.map(doc => ({        id: doc.id,        ...doc.data()      }));      const sortedRequests = requests.sort((a, b) => {        const aTime = a.createdAt?.toDate?.() || a.createdAt || new Date(0);        const bTime = b.createdAt?.toDate?.() || b.createdAt || new Date(0);        return new Date(bTime) - new Date(aTime);      });      console.log('📋 Device requests loaded:', sortedRequests.length);      setDeviceRequests(sortedRequests);      const activeStatuses = ['pending', 'cost-estimated', 'user-accepted', 'device-assigned'];      const activeRequests = sortedRequests.filter(req => activeStatuses.includes(req.status));      const assignedRequests = sortedRequests.filter(req => req.status === 'assigned' || req.status === 'completed');      setCanRequestDevice(activeRequests.length < 3);      setActiveRequestCount(activeRequests.length);      setAssignedDevices(assignedRequests);      if (assignedRequests.length > 0 && assignedRequests[0].deviceId) {        console.log('🔧 Setting currentDeviceId to:', assignedRequests[0].deviceId);        setCurrentDeviceId(assignedRequests[0].deviceId);      } else {        console.log('❌ No assigned device found for real-time data');        console.log('   Assigned requests:', assignedRequests.length);        if (assignedRequests.length > 0) {          console.log('   First request deviceId:', assignedRequests[0].deviceId);        }      }      console.log('📊 Active requests:', activeRequests.length);      console.log('📊 Assigned devices:', assignedRequests.length);      setLoading(false);    }, (error) => {      console.error('❌ Error loading device requests:', error);      console.error('Error details:', error.code, error.message);      if (error.code === 'permission-denied') {        console.log('⚠️ Permission denied - user may not have access to deviceRequests collection');        setDeviceRequests([]);        setLoading(false);      } else if (error.code === 'failed-precondition') {        console.log('⚠️ Failed precondition - likely missing Firestore index');        setDeviceRequests([]);        setLoading(false);      } else if (error.code === 'unavailable') {        console.log('⚠️ Service unavailable - network or Firebase issue');        setDeviceRequests([]);        setLoading(false);        toast.error('Service temporarily unavailable. Please try again.');      } else {        console.log('⚠️ Unexpected error:', error);        setDeviceRequests([]);        setLoading(false);        toast.error('Failed to load device requests');      }    });    return () => {      unsubscribeRequests();    };  }, [currentUser?.uid]);  const handleRequestSuccess = () => {    setShowRequestModal(false);    toast.success('Device request submitted successfully!');  };  const handleCostEstimationUpdate = () => {    toast.success('Cost estimation updated!');  };  if (!currentUser) {    return <Navigate to="/login" replace />;  }  if (loading) {    return (      <div className="min-h-screen bg-gray-50 flex items-center justify-center">        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>      </div>    );  }  const pendingCostEstimations = deviceRequests.filter(req => req.status === 'cost-estimated');  return (    <div className="min-h-screen bg-gray-50">      <div className="p-6">        {}        <div className="mb-8">          <div className="flex items-center justify-between">            <div>              <div className="flex items-center gap-4">                <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>                {currentDeviceId && (                  <div className={`px-3 py-1 rounded-full text-sm font-medium ${                    isOnline                       ? 'bg-green-100 text-green-800'                       : 'bg-red-100 text-red-800'                  }`}>                    {isOnline ? '🟢 Device Online' : '🔴 Device Offline'}                  </div>                )}              </div>              <p className="mt-1 text-sm text-gray-600">                Welcome back, {currentUser?.displayName || currentUser?.email}!              </p>            </div>            {canRequestDevice && (              <button                onClick={() => setShowRequestModal(true)}                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"              >                Request Device              </button>            )}            {!canRequestDevice && (              <div className="text-sm text-gray-500">                Device requests: {activeRequestCount}/3 (Maximum reached)              </div>            )}          </div>        </div>        {}        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">            <div className="flex items-center">              <div className="p-3 bg-blue-100 rounded-lg">                <span className="text-2xl">📱</span>              </div>              <div className="ml-4">                <p className="text-sm font-medium text-gray-600">Active Devices</p>                <p className="text-2xl font-bold text-gray-900">{assignedDevices.length}</p>              </div>            </div>          </div>          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">            <div className="flex items-center">              <div className="p-3 bg-yellow-100 rounded-lg">                <span className="text-2xl">⏳</span>              </div>              <div className="ml-4">                <p className="text-sm font-medium text-gray-600">Pending Requests</p>                <p className="text-2xl font-bold text-gray-900">                  {deviceRequests.filter(req => req.status === 'pending').length}                </p>              </div>            </div>          </div>          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">            <div className="flex items-center">              <div className="p-3 bg-green-100 rounded-lg">                <span className="text-2xl">✅</span>              </div>              <div className="ml-4">                <p className="text-sm font-medium text-gray-600">Approved Requests</p>                <p className="text-2xl font-bold text-gray-900">                  {deviceRequests.filter(req => req.status === 'assigned').length}                </p>              </div>            </div>          </div>          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">            <div className="flex items-center">              <div className="p-3 bg-purple-100 rounded-lg">                <span className="text-2xl">💰</span>              </div>              <div className="ml-4">                <p className="text-sm font-medium text-gray-600">Cost Estimates</p>                <p className="text-2xl font-bold text-gray-900">{pendingCostEstimations.length}</p>              </div>            </div>          </div>        </div>        {}        {currentDeviceId ? (          <div className="mb-8">            <RealtimeSensorCards               sensorData={sensorData}               isOnline={isOnline}               deviceId={currentDeviceId}             />            {}            <div className="mt-8">              <SmartIrrigationSystem                 deviceId={currentDeviceId}                 sensorData={sensorData}                isOnline={isOnline}              />            </div>            {}            <div className="mt-8">              <TrendCharts                 deviceId={currentDeviceId}                 isOnline={isOnline}               />            </div>            {}            <div className="mt-8">              <WeeklyReportExport                 deviceId={currentDeviceId}                 isOnline={isOnline}               />            </div>          </div>        ) : (          <div className="mb-8">            <div className="text-center py-12">              <div className="text-6xl mb-4">📱</div>              <h3 className="text-xl font-semibold text-gray-900 mb-2">No Active Devices</h3>              <p className="text-gray-600 mb-6">                You don't have any devices assigned yet. Request a device to start monitoring your farm.              </p>              <button                onClick={() => setShowRequestModal(true)}                className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-md text-sm font-medium transition-colors duration-200"              >                Request Device              </button>            </div>          </div>        )}        {}        {pendingCostEstimations.length > 0 && (          <div className="mb-8">            <h2 className="text-xl font-semibold text-gray-900 mb-4">Pending Cost Estimations</h2>            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">              {pendingCostEstimations.map((request) => (                <CostEstimationCard                  key={request.id}                  request={request}                  onUpdate={handleCostEstimationUpdate}                />              ))}            </div>          </div>        )}        {}        {assignedDevices.length > 0 && (          <div className="mb-8">            <h2 className="text-xl font-semibold text-gray-900 mb-4">My Devices</h2>            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">              {assignedDevices.map((device) => (                <DeviceStatusCard                  key={device.id}                  device={device}                />              ))}            </div>          </div>        )}        {}        {assignedDevices.length === 0 && deviceRequests.length === 0 && (          <div className="text-center py-12">            <div className="text-6xl mb-4">🌱</div>            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Devices Yet</h3>            <p className="text-gray-600 mb-6">              Start your smart farming journey by requesting your first IoT device.            </p>            <button              onClick={() => setShowRequestModal(true)}              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-md text-sm font-medium transition-colors duration-200"            >              Request Your First Device            </button>          </div>        )}        {}        {deviceRequests.length > 0 && (          <div>            <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Requests</h2>            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">              <div className="overflow-x-auto">                <table className="min-w-full divide-y divide-gray-200">                  <thead className="bg-gray-50">                    <tr>                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">                        Request ID                      </th>                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">                        Farm Name                      </th>                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">                        Status                      </th>                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">                        Created                      </th>                    </tr>                  </thead>                  <tbody className="bg-white divide-y divide-gray-200">                    {deviceRequests.slice(0, 5).map((request) => (                      <tr key={request.id}>                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">                          #{request.id.slice(-8)}                        </td>                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">                          {request.farmName || request.farmInfo?.farmName || 'N/A'}                        </td>                        <td className="px-6 py-4 whitespace-nowrap">                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${                            request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :                            request.status === 'cost-estimated' ? 'bg-blue-100 text-blue-800' :                            request.status === 'user-accepted' ? 'bg-green-100 text-green-800' :                            request.status === 'user-rejected' ? 'bg-red-100 text-red-800' :                            request.status === 'device-assigned' ? 'bg-purple-100 text-purple-800' :                            request.status === 'completed' ? 'bg-gray-100 text-gray-800' :                            request.status === 'cancelled' ? 'bg-red-100 text-red-800' :                            request.status === 'rejected' ? 'bg-red-100 text-red-800' :                            'bg-gray-100 text-gray-800'                          }`}>                            {request.status === 'user-accepted' ? 'User Accepted' :                             request.status === 'user-rejected' ? 'User Rejected' :                             request.status === 'cost-estimated' ? 'Cost Estimated' :                             request.status === 'device-assigned' ? 'Device Assigned' :                             request.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}                          </span>                        </td>                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">                          {request.createdAt?.toDate?.()?.toLocaleDateString() || 'N/A'}                        </td>                      </tr>                    ))}                  </tbody>                </table>              </div>            </div>          </div>        )}      </div>      {}      {showRequestModal && (        <RequestDeviceModal          isOpen={showRequestModal}          onClose={() => setShowRequestModal(false)}          onSuccess={handleRequestSuccess}          canRequestMore={canRequestDevice}        />      )}    </div>  );};export default UserDashboardNew;

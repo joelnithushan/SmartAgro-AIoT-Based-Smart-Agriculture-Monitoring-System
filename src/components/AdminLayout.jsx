@@ -57,7 +57,7 @@ const AdminLayout = ({ children }) => {
               {/* Logo */}
               <div className="flex-shrink-0 flex items-center">
                 <Link to="/admin/dashboard" className="text-2xl font-bold text-green-600">
-                  SmartAgro Admin
+                  🍃 SmartAgro Admin
                 </Link>
               </div>
 

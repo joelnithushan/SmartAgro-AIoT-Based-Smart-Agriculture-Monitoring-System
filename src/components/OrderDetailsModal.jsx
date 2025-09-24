@@ -1,530 +1,1 @@
-import React, { useState, useEffect } from 'react';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
-
-const OrderDetailsModal = ({ isOpen, onClose, requestId }) => {
-  const [order, setOrder] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [showCostForm, setShowCostForm] = useState(false);
-  const [costData, setCostData] = useState({
-    deviceCost: '',
-    serviceCharge: '',
-    delivery: '',
-    totalCost: ''
-  });
-
-  // Fetch order details
-  useEffect(() => {
-    if (!isOpen || !requestId) return;
-
-    const fetchOrder = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        
-        const orderRef = doc(db, 'deviceRequests', requestId);
-        const orderSnap = await getDoc(orderRef);
-        
-        if (orderSnap.exists()) {
-          setOrder({
-            id: orderSnap.id,
-            ...orderSnap.data()
-          });
-        } else {
-          setError('Order not found');
-        }
-      } catch (err) {
-        console.error('Error fetching order:', err);
-        setError('Failed to fetch order details');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOrder();
-  }, [isOpen, requestId]);
-
-  // Calculate total cost
-  useEffect(() => {
-    const deviceCost = parseFloat(costData.deviceCost) || 0;
-    const serviceCharge = parseFloat(costData.serviceCharge) || 0;
-    const delivery = parseFloat(costData.delivery) || 0;
-    const total = deviceCost + serviceCharge + delivery;
-    
-    setCostData(prev => ({
-      ...prev,
-      totalCost: total.toFixed(2)
-    }));
-  }, [costData.deviceCost, costData.serviceCharge, costData.delivery]);
-
-  const handleCostSubmit = async () => {
-    try {
-      setLoading(true);
-      setError('');
-
-      const orderRef = doc(db, 'deviceRequests', requestId);
-      await updateDoc(orderRef, {
-        costDetails: {
-          deviceCost: parseFloat(costData.deviceCost),
-          serviceCharge: parseFloat(costData.serviceCharge),
-          delivery: parseFloat(costData.delivery),
-          totalCost: parseFloat(costData.totalCost)
-        },
-        status: 'cost-estimated',
-        estimatedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-
-      setSuccess('Cost estimation submitted successfully!');
-      setShowCostForm(false);
-      
-      // Refresh order data
-      const orderSnap = await getDoc(orderRef);
-      if (orderSnap.exists()) {
-        setOrder({
-          id: orderSnap.id,
-          ...orderSnap.data()
-        });
-      }
-    } catch (err) {
-      console.error('Error submitting cost estimation:', err);
-      setError('Failed to submit cost estimation');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAcceptOrder = async () => {
-    try {
-      setLoading(true);
-      setError('');
-
-      const orderRef = doc(db, 'deviceRequests', requestId);
-      await updateDoc(orderRef, {
-        status: 'user-accepted',
-        acceptedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-
-      setSuccess('Order accepted successfully!');
-      
-      // Refresh order data
-      const orderSnap = await getDoc(orderRef);
-      if (orderSnap.exists()) {
-        setOrder({
-          id: orderSnap.id,
-          ...orderSnap.data()
-        });
-      }
-    } catch (err) {
-      console.error('Error accepting order:', err);
-      setError('Failed to accept order');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRejectOrder = async () => {
-    try {
-      setLoading(true);
-      setError('');
-
-      const orderRef = doc(db, 'deviceRequests', requestId);
-      await updateDoc(orderRef, {
-        status: 'rejected',
-        rejectedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-
-      setSuccess('Order rejected successfully!');
-      
-      // Refresh order data
-      const orderSnap = await getDoc(orderRef);
-      if (orderSnap.exists()) {
-        setOrder({
-          id: orderSnap.id,
-          ...orderSnap.data()
-        });
-      }
-    } catch (err) {
-      console.error('Error rejecting order:', err);
-      setError('Failed to reject order');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatTimestamp = (timestamp) => {
-    if (!timestamp) return 'N/A';
-    try {
-      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-      return date.toLocaleString();
-    } catch (error) {
-      return 'Invalid Date';
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="bg-green-600 text-white p-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-2xl font-bold">Order Details</h2>
-              <p className="text-green-100 mt-1">Request ID: {requestId}</p>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-green-100 hover:text-white transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-          {loading && (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-              <p className="mt-2 text-sm text-gray-600">Loading order details...</p>
-            </div>
-          )}
-
-          {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-3">
-              <div className="flex">
-                <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="ml-3 text-sm text-red-800">{error}</p>
-              </div>
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-4 bg-green-50 border border-green-200 rounded-md p-3">
-              <div className="flex">
-                <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="ml-3 text-sm text-green-800">{success}</p>
-              </div>
-            </div>
-          )}
-
-          {order && !loading && (
-            <div className="space-y-6">
-              {/* Order Status */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Order Status</h3>
-                <div className="flex items-center space-x-4">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                    order.status === 'cost-estimated' ? 'bg-blue-100 text-blue-800' :
-                    order.status === 'user-accepted' ? 'bg-green-100 text-green-800' :
-                    order.status === 'device-assigned' ? 'bg-purple-100 text-purple-800' :
-                    order.status === 'completed' ? 'bg-emerald-100 text-emerald-800' :
-                    order.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {order.status?.replace('-', ' ') || 'Unknown'}
-                  </span>
-                  <span className="text-sm text-gray-600">
-                    Created: {formatTimestamp(order.createdAt)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Personal Information */}
-              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Personal Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Full Name</label>
-                    <p className="mt-1 text-sm text-gray-900">{order.fullName || order.personalInfo?.fullName || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Email</label>
-                    <p className="mt-1 text-sm text-gray-900">{order.email || order.userEmail || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Age</label>
-                    <p className="mt-1 text-sm text-gray-900">{order.age || order.personalInfo?.age || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Mobile Number</label>
-                    <p className="mt-1 text-sm text-gray-900">{order.mobileNumber || order.personalInfo?.phone || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">NIC Number</label>
-                    <p className="mt-1 text-sm text-gray-900">{order.nicNumber || order.personalInfo?.nic || 'Not provided'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Passport Number</label>
-                    <p className="mt-1 text-sm text-gray-900">{order.passportNumber || order.personalInfo?.passportId || 'Not provided'}</p>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700">Address</label>
-                    <p className="mt-1 text-sm text-gray-900">{order.address || order.personalInfo?.address || 'N/A'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Farm Information */}
-              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Farm Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Farm Name</label>
-                    <p className="mt-1 text-sm text-gray-900">{order.farmName || order.farmInfo?.farmName || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Farm Size</label>
-                    <p className="mt-1 text-sm text-gray-900">{order.farmSize || order.farmInfo?.farmSize || 'N/A'} acres</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Soil Type</label>
-                    <p className="mt-1 text-sm text-gray-900">{order.soilType || order.farmInfo?.soilType || 'Not specified'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Farm Location</label>
-                    <p className="mt-1 text-sm text-gray-900">{order.farmLocation || order.farmInfo?.location || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Additional Sand Type</label>
-                    <p className="mt-1 text-sm text-gray-900">{order.additionalSandType || 'Not specified'}</p>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700">Additional Information</label>
-                    <p className="mt-1 text-sm text-gray-900">{order.additionalFarmInfo || order.farmInfo?.notes || 'No additional notes'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Device Configuration */}
-              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Device Configuration</h3>
-                
-                {/* Multi-step form data */}
-                {order.selectedParameters && order.selectedParameters.length > 0 ? (
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Selected Parameters</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {order.selectedParameters.map((param) => (
-                        <div key={param} className="flex items-center space-x-2 p-2 bg-green-50 rounded-lg">
-                          <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                          <span className="text-sm text-gray-700 capitalize">
-                            {param.replace(/([A-Z])/g, ' $1').replace('Ldr', 'LDR').replace('Mq135', 'MQ135').trim()}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    {order.additionalDeviceInfo && (
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-700">Additional Device Information</label>
-                        <p className="mt-1 text-sm text-gray-900">{order.additionalDeviceInfo}</p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  /* Legacy format support */
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Sensor Requirements</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      {Object.entries(order.paramRequirements || {}).map(([sensor, required]) => (
-                        <div key={sensor} className="flex items-center space-x-2">
-                          <div className={`w-3 h-3 rounded-full ${required ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                          <span className="text-sm text-gray-700 capitalize">{sensor.replace(/([A-Z])/g, ' $1').trim()}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {order.advancedNotes && (
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-700">Advanced Notes</label>
-                        <p className="mt-1 text-sm text-gray-900">{order.advancedNotes}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {/* Request Type Indicator */}
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs text-gray-500">Request Type:</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      order.requestType === 'multi-step' 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {order.requestType === 'multi-step' ? 'Multi-Step Form' : 'Legacy Form'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Cost Details */}
-              {order.costDetails && (
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Cost Estimation</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Device Cost</label>
-                      <p className="mt-1 text-sm text-gray-900">${order.costDetails.deviceCost?.toFixed(2) || '0.00'}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Service Charge</label>
-                      <p className="mt-1 text-sm text-gray-900">${order.costDetails.serviceCharge?.toFixed(2) || '0.00'}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Delivery</label>
-                      <p className="mt-1 text-sm text-gray-900">${order.costDetails.deliveryCharge?.toFixed(2) || '0.00'}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Total Cost</label>
-                      <p className="mt-1 text-lg font-semibold text-green-600">${order.costDetails.totalCost?.toFixed(2) || '0.00'}</p>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-xs text-gray-500">
-                    Estimated: {formatTimestamp(order.estimatedAt)}
-                  </p>
-                </div>
-              )}
-
-              {/* Cost Estimation Form */}
-              {order.status === 'pending' && !order.costDetails && (
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Cost Estimation</h3>
-                  {!showCostForm ? (
-                    <button
-                      onClick={() => setShowCostForm(true)}
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
-                    >
-                      Provide Cost Estimation
-                    </button>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Device Cost ($)</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={costData.deviceCost}
-                            onChange={(e) => setCostData(prev => ({ ...prev, deviceCost: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                            placeholder="0.00"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Service Charge ($)</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={costData.serviceCharge}
-                            onChange={(e) => setCostData(prev => ({ ...prev, serviceCharge: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                            placeholder="0.00"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Delivery ($)</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={costData.delivery}
-                            onChange={(e) => setCostData(prev => ({ ...prev, delivery: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                            placeholder="0.00"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Total Cost ($)</label>
-                          <input
-                            type="text"
-                            value={costData.totalCost}
-                            readOnly
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-900 font-semibold"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex space-x-3">
-                        <button
-                          onClick={handleCostSubmit}
-                          disabled={loading}
-                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 disabled:opacity-50"
-                        >
-                          {loading ? 'Submitting...' : 'Submit Cost Estimation'}
-                        </button>
-                        <button
-                          onClick={() => setShowCostForm(false)}
-                          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Actions</h3>
-                <div className="flex space-x-3">
-                  {order.status === 'cost-estimated' && (
-                    <>
-                      <button
-                        onClick={handleAcceptOrder}
-                        disabled={loading}
-                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 disabled:opacity-50"
-                      >
-                        {loading ? 'Processing...' : 'Accept Order'}
-                      </button>
-                      <button
-                        onClick={handleRejectOrder}
-                        disabled={loading}
-                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 disabled:opacity-50"
-                      >
-                        {loading ? 'Processing...' : 'Reject Order'}
-                      </button>
-                    </>
-                  )}
-                  {order.status === 'user-accepted' && (
-                    <div className="text-sm text-green-600 font-medium">
-                      ✅ Order accepted by user - Ready for device assignment
-                    </div>
-                  )}
-                  {order.status === 'rejected' && (
-                    <div className="text-sm text-red-600 font-medium">
-                      ❌ Order rejected
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors duration-200"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default OrderDetailsModal;
+import React, { useState, useEffect } from 'react';import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';import { db } from '../config/firebase';const OrderDetailsModal = ({ isOpen, onClose, requestId }) => {  const [order, setOrder] = useState(null);  const [loading, setLoading] = useState(true);  const [error, setError] = useState('');  const [success, setSuccess] = useState('');  const [showCostForm, setShowCostForm] = useState(false);  const [costData, setCostData] = useState({    deviceCost: '',    serviceCharge: '',    delivery: '',    totalCost: ''  });  useEffect(() => {    if (!isOpen || !requestId) return;    const fetchOrder = async () => {      try {        setLoading(true);        setError('');        const orderRef = doc(db, 'deviceRequests', requestId);        const orderSnap = await getDoc(orderRef);        if (orderSnap.exists()) {          setOrder({            id: orderSnap.id,            ...orderSnap.data()          });        } else {          setError('Order not found');        }      } catch (err) {        console.error('Error fetching order:', err);        setError('Failed to fetch order details');      } finally {        setLoading(false);      }    };    fetchOrder();  }, [isOpen, requestId]);  useEffect(() => {    const deviceCost = parseFloat(costData.deviceCost) || 0;    const serviceCharge = parseFloat(costData.serviceCharge) || 0;    const delivery = parseFloat(costData.delivery) || 0;    const total = deviceCost + serviceCharge + delivery;    setCostData(prev => ({      ...prev,      totalCost: total.toFixed(2)    }));  }, [costData.deviceCost, costData.serviceCharge, costData.delivery]);  const handleCostSubmit = async () => {    try {      setLoading(true);      setError('');      const orderRef = doc(db, 'deviceRequests', requestId);      await updateDoc(orderRef, {        costDetails: {          deviceCost: parseFloat(costData.deviceCost),          serviceCharge: parseFloat(costData.serviceCharge),          delivery: parseFloat(costData.delivery),          totalCost: parseFloat(costData.totalCost)        },        status: 'cost-estimated',        estimatedAt: serverTimestamp(),        updatedAt: serverTimestamp()      });      setSuccess('Cost estimation submitted successfully!');      setShowCostForm(false);      const orderSnap = await getDoc(orderRef);      if (orderSnap.exists()) {        setOrder({          id: orderSnap.id,          ...orderSnap.data()        });      }    } catch (err) {      console.error('Error submitting cost estimation:', err);      setError('Failed to submit cost estimation');    } finally {      setLoading(false);    }  };  const handleAcceptOrder = async () => {    try {      setLoading(true);      setError('');      const orderRef = doc(db, 'deviceRequests', requestId);      await updateDoc(orderRef, {        status: 'user-accepted',        acceptedAt: serverTimestamp(),        updatedAt: serverTimestamp()      });      setSuccess('Order accepted successfully!');      const orderSnap = await getDoc(orderRef);      if (orderSnap.exists()) {        setOrder({          id: orderSnap.id,          ...orderSnap.data()        });      }    } catch (err) {      console.error('Error accepting order:', err);      setError('Failed to accept order');    } finally {      setLoading(false);    }  };  const handleRejectOrder = async () => {    try {      setLoading(true);      setError('');      const orderRef = doc(db, 'deviceRequests', requestId);      await updateDoc(orderRef, {        status: 'rejected',        rejectedAt: serverTimestamp(),        updatedAt: serverTimestamp()      });      setSuccess('Order rejected successfully!');      const orderSnap = await getDoc(orderRef);      if (orderSnap.exists()) {        setOrder({          id: orderSnap.id,          ...orderSnap.data()        });      }    } catch (err) {      console.error('Error rejecting order:', err);      setError('Failed to reject order');    } finally {      setLoading(false);    }  };  const formatTimestamp = (timestamp) => {    if (!timestamp) return 'N/A';    try {      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);      return date.toLocaleString();    } catch (error) {      return 'Invalid Date';    }  };  if (!isOpen) return null;  return (    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">        {}        <div className="bg-green-600 text-white p-6">          <div className="flex justify-between items-center">            <div>              <h2 className="text-2xl font-bold">Order Details</h2>              <p className="text-green-100 mt-1">Request ID: {requestId}</p>            </div>            <button              onClick={onClose}              className="text-green-100 hover:text-white transition-colors"            >              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />              </svg>            </button>          </div>        </div>        {}        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">          {loading && (            <div className="text-center py-8">              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>              <p className="mt-2 text-sm text-gray-600">Loading order details...</p>            </div>          )}          {error && (            <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-3">              <div className="flex">                <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />                </svg>                <p className="ml-3 text-sm text-red-800">{error}</p>              </div>            </div>          )}          {success && (            <div className="mb-4 bg-green-50 border border-green-200 rounded-md p-3">              <div className="flex">                <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />                </svg>                <p className="ml-3 text-sm text-green-800">{success}</p>              </div>            </div>          )}          {order && !loading && (            <div className="space-y-6">              {}              <div className="bg-gray-50 rounded-lg p-4">                <h3 className="text-lg font-semibold text-gray-900 mb-2">Order Status</h3>                <div className="flex items-center space-x-4">                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${                    order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :                    order.status === 'cost-estimated' ? 'bg-blue-100 text-blue-800' :                    order.status === 'user-accepted' ? 'bg-green-100 text-green-800' :                    order.status === 'device-assigned' ? 'bg-purple-100 text-purple-800' :                    order.status === 'completed' ? 'bg-emerald-100 text-emerald-800' :                    order.status === 'rejected' ? 'bg-red-100 text-red-800' :                    'bg-gray-100 text-gray-800'                  }`}>                    {order.status?.replace('-', ' ') || 'Unknown'}                  </span>                  <span className="text-sm text-gray-600">                    Created: {formatTimestamp(order.createdAt)}                  </span>                </div>              </div>              {}              <div className="bg-white border border-gray-200 rounded-lg p-4">                <h3 className="text-lg font-semibold text-gray-900 mb-3">Personal Information</h3>                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">                  <div>                    <label className="block text-sm font-medium text-gray-700">Full Name</label>                    <p className="mt-1 text-sm text-gray-900">{order.fullName || order.personalInfo?.fullName || 'N/A'}</p>                  </div>                  <div>                    <label className="block text-sm font-medium text-gray-700">Email</label>                    <p className="mt-1 text-sm text-gray-900">{order.email || order.userEmail || 'N/A'}</p>                  </div>                  <div>                    <label className="block text-sm font-medium text-gray-700">Age</label>                    <p className="mt-1 text-sm text-gray-900">{order.age || order.personalInfo?.age || 'N/A'}</p>                  </div>                  <div>                    <label className="block text-sm font-medium text-gray-700">Mobile Number</label>                    <p className="mt-1 text-sm text-gray-900">{order.mobileNumber || order.personalInfo?.phone || 'N/A'}</p>                  </div>                  <div>                    <label className="block text-sm font-medium text-gray-700">NIC Number</label>                    <p className="mt-1 text-sm text-gray-900">{order.nicNumber || order.personalInfo?.nic || 'Not provided'}</p>                  </div>                  <div>                    <label className="block text-sm font-medium text-gray-700">Passport Number</label>                    <p className="mt-1 text-sm text-gray-900">{order.passportNumber || order.personalInfo?.passportId || 'Not provided'}</p>                  </div>                  <div className="md:col-span-2">                    <label className="block text-sm font-medium text-gray-700">Address</label>                    <p className="mt-1 text-sm text-gray-900">{order.address || order.personalInfo?.address || 'N/A'}</p>                  </div>                </div>              </div>              {}              <div className="bg-white border border-gray-200 rounded-lg p-4">                <h3 className="text-lg font-semibold text-gray-900 mb-3">Farm Information</h3>                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">                  <div>                    <label className="block text-sm font-medium text-gray-700">Farm Name</label>                    <p className="mt-1 text-sm text-gray-900">{order.farmName || order.farmInfo?.farmName || 'N/A'}</p>                  </div>                  <div>                    <label className="block text-sm font-medium text-gray-700">Farm Size</label>                    <p className="mt-1 text-sm text-gray-900">{order.farmSize || order.farmInfo?.farmSize || 'N/A'} acres</p>                  </div>                  <div>                    <label className="block text-sm font-medium text-gray-700">Soil Type</label>                    <p className="mt-1 text-sm text-gray-900">{order.soilType || order.farmInfo?.soilType || 'Not specified'}</p>                  </div>                  <div>                    <label className="block text-sm font-medium text-gray-700">Farm Location</label>                    <p className="mt-1 text-sm text-gray-900">{order.farmLocation || order.farmInfo?.location || 'N/A'}</p>                  </div>                  <div>                    <label className="block text-sm font-medium text-gray-700">Additional Sand Type</label>                    <p className="mt-1 text-sm text-gray-900">{order.additionalSandType || 'Not specified'}</p>                  </div>                  <div className="md:col-span-2">                    <label className="block text-sm font-medium text-gray-700">Additional Information</label>                    <p className="mt-1 text-sm text-gray-900">{order.additionalFarmInfo || order.farmInfo?.notes || 'No additional notes'}</p>                  </div>                </div>              </div>              {}              <div className="bg-white border border-gray-200 rounded-lg p-4">                <h3 className="text-lg font-semibold text-gray-900 mb-3">Device Configuration</h3>                {}                {order.selectedParameters && order.selectedParameters.length > 0 ? (                  <div>                    <h4 className="text-sm font-medium text-gray-700 mb-3">Selected Parameters</h4>                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">                      {order.selectedParameters.map((param) => (                        <div key={param} className="flex items-center space-x-2 p-2 bg-green-50 rounded-lg">                          <div className="w-3 h-3 rounded-full bg-green-500"></div>                          <span className="text-sm text-gray-700 capitalize">                            {param.replace(/([A-Z])/g, ' $1').replace('Ldr', 'LDR').replace('Mq135', 'MQ135').trim()}                          </span>                        </div>                      ))}                    </div>                    {order.additionalDeviceInfo && (                      <div className="mt-4">                        <label className="block text-sm font-medium text-gray-700">Additional Device Information</label>                        <p className="mt-1 text-sm text-gray-900">{order.additionalDeviceInfo}</p>                      </div>                    )}                  </div>                ) : (                  <div>                    <h4 className="text-sm font-medium text-gray-700 mb-3">Sensor Requirements</h4>                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">                      {Object.entries(order.paramRequirements || {}).map(([sensor, required]) => (                        <div key={sensor} className="flex items-center space-x-2">                          <div className={`w-3 h-3 rounded-full ${required ? 'bg-green-500' : 'bg-gray-300'}`}></div>                          <span className="text-sm text-gray-700 capitalize">{sensor.replace(/([A-Z])/g, ' $1').trim()}</span>                        </div>                      ))}                    </div>                    {order.advancedNotes && (                      <div className="mt-4">                        <label className="block text-sm font-medium text-gray-700">Advanced Notes</label>                        <p className="mt-1 text-sm text-gray-900">{order.advancedNotes}</p>                      </div>                    )}                  </div>                )}                {}                <div className="mt-4 pt-4 border-t border-gray-200">                  <div className="flex items-center space-x-2">                    <span className="text-xs text-gray-500">Request Type:</span>                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${                      order.requestType === 'multi-step'                         ? 'bg-blue-100 text-blue-800'                         : 'bg-gray-100 text-gray-800'                    }`}>                      {order.requestType === 'multi-step' ? 'Multi-Step Form' : 'Legacy Form'}                    </span>                  </div>                </div>              </div>              {}              {order.costDetails && (                <div className="bg-white border border-gray-200 rounded-lg p-4">                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Cost Estimation</h3>                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">                    <div>                      <label className="block text-sm font-medium text-gray-700">Device Cost</label>                      <p className="mt-1 text-sm text-gray-900">${order.costDetails.deviceCost?.toFixed(2) || '0.00'}</p>                    </div>                    <div>                      <label className="block text-sm font-medium text-gray-700">Service Charge</label>                      <p className="mt-1 text-sm text-gray-900">${order.costDetails.serviceCharge?.toFixed(2) || '0.00'}</p>                    </div>                    <div>                      <label className="block text-sm font-medium text-gray-700">Delivery</label>                      <p className="mt-1 text-sm text-gray-900">${order.costDetails.deliveryCharge?.toFixed(2) || '0.00'}</p>                    </div>                    <div>                      <label className="block text-sm font-medium text-gray-700">Total Cost</label>                      <p className="mt-1 text-lg font-semibold text-green-600">${order.costDetails.totalCost?.toFixed(2) || '0.00'}</p>                    </div>                  </div>                  <p className="mt-2 text-xs text-gray-500">                    Estimated: {formatTimestamp(order.estimatedAt)}                  </p>                </div>              )}              {}              {order.status === 'pending' && !order.costDetails && (                <div className="bg-white border border-gray-200 rounded-lg p-4">                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Cost Estimation</h3>                  {!showCostForm ? (                    <button                      onClick={() => setShowCostForm(true)}                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"                    >                      Provide Cost Estimation                    </button>                  ) : (                    <div className="space-y-4">                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">                        <div>                          <label className="block text-sm font-medium text-gray-700 mb-1">Device Cost ($)</label>                          <input                            type="number"                            step="0.01"                            value={costData.deviceCost}                            onChange={(e) => setCostData(prev => ({ ...prev, deviceCost: e.target.value }))}                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"                            placeholder="0.00"                          />                        </div>                        <div>                          <label className="block text-sm font-medium text-gray-700 mb-1">Service Charge ($)</label>                          <input                            type="number"                            step="0.01"                            value={costData.serviceCharge}                            onChange={(e) => setCostData(prev => ({ ...prev, serviceCharge: e.target.value }))}                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"                            placeholder="0.00"                          />                        </div>                        <div>                          <label className="block text-sm font-medium text-gray-700 mb-1">Delivery ($)</label>                          <input                            type="number"                            step="0.01"                            value={costData.delivery}                            onChange={(e) => setCostData(prev => ({ ...prev, delivery: e.target.value }))}                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"                            placeholder="0.00"                          />                        </div>                        <div>                          <label className="block text-sm font-medium text-gray-700 mb-1">Total Cost ($)</label>                          <input                            type="text"                            value={costData.totalCost}                            readOnly                            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-900 font-semibold"                          />                        </div>                      </div>                      <div className="flex space-x-3">                        <button                          onClick={handleCostSubmit}                          disabled={loading}                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 disabled:opacity-50"                        >                          {loading ? 'Submitting...' : 'Submit Cost Estimation'}                        </button>                        <button                          onClick={() => setShowCostForm(false)}                          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"                        >                          Cancel                        </button>                      </div>                    </div>                  )}                </div>              )}              {}              <div className="bg-white border border-gray-200 rounded-lg p-4">                <h3 className="text-lg font-semibold text-gray-900 mb-3">Actions</h3>                <div className="flex space-x-3">                  {order.status === 'cost-estimated' && (                    <>                      <button                        onClick={handleAcceptOrder}                        disabled={loading}                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 disabled:opacity-50"                      >                        {loading ? 'Processing...' : 'Accept Order'}                      </button>                      <button                        onClick={handleRejectOrder}                        disabled={loading}                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 disabled:opacity-50"                      >                        {loading ? 'Processing...' : 'Reject Order'}                      </button>                    </>                  )}                  {order.status === 'user-accepted' && (                    <div className="text-sm text-green-600 font-medium">                      ✅ Order accepted by user - Ready for device assignment                    </div>                  )}                  {order.status === 'rejected' && (                    <div className="text-sm text-red-600 font-medium">                      ❌ Order rejected                    </div>                  )}                </div>              </div>            </div>          )}        </div>        {}        <div className="bg-gray-50 px-6 py-4 flex justify-end">          <button            onClick={onClose}            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors duration-200"          >            Close          </button>        </div>      </div>    </div>  );};export default OrderDetailsModal;

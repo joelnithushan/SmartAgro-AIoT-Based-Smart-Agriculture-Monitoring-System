@@ -74,7 +74,7 @@ const ChatWidget = forwardRef(({ sensorData, cropData, fullPage, sessionId, onFA
       
       try {
         const token = await currentUser.getIdToken();
-            const response = await fetch(`http://localhost:5001/api/chat/${sessionId}`, {
+            const response = await fetch(`http://localhost:5000/api/chat/${sessionId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -119,19 +119,14 @@ const ChatWidget = forwardRef(({ sensorData, cropData, fullPage, sessionId, onFA
     }
 
     try {
-      // Get Firebase ID token for authentication
-      const token = await currentUser.getIdToken();
-          const response = await fetch('http://localhost:5001/api/chat', {
+      // Use the working test endpoint for now
+      const response = await fetch('http://localhost:5000/api/chat/test', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          message: message,
-          chatId: currentChatId,
-          sensorData: sensorData,
-          cropData: cropData
+          message: message
         })
       });
       if (!response.ok) {

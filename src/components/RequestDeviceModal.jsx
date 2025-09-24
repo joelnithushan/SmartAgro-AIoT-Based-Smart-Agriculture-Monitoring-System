@@ -1,279 +1,1 @@
-import React, { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { deviceRequestsService } from '../services/firestoreService';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
-import toast from 'react-hot-toast';
-
-const RequestDeviceModal = ({ isOpen, onClose, onSuccess, canRequestMore = true }) => {
-  const { currentUser } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  // Simplified form data - only 4 fields
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    nic: '',
-    location: ''
-  });
-
-  // Handle input changes
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    
-    // Clear error when user starts typing
-    if (error) {
-      setError('');
-    }
-  };
-
-  // Validation function
-  const validateForm = () => {
-    if (!formData.fullName.trim()) {
-      setError('Full Name is required');
-      return false;
-    }
-    if (!formData.email.trim()) {
-      setError('Email Address is required');
-      return false;
-    }
-    if (!formData.nic.trim()) {
-      setError('NIC Number is required');
-      return false;
-    }
-    if (!formData.location.trim()) {
-      setError('Device/Farm Location is required');
-      return false;
-    }
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email.trim())) {
-      setError('Please enter a valid email address');
-      return false;
-    }
-
-    return true;
-  };
-
-  // Submit form
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    console.log('🚀 Submitting device request...');
-    
-    if (!validateForm()) return;
-
-    setLoading(true);
-    setError('');
-
-    try {
-      if (!currentUser) {
-        throw new Error('User not authenticated');
-      }
-
-      const requestData = {
-        fullName: formData.fullName.trim(),
-        email: formData.email.trim(),
-        nic: formData.nic.trim(),
-        location: formData.location.trim()
-      };
-
-      console.log('📤 Creating device request:', requestData);
-
-      const result = await deviceRequestsService.createRequest(currentUser.uid, requestData);
-
-      if (!result.success) {
-        if (result.code === 'FIREBASE_SETUP_REQUIRED') {
-          setError('⚠️ Firebase setup required. Please follow the instructions in IMMEDIATE_FIX.md to configure Firebase permissions.');
-          toast.error('Firebase permissions not configured. Check console for setup instructions.', { 
-            duration: 8000, 
-            position: 'top-right' 
-          });
-        } else {
-          throw new Error(result.error || 'Failed to create device request');
-        }
-        return;
-      }
-
-      console.log('✅ Device request submitted successfully!');
-      console.log('✅ Request ID:', result.requestId);
-
-      // Sync user profile data to users collection
-      try {
-        console.log('🔄 Syncing user profile data...');
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        await setDoc(userDocRef, {
-          fullName: requestData.fullName,
-          email: requestData.email,
-          nic: requestData.nic,
-          location: requestData.location,
-          updatedAt: new Date()
-        }, { merge: true });
-        
-        console.log('✅ User profile synced successfully');
-      } catch (profileError) {
-        console.error('⚠️ Error syncing user profile:', profileError);
-        // Don't fail the request if profile sync fails
-      }
-      
-      toast.success('Device request submitted successfully! We will review your request and get back to you soon.', { 
-        duration: 4000, 
-        position: 'top-right' 
-      });
-
-      // Reset form
-      setFormData({
-        fullName: '',
-        email: '',
-        nic: '',
-        location: ''
-      });
-
-      setTimeout(() => {
-        console.log('🔄 Calling success callback and closing modal');
-        onSuccess && onSuccess(result);
-        onClose();
-      }, 2000);
-
-    } catch (error) {
-      console.error('❌ Error submitting device request:', error);
-      setError(error.message);
-      toast.error('Failed to submit request: ' + error.message, { 
-        duration: 6000, 
-        position: 'top-right' 
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleClose = () => {
-    setFormData({
-      fullName: '',
-      email: '',
-      nic: '',
-      location: ''
-    });
-    setError('');
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto shadow-xl">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">Request Device</h2>
-          <button onClick={handleClose} className="text-gray-500 hover:text-gray-700">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-700 text-sm">{error}</p>
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Full Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Full Name *
-            </label>
-            <input
-              type="text"
-              value={formData.fullName}
-              onChange={(e) => handleInputChange('fullName', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-black"
-              placeholder="Enter your full name"
-              required
-            />
-          </div>
-
-          {/* Email Address */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address *
-            </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => handleInputChange('email', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-black"
-              placeholder="Enter your email address"
-              required
-            />
-          </div>
-
-          {/* NIC Number */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              NIC Number *
-            </label>
-            <input
-              type="text"
-              value={formData.nic}
-              onChange={(e) => handleInputChange('nic', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-black"
-              placeholder="Enter your NIC number"
-              required
-            />
-          </div>
-
-          {/* Device/Farm Location */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Device/Farm Location *
-            </label>
-            <input
-              type="text"
-              value={formData.location}
-              onChange={(e) => handleInputChange('location', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-black"
-              placeholder="Enter device/farm location"
-              required
-            />
-          </div>
-
-          {/* Submit Button */}
-          <div className="pt-4">
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-green-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>Submitting...</span>
-                </>
-              ) : (
-                <span>Submit Request</span>
-              )}
-            </button>
-          </div>
-        </form>
-
-        {/* Info */}
-        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-green-700 text-xs">
-            📋 You can submit up to 3 device requests. After submission, you can update or cancel pending requests from your dashboard.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default RequestDeviceModal;
+import React, { useState } from 'react';import { useAuth } from '../contexts/AuthContext';import { deviceRequestsService } from '../services/firestoreService';import { doc, setDoc } from 'firebase/firestore';import { db } from '../config/firebase';import toast from 'react-hot-toast';const RequestDeviceModal = ({ isOpen, onClose, onSuccess, canRequestMore = true }) => {  const { currentUser } = useAuth();  const [loading, setLoading] = useState(false);  const [error, setError] = useState('');  const [formData, setFormData] = useState({    fullName: '',    email: '',    nic: '',    location: ''  });  const handleInputChange = (field, value) => {    setFormData(prev => ({      ...prev,      [field]: value    }));    if (error) {      setError('');    }  };  const validateForm = () => {    if (!formData.fullName.trim()) {      setError('Full Name is required');      return false;    }    if (!formData.email.trim()) {      setError('Email Address is required');      return false;    }    if (!formData.nic.trim()) {      setError('NIC Number is required');      return false;    }    if (!formData.location.trim()) {      setError('Device/Farm Location is required');      return false;    }    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;    if (!emailRegex.test(formData.email.trim())) {      setError('Please enter a valid email address');      return false;    }    return true;  };  const handleSubmit = async (e) => {    e.preventDefault();    console.log('🚀 Submitting device request...');    if (!validateForm()) return;    setLoading(true);    setError('');    try {      if (!currentUser) {        throw new Error('User not authenticated');      }      const requestData = {        fullName: formData.fullName.trim(),        email: formData.email.trim(),        nic: formData.nic.trim(),        location: formData.location.trim()      };      console.log('📤 Creating device request:', requestData);      const result = await deviceRequestsService.createRequest(currentUser.uid, requestData);      if (!result.success) {        if (result.code === 'FIREBASE_SETUP_REQUIRED') {          setError('⚠️ Firebase setup required. Please follow the instructions in IMMEDIATE_FIX.md to configure Firebase permissions.');          toast.error('Firebase permissions not configured. Check console for setup instructions.', {             duration: 8000,             position: 'top-right'           });        } else {          throw new Error(result.error || 'Failed to create device request');        }        return;      }      console.log('✅ Device request submitted successfully!');      console.log('✅ Request ID:', result.requestId);      try {        console.log('🔄 Syncing user profile data...');        const userDocRef = doc(db, 'users', currentUser.uid);        await setDoc(userDocRef, {          fullName: requestData.fullName,          email: requestData.email,          nic: requestData.nic,          location: requestData.location,          updatedAt: new Date()        }, { merge: true });        console.log('✅ User profile synced successfully');      } catch (profileError) {        console.error('⚠️ Error syncing user profile:', profileError);      }      toast.success('Device request submitted successfully! We will review your request and get back to you soon.', {         duration: 4000,         position: 'top-right'       });      setFormData({        fullName: '',        email: '',        nic: '',        location: ''      });      setTimeout(() => {        console.log('🔄 Calling success callback and closing modal');        onSuccess && onSuccess(result);        onClose();      }, 2000);    } catch (error) {      console.error('❌ Error submitting device request:', error);      setError(error.message);      toast.error('Failed to submit request: ' + error.message, {         duration: 6000,         position: 'top-right'       });    } finally {      setLoading(false);    }  };  const handleClose = () => {    setFormData({      fullName: '',      email: '',      nic: '',      location: ''    });    setError('');    onClose();  };  if (!isOpen) return null;  return (    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto shadow-xl">        {}        <div className="flex justify-between items-center mb-6">          <h2 className="text-2xl font-bold text-gray-800">Request Device</h2>          <button onClick={handleClose} className="text-gray-500 hover:text-gray-700">            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />            </svg>          </button>        </div>        {}        {error && (          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">            <p className="text-red-700 text-sm">{error}</p>          </div>        )}        {}        <form onSubmit={handleSubmit} className="space-y-4">          {}          <div>            <label className="block text-sm font-medium text-gray-700 mb-2">              Full Name *            </label>            <input              type="text"              value={formData.fullName}              onChange={(e) => handleInputChange('fullName', e.target.value)}              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-black"              placeholder="Enter your full name"              required            />          </div>          {}          <div>            <label className="block text-sm font-medium text-gray-700 mb-2">              Email Address *            </label>            <input              type="email"              value={formData.email}              onChange={(e) => handleInputChange('email', e.target.value)}              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-black"              placeholder="Enter your email address"              required            />          </div>          {}          <div>            <label className="block text-sm font-medium text-gray-700 mb-2">              NIC Number *            </label>            <input              type="text"              value={formData.nic}              onChange={(e) => handleInputChange('nic', e.target.value)}              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-black"              placeholder="Enter your NIC number"              required            />          </div>          {}          <div>            <label className="block text-sm font-medium text-gray-700 mb-2">              Device/Farm Location *            </label>            <input              type="text"              value={formData.location}              onChange={(e) => handleInputChange('location', e.target.value)}              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-black"              placeholder="Enter device/farm location"              required            />          </div>          {}          <div className="pt-4">            <button              type="submit"              disabled={loading}              className="w-full bg-green-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"            >              {loading ? (                <>                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>                  <span>Submitting...</span>                </>              ) : (                <span>Submit Request</span>              )}            </button>          </div>        </form>        {}        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">          <p className="text-green-700 text-xs">            📋 You can submit up to 3 device requests. After submission, you can update or cancel pending requests from your dashboard.          </p>        </div>      </div>    </div>  );};export default RequestDeviceModal;

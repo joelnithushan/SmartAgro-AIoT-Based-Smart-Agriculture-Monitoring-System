@@ -57,7 +57,7 @@ const AdminSidebar = ({ children }) => {
               {/* Logo */}
               <div className="flex-shrink-0 flex items-center">
                 <Link to="/admin/dashboard" className="text-2xl font-black text-green-600" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                  SmartAgro Admin
+                  🍃 SmartAgro Admin
                 </Link>
               </div>
 

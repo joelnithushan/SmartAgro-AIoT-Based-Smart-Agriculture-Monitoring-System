@@ -6,29 +6,34 @@ import admin from "firebase-admin";
 import { processAlerts } from "./functions/alertProcessor.js";
 import { getSLTimeForLogging, getSLTimezoneOffset } from "./utils/timeUtils.js";
 import adminRouter from "./routes/admin.js";
+import chatRouter from "./routes/chat.js";
 
 dotenv.config();
 
 // Initialize Firebase Admin
-if (!admin.apps.length) {
-  try {
-    // Try to load service account key from file
-    const serviceAccount = require('./config/serviceAccountKey.json');
-    
-    if (serviceAccount.private_key && !serviceAccount.private_key.includes('MOCK')) {
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://smartagro-solution-default-rtdb.asia-southeast1.firebasedatabase.app'
-      });
-      console.log('✅ Firebase Admin SDK initialized with service account key');
-    } else {
-      console.log('⚠️  Firebase service account not configured - using demo mode');
+const initializeFirebase = async () => {
+  if (!admin.apps.length) {
+    try {
+      // Try to load service account key from file
+      const { createRequire } = await import('module');
+      const require = createRequire(import.meta.url);
+      const serviceAccount = require('./config/serviceAccountKey.json');
+      
+      if (serviceAccount.private_key && !serviceAccount.private_key.includes('MOCK')) {
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+          databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://smartagro-solution-default-rtdb.asia-southeast1.firebasedatabase.app'
+        });
+        console.log('✅ Firebase Admin SDK initialized with service account key');
+      } else {
+        console.log('⚠️  Firebase service account not configured - using demo mode');
+      }
+    } catch (error) {
+      console.log('⚠️  Firebase initialization failed:', error.message);
+      console.log('   Using demo mode for development');
     }
-  } catch (error) {
-    console.log('⚠️  Firebase initialization failed:', error.message);
-    console.log('   Using demo mode for development');
   }
-}
+};
 
 const app = express();
 app.use(cors());
@@ -36,6 +41,7 @@ app.use(express.json());
 
 // Mount admin routes
 app.use('/api/admin', adminRouter);
+app.use('/api/chat', chatRouter);
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const db = admin.apps.length > 0 ? admin.firestore() : null;
@@ -536,12 +542,23 @@ app.post('/process-alerts', async (req, res) => {
 
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 AI Chatbot Server running on port ${PORT}`);
-  console.log(`📡 Gemini API configured: ${!!GEMINI_API_KEY}`);
-  console.log(`🔥 Firebase configured: ${!!process.env.FIREBASE_SERVICE_ACCOUNT}`);
-  console.log(`🕐 Server started at: ${getSLTimeForLogging()} (${getSLTimezoneOffset()})`);
-  console.log(`🌍 Timezone: Asia/Colombo (Sri Lanka)`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-  console.log(`💬 Chat endpoint: http://localhost:${PORT}/chat`);
+
+// Start server after Firebase initialization
+const startServer = async () => {
+  await initializeFirebase();
+  
+  app.listen(PORT, () => {
+    console.log(`🚀 AI Chatbot Server running on port ${PORT}`);
+    console.log(`📡 Gemini API configured: ${!!GEMINI_API_KEY}`);
+    console.log(`🔥 Firebase configured: ${!!process.env.FIREBASE_SERVICE_ACCOUNT}`);
+    console.log(`🕐 Server started at: ${getSLTimeForLogging()} (${getSLTimezoneOffset()})`);
+    console.log(`🌍 Timezone: Asia/Colombo (Sri Lanka)`);
+    console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+    console.log(`💬 Chat endpoint: http://localhost:${PORT}/chat`);
+  });
+};
+
+startServer().catch(error => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
 });

@@ -1,15 +1,16 @@
 import twilio from 'twilio';
 
-// Initialize Twilio client only if credentials are available
+// Initialize Twilio client with provided credentials
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || 'REDACTED_TWILIO_ACCOUNT_SID';
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || 'REDACTED_TWILIO_AUTH_TOKEN';
+const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER || 'REDACTED_TWILIO_PHONE_NUMBER';
+
 let twilioClient = null;
-if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && 
-    process.env.TWILIO_ACCOUNT_SID !== 'placeholder' && 
-    process.env.TWILIO_AUTH_TOKEN !== 'placeholder-twilio-auth-token') {
+if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && 
+    TWILIO_ACCOUNT_SID !== 'placeholder' && 
+    TWILIO_AUTH_TOKEN !== 'placeholder-twilio-auth-token') {
   try {
-    twilioClient = twilio(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
+    twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
     console.log('✅ Twilio client initialized successfully');
   } catch (error) {
     console.log('⚠️  Twilio client initialization failed:', error.message);
@@ -35,7 +36,7 @@ export async function sendSMSAlert(alert, currentValue, deviceId) {
     }
 
     const message = generateSMSMessage(alert, currentValue, deviceId);
-    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+    const fromNumber = TWILIO_PHONE_NUMBER;
     
     console.log('📱 Sending SMS alert to:', alert.value);
     console.log('📱 From number:', fromNumber);
@@ -198,7 +199,7 @@ export async function testTwilioConnection() {
     }
     
     // Try to fetch account info to test connection
-    const account = await twilioClient.api.accounts(process.env.TWILIO_ACCOUNT_SID).fetch();
+    const account = await twilioClient.api.accounts(TWILIO_ACCOUNT_SID).fetch();
     
     return { 
       success: true, 

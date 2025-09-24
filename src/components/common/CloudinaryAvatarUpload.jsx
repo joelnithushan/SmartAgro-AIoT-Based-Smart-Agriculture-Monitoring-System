@@ -1,46 +1,33 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
-
 const CloudinaryAvatarUpload = ({ currentAvatar, onUpload, userId, disabled = false }) => {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState(null);
-
   const CLOUD_NAME = 'dedoxaqug';
-  const UPLOAD_PRESET = 'smartagro_avatars'; // Upload preset for avatars
-
+  const UPLOAD_PRESET = 'smartagro_avatars'; 
   const handleFileChange = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
-
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       toast.error('Please select an image file');
       return;
     }
-
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast.error('File size must be less than 5MB');
       return;
     }
-
     if (!userId) {
       toast.error('User ID not found. Please refresh and try again.');
       return;
     }
-
     setUploading(true);
     setPreview(URL.createObjectURL(file));
-
     try {
-      // Create FormData for Cloudinary upload
       const formData = new FormData();
       formData.append('file', file);
       formData.append('upload_preset', UPLOAD_PRESET);
-      formData.append('folder', 'smartagro/avatars'); // Organize uploads
-      formData.append('public_id', `${userId}_${Date.now()}`); // Unique public ID
-      // Note: Transformations are not allowed with unsigned uploads
-
+      formData.append('folder', 'smartagro/avatars'); 
+      formData.append('public_id', `${userId}_${Date.now()}`); 
       console.log('Uploading to Cloudinary...');
       console.log('Cloud Name:', CLOUD_NAME);
       console.log('Upload Preset:', UPLOAD_PRESET);
@@ -48,54 +35,41 @@ const CloudinaryAvatarUpload = ({ currentAvatar, onUpload, userId, disabled = fa
       console.log('File Name:', file.name);
       console.log('File Size:', file.size);
       console.log('File Type:', file.type);
-
-      // Upload to Cloudinary
       const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
         method: 'POST',
         body: formData
       });
-
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Cloudinary API Error:', errorData);
         console.error('Response Status:', response.status);
         console.error('Response Status Text:', response.statusText);
-        throw new Error(errorData.error?.message || `Upload failed: ${response.statusText}`);
+        throw new Error((errorData.error && errorData.error.message) || 'Upload failed: ' + response.statusText);
       }
-
       const data = await response.json();
       const downloadURL = data.secure_url;
-
       console.log('Cloudinary upload successful:', data);
-
-      // Call parent callback
       if (onUpload && typeof onUpload === 'function') {
         onUpload(downloadURL);
       }
-
       toast.success('Profile picture uploaded successfully!');
-
     } catch (error) {
       console.error('Cloudinary upload error:', error);
       let errorMessage = 'Failed to upload profile picture';
-      
       if (error.message.includes('upload_preset')) {
         errorMessage = 'Upload preset not configured. Please contact administrator.';
       } else if (error.message.includes('cloud_name')) {
         errorMessage = 'Cloudinary configuration error. Please contact administrator.';
       } else if (error.message) {
-        errorMessage = `Upload failed: ${error.message}`;
+        errorMessage = 'Upload failed: ' + error.message;
       }
-      
       toast.error(errorMessage);
       setPreview(null);
     } finally {
       setUploading(false);
     }
   };
-
   const displayImage = preview || currentAvatar;
-
   return (
     <div className="flex items-center space-x-4">
       <div className="relative w-24 h-24 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
@@ -112,7 +86,6 @@ const CloudinaryAvatarUpload = ({ currentAvatar, onUpload, userId, disabled = fa
           </div>
         )}
       </div>
-      
       <div>
         <label 
           htmlFor="cloudinary-avatar-upload" 
@@ -135,5 +108,4 @@ const CloudinaryAvatarUpload = ({ currentAvatar, onUpload, userId, disabled = fa
     </div>
   );
 };
-
 export default CloudinaryAvatarUpload;

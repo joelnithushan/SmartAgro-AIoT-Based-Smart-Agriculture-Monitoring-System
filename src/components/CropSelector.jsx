@@ -1,6 +1,6 @@
 import React from 'react';
 
-const CropSelector = ({ crops, selectedCrop, onSelectCrop, onAddCrop }) => {
+const CropSelector = ({ crops, selectedCrop, onCropSelect, onEditCrop, onDeleteCrop, onAddCrop }) => {
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex justify-between items-center mb-4">
@@ -23,15 +23,45 @@ const CropSelector = ({ crops, selectedCrop, onSelectCrop, onAddCrop }) => {
           {crops.map((crop) => (
             <div
               key={crop.id}
-              onClick={() => onSelectCrop(crop)}
-              className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+              className={`p-3 rounded-lg border transition-colors ${
                 selectedCrop?.id === crop.id
                   ? 'border-green-500 bg-green-50'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
-              <h4 className="font-medium text-gray-900">{crop.cropName}</h4>
-              <p className="text-sm text-gray-600">{crop.variety}</p>
+              <div 
+                className="cursor-pointer"
+                onClick={() => onCropSelect && onCropSelect(crop)}
+              >
+                <h4 className="font-medium text-gray-900">{crop.cropName}</h4>
+                <p className="text-sm text-gray-600">{crop.variety}</p>
+              </div>
+              
+              {/* Action buttons */}
+              <div className="flex space-x-2 mt-2">
+                {onEditCrop && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditCrop(crop);
+                    }}
+                    className="text-blue-600 hover:text-blue-800 text-sm"
+                  >
+                    Edit
+                  </button>
+                )}
+                {onDeleteCrop && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteCrop(crop.id);
+                    }}
+                    className="text-red-600 hover:text-red-800 text-sm"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>

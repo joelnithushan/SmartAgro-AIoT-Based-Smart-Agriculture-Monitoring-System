@@ -47,7 +47,8 @@ const Navbar = () => {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/" className="flex-shrink-0 flex items-center">
-              <span className="text-2xl font-black text-green-600 tracking-wide drop-shadow-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
+              <span className="text-2xl font-black text-green-600 tracking-wide drop-shadow-sm flex items-center" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                <span className="mr-2">🍃</span>
                 SmartAgro
               </span>
             </Link>

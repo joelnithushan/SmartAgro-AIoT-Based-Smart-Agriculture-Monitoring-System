@@ -4,7 +4,6 @@ import {
   UsersIcon,
   ClipboardDocumentListIcon,
   DevicePhoneMobileIcon,
-  DocumentTextIcon,
   Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
   Bars3Icon,

@@ -1,65 +1,1 @@
-const admin = require('firebase-admin');
-const fs = require('fs');
-
-// Initialize Firebase Admin
-const serviceAccount = require('./config/serviceAccountKey.json');
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  projectId: 'smartagro-4'
-});
-
-async function deployFirestoreRules() {
-  try {
-    console.log('🔒 Deploying Firestore security rules...');
-    
-    // Read the rules file
-    const rules = fs.readFileSync('./firestore-security-rules.txt', 'utf8');
-    
-    // Deploy the rules using Firebase CLI (if available) or manual deployment
-    console.log('📋 Firestore Security Rules:');
-    console.log('=====================================');
-    console.log(rules);
-    console.log('=====================================');
-    
-    console.log('✅ Firestore rules content prepared!');
-    console.log('📋 Rules summary:');
-    console.log('   - Users can only access their own data');
-    console.log('   - Device requests protected by ownership');
-    console.log('   - Notifications restricted to user ownership');
-    console.log('   - Admin notifications for admin users only');
-    console.log('   - Device metadata protected by ownership');
-    console.log('   - Cost estimations protected by ownership');
-    console.log('   - System settings admin-only');
-    
-    console.log('\n🔐 Security features:');
-    console.log('   - User data isolation');
-    console.log('   - Device request ownership verification');
-    console.log('   - Notification privacy');
-    console.log('   - Admin role verification');
-    console.log('   - Device metadata protection');
-    console.log('   - Cost estimation privacy');
-    
-    console.log('\n📊 Protected collections:');
-    console.log('   - /users/{userId} - User profile data');
-    console.log('   - /users/{userId}/devices/{deviceId} - User device assignments');
-    console.log('   - /deviceRequests/{requestId} - Device request data');
-    console.log('   - /notifications/{notificationId} - User notifications');
-    console.log('   - /adminNotifications/{notificationId} - Admin notifications');
-    console.log('   - /devices/{deviceId} - Device metadata');
-    console.log('   - /costEstimations/{estimationId} - Cost estimation data');
-    console.log('   - /systemSettings/{settingId} - System configuration');
-    
-    console.log('\n⚠️  IMPORTANT: To deploy these rules:');
-    console.log('   1. Copy the rules content above');
-    console.log('   2. Go to Firebase Console > Firestore > Rules');
-    console.log('   3. Replace the existing rules with the content above');
-    console.log('   4. Click "Publish" to deploy');
-    
-  } catch (error) {
-    console.error('❌ Error preparing Firestore rules:', error);
-  } finally {
-    process.exit(0);
-  }
-}
-
-deployFirestoreRules();
+const admin = require('firebase-admin');const fs = require('fs');const serviceAccount = require('./config/serviceAccountKey.json');admin.initializeApp({  credential: admin.credential.cert(serviceAccount),  projectId: 'smartagro-4'});async function deployFirestoreRules() {  try {    console.log('🔒 Deploying Firestore security rules...');    const rules = fs.readFileSync('./firestore-security-rules.txt', 'utf8');    console.log('📋 Firestore Security Rules:');    console.log('=====================================');    console.log(rules);    console.log('=====================================');    console.log('✅ Firestore rules content prepared!');    console.log('📋 Rules summary:');    console.log('   - Users can only access their own data');    console.log('   - Device requests protected by ownership');    console.log('   - Notifications restricted to user ownership');    console.log('   - Admin notifications for admin users only');    console.log('   - Device metadata protected by ownership');    console.log('   - Cost estimations protected by ownership');    console.log('   - System settings admin-only');    console.log('\n🔐 Security features:');    console.log('   - User data isolation');    console.log('   - Device request ownership verification');    console.log('   - Notification privacy');    console.log('   - Admin role verification');    console.log('   - Device metadata protection');    console.log('   - Cost estimation privacy');    console.log('\n📊 Protected collections:');    console.log('   - /users/{userId} - User profile data');    console.log('   - /users/{userId}/devices/{deviceId} - User device assignments');    console.log('   - /deviceRequests/{requestId} - Device request data');    console.log('   - /notifications/{notificationId} - User notifications');    console.log('   - /adminNotifications/{notificationId} - Admin notifications');    console.log('   - /devices/{deviceId} - Device metadata');    console.log('   - /costEstimations/{estimationId} - Cost estimation data');    console.log('   - /systemSettings/{settingId} - System configuration');    console.log('\n⚠️  IMPORTANT: To deploy these rules:');    console.log('   1. Copy the rules content above');    console.log('   2. Go to Firebase Console > Firestore > Rules');    console.log('   3. Replace the existing rules with the content above');    console.log('   4. Click "Publish" to deploy');  } catch (error) {    console.error('❌ Error preparing Firestore rules:', error);  } finally {    process.exit(0);  }}deployFirestoreRules();

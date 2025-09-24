@@ -5,7 +5,7 @@ const ChatHistory = ({ onSessionSelect, currentSessionId, onNewChat, isCollapsib
   const { currentUser } = useAuth();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error] = useState(null);
   const [deletingSession, setDeletingSession] = useState(null);
 
   useEffect(() => {
@@ -17,7 +17,7 @@ const ChatHistory = ({ onSessionSelect, currentSessionId, onNewChat, isCollapsib
       
       try {
         const token = await currentUser.getIdToken();
-        const response = await fetch('http://localhost:5001/api/chat/history', {
+        const response = await fetch('http://localhost:5000/api/chat/history', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'

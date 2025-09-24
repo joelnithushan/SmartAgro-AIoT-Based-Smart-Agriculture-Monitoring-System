@@ -1,616 +1,1 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { Navigate, Link } from 'react-router-dom';
-import { ref, onValue, off, push, set } from 'firebase/database';
-import { database } from '../config/firebase';
-
-const CropManagement = () => {
-  const { currentUser } = useAuth();
-  const [cropSchedules, setCropSchedules] = useState([]);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // Crop catalog with default parameter ranges
-  const cropCatalog = {
-    'Tomato': {
-      name: 'Tomato',
-      airTempMin: 18,
-      airTempMax: 24,
-      airHumidityMin: 60,
-      airHumidityMax: 80,
-      soilMoistureMin: 40,
-      soilMoistureMax: 70,
-      soilTempMin: 16,
-      soilTempMax: 22,
-      gasLevelMax: 1000,
-      description: 'Warm season crop, requires consistent moisture'
-    },
-    'Rice': {
-      name: 'Rice',
-      airTempMin: 20,
-      airTempMax: 35,
-      airHumidityMin: 70,
-      airHumidityMax: 90,
-      soilMoistureMin: 60,
-      soilMoistureMax: 90,
-      soilTempMin: 18,
-      soilTempMax: 30,
-      gasLevelMax: 800,
-      description: 'Water-intensive crop, thrives in warm, humid conditions'
-    },
-    'Corn': {
-      name: 'Corn',
-      airTempMin: 15,
-      airTempMax: 30,
-      airHumidityMin: 50,
-      airHumidityMax: 70,
-      soilMoistureMin: 30,
-      soilMoistureMax: 60,
-      soilTempMin: 12,
-      soilTempMax: 25,
-      gasLevelMax: 1200,
-      description: 'Versatile crop, moderate water requirements'
-    },
-    'Lettuce': {
-      name: 'Lettuce',
-      airTempMin: 10,
-      airTempMax: 20,
-      airHumidityMin: 60,
-      airHumidityMax: 80,
-      soilMoistureMin: 50,
-      soilMoistureMax: 80,
-      soilTempMin: 8,
-      soilTempMax: 18,
-      gasLevelMax: 600,
-      description: 'Cool season crop, high moisture needs'
-    },
-    'Pepper': {
-      name: 'Pepper',
-      airTempMin: 20,
-      airTempMax: 28,
-      airHumidityMin: 50,
-      airHumidityMax: 70,
-      soilMoistureMin: 40,
-      soilMoistureMax: 70,
-      soilTempMin: 18,
-      soilTempMax: 25,
-      gasLevelMax: 900,
-      description: 'Warm season crop, moderate water requirements'
-    }
-  };
-
-  // Form state for adding new crop schedule
-  const [formData, setFormData] = useState({
-    cropType: '',
-    startDate: '',
-    endDate: '',
-    fertilizerNotes: '',
-    customParams: {
-      airTempMin: '',
-      airTempMax: '',
-      airHumidityMin: '',
-      airHumidityMax: '',
-      soilMoistureMin: '',
-      soilMoistureMax: '',
-      soilTempMin: '',
-      soilTempMax: '',
-      gasLevelMax: ''
-    }
-  });
-
-  // Fetch crop schedules from Firebase
-  useEffect(() => {
-    if (!currentUser) return;
-
-    const schedulesRef = ref(database, `users/${currentUser.uid}/cropSchedules`);
-    
-    const unsubscribe = onValue(schedulesRef, (snapshot) => {
-      try {
-        const data = snapshot.val();
-        if (data) {
-          const schedules = Object.entries(data).map(([id, schedule]) => ({
-            id,
-            ...schedule
-          }));
-          setCropSchedules(schedules);
-        } else {
-          setCropSchedules([]);
-        }
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching crop schedules:', error);
-        setError('Failed to load crop schedules');
-        setLoading(false);
-      }
-    });
-
-    return () => off(schedulesRef, 'value', unsubscribe);
-  }, [currentUser]);
-
-  // Handle form input changes
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    if (name.startsWith('customParams.')) {
-      const paramName = name.split('.')[1];
-      setFormData(prev => ({
-        ...prev,
-        customParams: {
-          ...prev.customParams,
-          [paramName]: value
-        }
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
-  };
-
-  // Handle crop type selection
-  const handleCropTypeChange = (cropType) => {
-    const crop = cropCatalog[cropType];
-    setFormData(prev => ({
-      ...prev,
-      cropType,
-      customParams: {
-        airTempMin: crop.airTempMin,
-        airTempMax: crop.airTempMax,
-        airHumidityMin: crop.airHumidityMin,
-        airHumidityMax: crop.airHumidityMax,
-        soilMoistureMin: crop.soilMoistureMin,
-        soilMoistureMax: crop.soilMoistureMax,
-        soilTempMin: crop.soilTempMin,
-        soilTempMax: crop.soilTempMax,
-        gasLevelMax: crop.gasLevelMax
-      }
-    }));
-  };
-
-  // Add new crop schedule
-  const handleAddSchedule = async (e) => {
-    e.preventDefault();
-    
-    if (!formData.cropType || !formData.startDate || !formData.endDate) {
-      setError('Please fill in all required fields');
-      return;
-    }
-
-    try {
-      const scheduleId = push(ref(database, `users/${currentUser.uid}/cropSchedules`)).key;
-      
-      const scheduleData = {
-        cropType: formData.cropType,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
-        fertilizerNotes: formData.fertilizerNotes,
-        parameters: {
-          airTempMin: parseFloat(formData.customParams.airTempMin) || cropCatalog[formData.cropType].airTempMin,
-          airTempMax: parseFloat(formData.customParams.airTempMax) || cropCatalog[formData.cropType].airTempMax,
-          airHumidityMin: parseFloat(formData.customParams.airHumidityMin) || cropCatalog[formData.cropType].airHumidityMin,
-          airHumidityMax: parseFloat(formData.customParams.airHumidityMax) || cropCatalog[formData.cropType].airHumidityMax,
-          soilMoistureMin: parseFloat(formData.customParams.soilMoistureMin) || cropCatalog[formData.cropType].soilMoistureMin,
-          soilMoistureMax: parseFloat(formData.customParams.soilMoistureMax) || cropCatalog[formData.cropType].soilMoistureMax,
-          soilTempMin: parseFloat(formData.customParams.soilTempMin) || cropCatalog[formData.cropType].soilTempMin,
-          soilTempMax: parseFloat(formData.customParams.soilTempMax) || cropCatalog[formData.cropType].soilTempMax,
-          gasLevelMax: parseFloat(formData.customParams.gasLevelMax) || cropCatalog[formData.cropType].gasLevelMax
-        },
-        createdAt: Date.now(),
-        status: 'active'
-      };
-
-      await set(ref(database, `users/${currentUser.uid}/cropSchedules/${scheduleId}`), scheduleData);
-      
-      // Reset form
-      setFormData({
-        cropType: '',
-        startDate: '',
-        endDate: '',
-        fertilizerNotes: '',
-        customParams: {
-          airTempMin: '',
-          airTempMax: '',
-          airHumidityMin: '',
-          airHumidityMax: '',
-          soilMoistureMin: '',
-          soilMoistureMax: '',
-          soilTempMin: '',
-          soilTempMax: '',
-          gasLevelMax: ''
-        }
-      });
-      setShowAddForm(false);
-      setError(null);
-    } catch (error) {
-      console.error('Error adding crop schedule:', error);
-      setError('Failed to add crop schedule');
-    }
-  };
-
-  // Get active crop schedule
-  const getActiveSchedule = () => {
-    const now = new Date();
-    return cropSchedules.find(schedule => {
-      const startDate = new Date(schedule.startDate);
-      const endDate = new Date(schedule.endDate);
-      return now >= startDate && now <= endDate && schedule.status === 'active';
-    });
-  };
-
-  // Redirect to login if not authenticated (after all hooks)
-  if (!currentUser) {
-    return <Navigate to="/login" replace />;
-  }
-
-  const activeSchedule = getActiveSchedule();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading crop schedules...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Crop Management</h1>
-              <p className="mt-2 text-gray-600">Schedule and monitor your crops</p>
-            </div>
-            <Link
-              to="/dashboard"
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              Back to Dashboard
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Active Schedule Status */}
-        {activeSchedule && (
-          <div className="mb-8 bg-green-50 border border-green-200 rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <svg className="h-8 w-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-lg font-medium text-green-800">
-                  Active Crop: {activeSchedule.cropType}
-                </h3>
-                <p className="text-green-700">
-                  {new Date(activeSchedule.startDate).toLocaleDateString()} - {new Date(activeSchedule.endDate).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-red-800">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Add Schedule Button */}
-        <div className="mb-6">
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
-          >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            {showAddForm ? 'Cancel' : 'Add Crop Schedule'}
-          </button>
-        </div>
-
-        {/* Add Schedule Form */}
-        {showAddForm && (
-          <div className="mb-8 bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Add New Crop Schedule</h2>
-            <form onSubmit={handleAddSchedule} className="space-y-6">
-              {/* Crop Type Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Crop Type *
-                </label>
-                <select
-                  name="cropType"
-                  value={formData.cropType}
-                  onChange={(e) => handleCropTypeChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                  required
-                >
-                  <option value="">Select a crop</option>
-                  {Object.entries(cropCatalog).map(([key, crop]) => (
-                    <option key={key} value={key}>{crop.name}</option>
-                  ))}
-                </select>
-                {formData.cropType && (
-                  <p className="mt-1 text-sm text-gray-500">
-                    {cropCatalog[formData.cropType].description}
-                  </p>
-                )}
-              </div>
-
-              {/* Date Range */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Start Date *
-                  </label>
-                  <input
-                    type="date"
-                    name="startDate"
-                    value={formData.startDate}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    End Date *
-                  </label>
-                  <input
-                    type="date"
-                    name="endDate"
-                    value={formData.endDate}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Fertilizer Notes */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Fertilizer Notes
-                </label>
-                <textarea
-                  name="fertilizerNotes"
-                  value={formData.fertilizerNotes}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Add notes about fertilizer schedule, type, and application..."
-                />
-              </div>
-
-              {/* Custom Parameters */}
-              {formData.cropType && (
-                <div>
-                  <h3 className="text-md font-medium text-gray-900 mb-3">Custom Parameter Overrides (Optional)</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Air Temp Min (°C)
-                      </label>
-                      <input
-                        type="number"
-                        name="customParams.airTempMin"
-                        value={formData.customParams.airTempMin}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Air Temp Max (°C)
-                      </label>
-                      <input
-                        type="number"
-                        name="customParams.airTempMax"
-                        value={formData.customParams.airTempMax}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Air Humidity Min (%)
-                      </label>
-                      <input
-                        type="number"
-                        name="customParams.airHumidityMin"
-                        value={formData.customParams.airHumidityMin}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Air Humidity Max (%)
-                      </label>
-                      <input
-                        type="number"
-                        name="customParams.airHumidityMax"
-                        value={formData.customParams.airHumidityMax}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Soil Moisture Min (%)
-                      </label>
-                      <input
-                        type="number"
-                        name="customParams.soilMoistureMin"
-                        value={formData.customParams.soilMoistureMin}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Soil Moisture Max (%)
-                      </label>
-                      <input
-                        type="number"
-                        name="customParams.soilMoistureMax"
-                        value={formData.customParams.soilMoistureMax}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Soil Temp Min (°C)
-                      </label>
-                      <input
-                        type="number"
-                        name="customParams.soilTempMin"
-                        value={formData.customParams.soilTempMin}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Soil Temp Max (°C)
-                      </label>
-                      <input
-                        type="number"
-                        name="customParams.soilTempMax"
-                        value={formData.customParams.soilTempMax}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Gas Level Max (PPM)
-                      </label>
-                      <input
-                        type="number"
-                        name="customParams.gasLevelMax"
-                        value={formData.customParams.gasLevelMax}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Submit Button */}
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
-                >
-                  Add Schedule
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Crop Schedules List */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Crop Schedules</h2>
-          </div>
-          <div className="divide-y divide-gray-200">
-            {cropSchedules.length === 0 ? (
-              <div className="px-6 py-8 text-center">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No crop schedules</h3>
-                <p className="mt-1 text-sm text-gray-500">Get started by adding your first crop schedule.</p>
-              </div>
-            ) : (
-              cropSchedules.map((schedule) => {
-                const isActive = schedule.id === activeSchedule?.id;
-                const startDate = new Date(schedule.startDate);
-                const endDate = new Date(schedule.endDate);
-                const now = new Date();
-                const isUpcoming = startDate > now;
-                const isCompleted = endDate < now;
-
-                return (
-                  <div key={schedule.id} className="px-6 py-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center">
-                          <h3 className="text-lg font-medium text-gray-900">{schedule.cropType}</h3>
-                          {isActive && (
-                            <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              Active
-                            </span>
-                          )}
-                          {isUpcoming && (
-                            <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              Upcoming
-                            </span>
-                          )}
-                          {isCompleted && (
-                            <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                              Completed
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600">
-                          {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
-                        </p>
-                        {schedule.fertilizerNotes && (
-                          <p className="mt-1 text-sm text-gray-500">
-                            <span className="font-medium">Fertilizer:</span> {schedule.fertilizerNotes}
-                          </p>
-                        )}
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm text-gray-500">
-                          <div>Air Temp: {schedule.parameters.airTempMin}°C - {schedule.parameters.airTempMax}°C</div>
-                          <div>Soil Moisture: {schedule.parameters.soilMoistureMin}% - {schedule.parameters.soilMoistureMax}%</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default CropManagement;
+import React, { useState, useEffect } from 'react';import { useAuth } from '../contexts/AuthContext';import { Navigate, Link } from 'react-router-dom';import { ref, onValue, off, push, set } from 'firebase/database';import { database } from '../config/firebase';const CropManagement = () => {  const { currentUser } = useAuth();  const [cropSchedules, setCropSchedules] = useState([]);  const [showAddForm, setShowAddForm] = useState(false);  const [loading, setLoading] = useState(true);  const [error, setError] = useState(null);  const cropCatalog = {    'Tomato': {      name: 'Tomato',      airTempMin: 18,      airTempMax: 24,      airHumidityMin: 60,      airHumidityMax: 80,      soilMoistureMin: 40,      soilMoistureMax: 70,      soilTempMin: 16,      soilTempMax: 22,      gasLevelMax: 1000,      description: 'Warm season crop, requires consistent moisture'    },    'Rice': {      name: 'Rice',      airTempMin: 20,      airTempMax: 35,      airHumidityMin: 70,      airHumidityMax: 90,      soilMoistureMin: 60,      soilMoistureMax: 90,      soilTempMin: 18,      soilTempMax: 30,      gasLevelMax: 800,      description: 'Water-intensive crop, thrives in warm, humid conditions'    },    'Corn': {      name: 'Corn',      airTempMin: 15,      airTempMax: 30,      airHumidityMin: 50,      airHumidityMax: 70,      soilMoistureMin: 30,      soilMoistureMax: 60,      soilTempMin: 12,      soilTempMax: 25,      gasLevelMax: 1200,      description: 'Versatile crop, moderate water requirements'    },    'Lettuce': {      name: 'Lettuce',      airTempMin: 10,      airTempMax: 20,      airHumidityMin: 60,      airHumidityMax: 80,      soilMoistureMin: 50,      soilMoistureMax: 80,      soilTempMin: 8,      soilTempMax: 18,      gasLevelMax: 600,      description: 'Cool season crop, high moisture needs'    },    'Pepper': {      name: 'Pepper',      airTempMin: 20,      airTempMax: 28,      airHumidityMin: 50,      airHumidityMax: 70,      soilMoistureMin: 40,      soilMoistureMax: 70,      soilTempMin: 18,      soilTempMax: 25,      gasLevelMax: 900,      description: 'Warm season crop, moderate water requirements'    }  };  const [formData, setFormData] = useState({    cropType: '',    startDate: '',    endDate: '',    fertilizerNotes: '',    customParams: {      airTempMin: '',      airTempMax: '',      airHumidityMin: '',      airHumidityMax: '',      soilMoistureMin: '',      soilMoistureMax: '',      soilTempMin: '',      soilTempMax: '',      gasLevelMax: ''    }  });  useEffect(() => {    if (!currentUser) return;    const schedulesRef = ref(database, `users/${currentUser.uid}/cropSchedules`);    const unsubscribe = onValue(schedulesRef, (snapshot) => {      try {        const data = snapshot.val();        if (data) {          const schedules = Object.entries(data).map(([id, schedule]) => ({            id,            ...schedule          }));          setCropSchedules(schedules);        } else {          setCropSchedules([]);        }        setLoading(false);      } catch (error) {        console.error('Error fetching crop schedules:', error);        setError('Failed to load crop schedules');        setLoading(false);      }    });    return () => off(schedulesRef, 'value', unsubscribe);  }, [currentUser]);  const handleInputChange = (e) => {    const { name, value } = e.target;    if (name.startsWith('customParams.')) {      const paramName = name.split('.')[1];      setFormData(prev => ({        ...prev,        customParams: {          ...prev.customParams,          [paramName]: value        }      }));    } else {      setFormData(prev => ({        ...prev,        [name]: value      }));    }  };  const handleCropTypeChange = (cropType) => {    const crop = cropCatalog[cropType];    setFormData(prev => ({      ...prev,      cropType,      customParams: {        airTempMin: crop.airTempMin,        airTempMax: crop.airTempMax,        airHumidityMin: crop.airHumidityMin,        airHumidityMax: crop.airHumidityMax,        soilMoistureMin: crop.soilMoistureMin,        soilMoistureMax: crop.soilMoistureMax,        soilTempMin: crop.soilTempMin,        soilTempMax: crop.soilTempMax,        gasLevelMax: crop.gasLevelMax      }    }));  };  const handleAddSchedule = async (e) => {    e.preventDefault();    if (!formData.cropType || !formData.startDate || !formData.endDate) {      setError('Please fill in all required fields');      return;    }    try {      const scheduleId = push(ref(database, `users/${currentUser.uid}/cropSchedules`)).key;      const scheduleData = {        cropType: formData.cropType,        startDate: formData.startDate,        endDate: formData.endDate,        fertilizerNotes: formData.fertilizerNotes,        parameters: {          airTempMin: parseFloat(formData.customParams.airTempMin) || cropCatalog[formData.cropType].airTempMin,          airTempMax: parseFloat(formData.customParams.airTempMax) || cropCatalog[formData.cropType].airTempMax,          airHumidityMin: parseFloat(formData.customParams.airHumidityMin) || cropCatalog[formData.cropType].airHumidityMin,          airHumidityMax: parseFloat(formData.customParams.airHumidityMax) || cropCatalog[formData.cropType].airHumidityMax,          soilMoistureMin: parseFloat(formData.customParams.soilMoistureMin) || cropCatalog[formData.cropType].soilMoistureMin,          soilMoistureMax: parseFloat(formData.customParams.soilMoistureMax) || cropCatalog[formData.cropType].soilMoistureMax,          soilTempMin: parseFloat(formData.customParams.soilTempMin) || cropCatalog[formData.cropType].soilTempMin,          soilTempMax: parseFloat(formData.customParams.soilTempMax) || cropCatalog[formData.cropType].soilTempMax,          gasLevelMax: parseFloat(formData.customParams.gasLevelMax) || cropCatalog[formData.cropType].gasLevelMax        },        createdAt: Date.now(),        status: 'active'      };      await set(ref(database, `users/${currentUser.uid}/cropSchedules/${scheduleId}`), scheduleData);      setFormData({        cropType: '',        startDate: '',        endDate: '',        fertilizerNotes: '',        customParams: {          airTempMin: '',          airTempMax: '',          airHumidityMin: '',          airHumidityMax: '',          soilMoistureMin: '',          soilMoistureMax: '',          soilTempMin: '',          soilTempMax: '',          gasLevelMax: ''        }      });      setShowAddForm(false);      setError(null);    } catch (error) {      console.error('Error adding crop schedule:', error);      setError('Failed to add crop schedule');    }  };  const getActiveSchedule = () => {    const now = new Date();    return cropSchedules.find(schedule => {      const startDate = new Date(schedule.startDate);      const endDate = new Date(schedule.endDate);      return now >= startDate && now <= endDate && schedule.status === 'active';    });  };  if (!currentUser) {    return <Navigate to="/login" replace />;  }  const activeSchedule = getActiveSchedule();  if (loading) {    return (      <div className="min-h-screen bg-gray-50 flex items-center justify-center">        <div className="text-center">          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>          <p className="mt-4 text-gray-600">Loading crop schedules...</p>        </div>      </div>    );  }  return (    <div className="min-h-screen bg-gray-50">      {}      <div className="bg-white shadow-sm border-b">        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">          <div className="flex justify-between items-center py-6">            <div>              <h1 className="text-3xl font-bold text-gray-900">Crop Management</h1>              <p className="mt-2 text-gray-600">Schedule and monitor your crops</p>            </div>            <Link              to="/dashboard"              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"            >              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />              </svg>              Back to Dashboard            </Link>          </div>        </div>      </div>      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">        {}        {activeSchedule && (          <div className="mb-8 bg-green-50 border border-green-200 rounded-lg p-6">            <div className="flex items-center">              <div className="flex-shrink-0">                <svg className="h-8 w-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />                </svg>              </div>              <div className="ml-3">                <h3 className="text-lg font-medium text-green-800">                  Active Crop: {activeSchedule.cropType}                </h3>                <p className="text-green-700">                  {new Date(activeSchedule.startDate).toLocaleDateString()} - {new Date(activeSchedule.endDate).toLocaleDateString()}                </p>              </div>            </div>          </div>        )}        {}        {error && (          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">            <div className="flex">              <div className="flex-shrink-0">                <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />                </svg>              </div>              <div className="ml-3">                <p className="text-sm text-red-800">{error}</p>              </div>            </div>          </div>        )}        {}        <div className="mb-6">          <button            onClick={() => setShowAddForm(!showAddForm)}            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"          >            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />            </svg>            {showAddForm ? 'Cancel' : 'Add Crop Schedule'}          </button>        </div>        {}        {showAddForm && (          <div className="mb-8 bg-white rounded-lg shadow p-6">            <h2 className="text-lg font-medium text-gray-900 mb-4">Add New Crop Schedule</h2>            <form onSubmit={handleAddSchedule} className="space-y-6">              {}              <div>                <label className="block text-sm font-medium text-gray-700 mb-2">                  Crop Type *                </label>                <select                  name="cropType"                  value={formData.cropType}                  onChange={(e) => handleCropTypeChange(e.target.value)}                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"                  required                >                  <option value="">Select a crop</option>                  {Object.entries(cropCatalog).map(([key, crop]) => (                    <option key={key} value={key}>{crop.name}</option>                  ))}                </select>                {formData.cropType && (                  <p className="mt-1 text-sm text-gray-500">                    {cropCatalog[formData.cropType].description}                  </p>                )}              </div>              {}              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">                <div>                  <label className="block text-sm font-medium text-gray-700 mb-2">                    Start Date *                  </label>                  <input                    type="date"                    name="startDate"                    value={formData.startDate}                    onChange={handleInputChange}                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"                    required                  />                </div>                <div>                  <label className="block text-sm font-medium text-gray-700 mb-2">                    End Date *                  </label>                  <input                    type="date"                    name="endDate"                    value={formData.endDate}                    onChange={handleInputChange}                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"                    required                  />                </div>              </div>              {}              <div>                <label className="block text-sm font-medium text-gray-700 mb-2">                  Fertilizer Notes                </label>                <textarea                  name="fertilizerNotes"                  value={formData.fertilizerNotes}                  onChange={handleInputChange}                  rows={3}                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"                  placeholder="Add notes about fertilizer schedule, type, and application..."                />              </div>              {}              {formData.cropType && (                <div>                  <h3 className="text-md font-medium text-gray-900 mb-3">Custom Parameter Overrides (Optional)</h3>                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">                    <div>                      <label className="block text-sm font-medium text-gray-700 mb-1">                        Air Temp Min (°C)                      </label>                      <input                        type="number"                        name="customParams.airTempMin"                        value={formData.customParams.airTempMin}                        onChange={handleInputChange}                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"                      />                    </div>                    <div>                      <label className="block text-sm font-medium text-gray-700 mb-1">                        Air Temp Max (°C)                      </label>                      <input                        type="number"                        name="customParams.airTempMax"                        value={formData.customParams.airTempMax}                        onChange={handleInputChange}                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"                      />                    </div>                    <div>                      <label className="block text-sm font-medium text-gray-700 mb-1">                        Air Humidity Min (%)                      </label>                      <input                        type="number"                        name="customParams.airHumidityMin"                        value={formData.customParams.airHumidityMin}                        onChange={handleInputChange}                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"                      />                    </div>                    <div>                      <label className="block text-sm font-medium text-gray-700 mb-1">                        Air Humidity Max (%)                      </label>                      <input                        type="number"                        name="customParams.airHumidityMax"                        value={formData.customParams.airHumidityMax}                        onChange={handleInputChange}                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"                      />                    </div>                    <div>                      <label className="block text-sm font-medium text-gray-700 mb-1">                        Soil Moisture Min (%)                      </label>                      <input                        type="number"                        name="customParams.soilMoistureMin"                        value={formData.customParams.soilMoistureMin}                        onChange={handleInputChange}                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"                      />                    </div>                    <div>                      <label className="block text-sm font-medium text-gray-700 mb-1">                        Soil Moisture Max (%)                      </label>                      <input                        type="number"                        name="customParams.soilMoistureMax"                        value={formData.customParams.soilMoistureMax}                        onChange={handleInputChange}                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"                      />                    </div>                    <div>                      <label className="block text-sm font-medium text-gray-700 mb-1">                        Soil Temp Min (°C)                      </label>                      <input                        type="number"                        name="customParams.soilTempMin"                        value={formData.customParams.soilTempMin}                        onChange={handleInputChange}                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"                      />                    </div>                    <div>                      <label className="block text-sm font-medium text-gray-700 mb-1">                        Soil Temp Max (°C)                      </label>                      <input                        type="number"                        name="customParams.soilTempMax"                        value={formData.customParams.soilTempMax}                        onChange={handleInputChange}                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"                      />                    </div>                    <div>                      <label className="block text-sm font-medium text-gray-700 mb-1">                        Gas Level Max (PPM)                      </label>                      <input                        type="number"                        name="customParams.gasLevelMax"                        value={formData.customParams.gasLevelMax}                        onChange={handleInputChange}                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"                      />                    </div>                  </div>                </div>              )}              {}              <div className="flex justify-end space-x-3">                <button                  type="button"                  onClick={() => setShowAddForm(false)}                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"                >                  Cancel                </button>                <button                  type="submit"                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"                >                  Add Schedule                </button>              </div>            </form>          </div>        )}        {}        <div className="bg-white rounded-lg shadow">          <div className="px-6 py-4 border-b border-gray-200">            <h2 className="text-lg font-medium text-gray-900">Crop Schedules</h2>          </div>          <div className="divide-y divide-gray-200">            {cropSchedules.length === 0 ? (              <div className="px-6 py-8 text-center">                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />                </svg>                <h3 className="mt-2 text-sm font-medium text-gray-900">No crop schedules</h3>                <p className="mt-1 text-sm text-gray-500">Get started by adding your first crop schedule.</p>              </div>            ) : (              cropSchedules.map((schedule) => {                const isActive = schedule.id === activeSchedule?.id;                const startDate = new Date(schedule.startDate);                const endDate = new Date(schedule.endDate);                const now = new Date();                const isUpcoming = startDate > now;                const isCompleted = endDate < now;                return (                  <div key={schedule.id} className="px-6 py-4">                    <div className="flex items-center justify-between">                      <div className="flex-1">                        <div className="flex items-center">                          <h3 className="text-lg font-medium text-gray-900">{schedule.cropType}</h3>                          {isActive && (                            <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">                              Active                            </span>                          )}                          {isUpcoming && (                            <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">                              Upcoming                            </span>                          )}                          {isCompleted && (                            <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">                              Completed                            </span>                          )}                        </div>                        <p className="text-sm text-gray-600">                          {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}                        </p>                        {schedule.fertilizerNotes && (                          <p className="mt-1 text-sm text-gray-500">                            <span className="font-medium">Fertilizer:</span> {schedule.fertilizerNotes}                          </p>                        )}                      </div>                      <div className="ml-4">                        <div className="text-sm text-gray-500">                          <div>Air Temp: {schedule.parameters.airTempMin}°C - {schedule.parameters.airTempMax}°C</div>                          <div>Soil Moisture: {schedule.parameters.soilMoistureMin}% - {schedule.parameters.soilMoistureMax}%</div>                        </div>                      </div>                    </div>                  </div>                );              })            )}          </div>        </div>      </div>    </div>  );};export default CropManagement;

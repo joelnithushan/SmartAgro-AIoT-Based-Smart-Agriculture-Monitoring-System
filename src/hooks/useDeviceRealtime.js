@@ -30,7 +30,7 @@ export const useDeviceRealtime = (deviceId) => {
   const [relayStatus, setRelayStatus] = useState("off");
   const [irrigationMode, setIrrigationMode] = useState("manual");
   const [schedules, setSchedules] = useState([]);
-  const [thresholds, setThresholds] = useState({
+  const [thresholds, setThresholdsState] = useState({
     soilMoistureLow: 10,
     soilMoistureHigh: 30
   });
@@ -272,7 +272,7 @@ export const useDeviceRealtime = (deviceId) => {
     const unsubscribeThresholds = onValue(thresholdsRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        setThresholds(data);
+        setThresholdsState(data);
       }
     }, (error) => {
       console.error('❌ Error in thresholds subscription:', error);
@@ -360,7 +360,7 @@ export const useDeviceRealtime = (deviceId) => {
   }, [deviceId, auth, database]);
 
   // Set irrigation mode
-  const setIrrigationMode = useCallback(async (mode) => {
+  const updateIrrigationMode = useCallback(async (mode) => {
     if (!deviceId || !database) {
       toast.error('No device connected');
       return;
@@ -382,7 +382,7 @@ export const useDeviceRealtime = (deviceId) => {
   }, [deviceId]);
 
   // Set thresholds
-  const setThresholds = useCallback(async (newThresholds) => {
+  const updateThresholds = useCallback(async (newThresholds) => {
     if (!deviceId || !database) {
       toast.error('No device connected');
       return;
@@ -455,8 +455,8 @@ export const useDeviceRealtime = (deviceId) => {
     schedules,
     thresholds,
     togglePump,
-    setIrrigationMode,
-    setThresholds,
+    setIrrigationMode: updateIrrigationMode,
+    setThresholds: updateThresholds,
     addSchedule,
     removeSchedule
   };

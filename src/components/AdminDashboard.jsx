@@ -110,7 +110,10 @@ const AdminDashboard = () => {
     <div className="space-y-6">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-lg p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">Welcome to SmartAgro Admin</h1>
+        <h1 className="text-2xl font-bold mb-2 flex items-center">
+          <span className="mr-2">🍃</span>
+          Welcome to SmartAgro Admin
+        </h1>
         <p className="text-green-100">Manage your smart farming platform and monitor all connected devices</p>
       </div>
 

@@ -1,53 +1,1 @@
-const admin = require('firebase-admin');
-const fs = require('fs');
-
-// Initialize Firebase Admin
-const serviceAccount = require('./config/serviceAccountKey.json');
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: 'https://smartagro-4-default-rtdb.asia-southeast1.firebasedatabase.app'
-});
-
-async function deployESP32FriendlyRules() {
-  try {
-    console.log('🔧 Deploying ESP32-friendly Firebase Realtime Database rules...');
-    
-    // Read the ESP32-friendly rules file
-    const rules = JSON.parse(fs.readFileSync('./firebase-realtime-db-rules-esp32-friendly.json', 'utf8'));
-    
-    // Deploy the rules
-    await admin.database().setRules(JSON.stringify(rules));
-    
-    console.log('✅ ESP32-friendly rules deployed successfully!');
-    console.log('📋 Key changes made:');
-    console.log('   - ESP32 can write sensor data WITHOUT authentication');
-    console.log('   - ESP32 can write to /devices/{deviceId}/sensors/latest');
-    console.log('   - ESP32 can write to /devices/{deviceId}/sensors/history');
-    console.log('   - Users can read sensor data with authentication');
-    console.log('   - Control commands still require authentication');
-    console.log('   - Schedules still require authentication');
-    
-    console.log('\n🔐 Security model:');
-    console.log('   - ESP32: Can write sensor data (no auth required)');
-    console.log('   - Users: Can read sensor data (auth required)');
-    console.log('   - Users: Can control devices (auth required)');
-    console.log('   - Users: Can manage schedules (auth required)');
-    console.log('   - Users: Can access their own profile data');
-    
-    console.log('\n🎯 This should fix both issues:');
-    console.log('   1. ESP32 can send sensor data without permission errors');
-    console.log('   2. Frontend can read sensor data without permission errors');
-    
-    console.log('\n⏰ Next steps:');
-    console.log('   1. ESP32 should start sending data immediately');
-    console.log('   2. Frontend should show real-time data');
-    console.log('   3. Check the dashboard for live sensor readings');
-    
-  } catch (error) {
-    console.error('❌ Error deploying ESP32-friendly rules:', error);
-  } finally {
-    process.exit(0);
-  }
-}
-
-deployESP32FriendlyRules();
+const admin = require('firebase-admin');const fs = require('fs');const serviceAccount = require('./config/serviceAccountKey.json');admin.initializeApp({  credential: admin.credential.cert(serviceAccount),  databaseURL: 'https:});async function deployESP32FriendlyRules() {  try {    console.log('🔧 Deploying ESP32-friendly Firebase Realtime Database rules...');    const rules = JSON.parse(fs.readFileSync('./firebase-realtime-db-rules-esp32-friendly.json', 'utf8'));    await admin.database().setRules(JSON.stringify(rules));    console.log('✅ ESP32-friendly rules deployed successfully!');    console.log('📋 Key changes made:');    console.log('   - ESP32 can write sensor data WITHOUT authentication');    console.log('   - ESP32 can write to /devices/{deviceId}/sensors/latest');    console.log('   - ESP32 can write to /devices/{deviceId}/sensors/history');    console.log('   - Users can read sensor data with authentication');    console.log('   - Control commands still require authentication');    console.log('   - Schedules still require authentication');    console.log('\n🔐 Security model:');    console.log('   - ESP32: Can write sensor data (no auth required)');    console.log('   - Users: Can read sensor data (auth required)');    console.log('   - Users: Can control devices (auth required)');    console.log('   - Users: Can manage schedules (auth required)');    console.log('   - Users: Can access their own profile data');    console.log('\n🎯 This should fix both issues:');    console.log('   1. ESP32 can send sensor data without permission errors');    console.log('   2. Frontend can read sensor data without permission errors');    console.log('\n⏰ Next steps:');    console.log('   1. ESP32 should start sending data immediately');    console.log('   2. Frontend should show real-time data');    console.log('   3. Check the dashboard for live sensor readings');  } catch (error) {    console.error('❌ Error deploying ESP32-friendly rules:', error);  } finally {    process.exit(0);  }}deployESP32FriendlyRules();

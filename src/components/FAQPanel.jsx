@@ -5,7 +5,7 @@ const FAQPanel = ({ onFAQClick, isCollapsible = false, onToggle, isOpen = true }
   const { currentUser } = useAuth();
   const [faqs, setFaqs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error] = useState(null);
 
   useEffect(() => {
     const loadFAQs = async () => {
@@ -16,7 +16,7 @@ const FAQPanel = ({ onFAQClick, isCollapsible = false, onToggle, isOpen = true }
       
       try {
         const token = await currentUser.getIdToken();
-            const response = await fetch('http://localhost:5001/api/chat/faqs', {
+            const response = await fetch('http://localhost:5000/api/chat/faqs', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'

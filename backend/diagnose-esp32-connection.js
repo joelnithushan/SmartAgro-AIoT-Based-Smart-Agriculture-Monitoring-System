@@ -1,107 +1,1 @@
-const admin = require('firebase-admin');
-const serviceAccount = require('./config/serviceAccountKey.json');
-
-// Initialize Firebase Admin
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-        databaseURL: 'https://smartagro-solution-default-rtdb.asia-southeast1.firebasedatabase.app'
-});
-
-async function diagnoseESP32Connection() {
-  console.log('🔍 Diagnosing ESP32 Connection Issues...');
-  console.log('=====================================');
-  
-  try {
-    const database = admin.database();
-    
-    // Check if device path exists
-    console.log('1. Checking device path: /devices/ESP32_001');
-    const deviceRef = database.ref('devices/ESP32_001');
-    const deviceSnapshot = await deviceRef.once('value');
-    
-    if (deviceSnapshot.exists()) {
-      console.log('✅ Device path exists');
-      const deviceData = deviceSnapshot.val();
-      console.log('📊 Device data keys:', Object.keys(deviceData));
-      
-      // Check sensors/latest
-      if (deviceData.sensors && deviceData.sensors.latest) {
-        console.log('✅ Latest sensor data exists');
-        console.log('📊 Latest data:', JSON.stringify(deviceData.sensors.latest, null, 2));
-        
-        // Check timestamp
-        const latestData = deviceData.sensors.latest;
-        if (latestData.timestamp) {
-          const dataAge = Date.now() - latestData.timestamp;
-          console.log(`⏰ Data age: ${Math.round(dataAge / 1000)} seconds ago`);
-          
-          if (dataAge > 30000) { // 30 seconds
-            console.log('⚠️  Data is old - ESP32 might not be sending data');
-          } else {
-            console.log('✅ Data is recent - ESP32 is sending data');
-          }
-        }
-      } else {
-        console.log('❌ No latest sensor data found');
-      }
-      
-      // Check sensors/history
-      if (deviceData.sensors && deviceData.sensors.history) {
-        const historyKeys = Object.keys(deviceData.sensors.history);
-        console.log(`✅ History data exists (${historyKeys.length} entries)`);
-        
-        if (historyKeys.length > 0) {
-          const latestHistoryKey = historyKeys[historyKeys.length - 1];
-          const latestHistory = deviceData.sensors.history[latestHistoryKey];
-          console.log('📊 Latest history entry:', JSON.stringify(latestHistory, null, 2));
-        }
-      } else {
-        console.log('❌ No history data found');
-      }
-      
-      // Check control paths
-      if (deviceData.control) {
-        console.log('✅ Control paths exist');
-        console.log('📊 Control data:', JSON.stringify(deviceData.control, null, 2));
-      } else {
-        console.log('❌ No control paths found');
-      }
-      
-    } else {
-      console.log('❌ Device path does not exist');
-      console.log('🔧 Possible issues:');
-      console.log('   - ESP32 not connected to WiFi');
-      console.log('   - ESP32 not sending data to Firebase');
-      console.log('   - Wrong device ID in ESP32 code');
-      console.log('   - Firebase URL incorrect in ESP32');
-    }
-    
-    // Check all devices
-    console.log('\n2. Checking all devices in database:');
-    const allDevicesRef = database.ref('devices');
-    const allDevicesSnapshot = await allDevicesRef.once('value');
-    
-    if (allDevicesSnapshot.exists()) {
-      const allDevices = allDevicesSnapshot.val();
-      console.log('📊 All device IDs:', Object.keys(allDevices));
-    } else {
-      console.log('❌ No devices found in database');
-    }
-    
-  } catch (error) {
-    console.error('❌ Error during diagnosis:', error);
-  }
-  
-  console.log('\n=====================================');
-  console.log('🔧 Troubleshooting Steps:');
-  console.log('1. Check ESP32 Serial Monitor for errors');
-  console.log('2. Verify WiFi connection in ESP32');
-  console.log('3. Check Firebase URL in ESP32 code');
-  console.log('4. Verify device ID matches (ESP32_001)');
-  console.log('5. Check Firebase security rules');
-  console.log('6. Verify ESP32 is actually running the code');
-  
-  process.exit(0);
-}
-
-diagnoseESP32Connection();
+const admin = require('firebase-admin');const serviceAccount = require('./config/serviceAccountKey.json');admin.initializeApp({  credential: admin.credential.cert(serviceAccount),        databaseURL: 'https:});async function diagnoseESP32Connection() {  console.log('🔍 Diagnosing ESP32 Connection Issues...');  console.log('=====================================');  try {    const database = admin.database();    console.log('1. Checking device path: /devices/ESP32_001');    const deviceRef = database.ref('devices/ESP32_001');    const deviceSnapshot = await deviceRef.once('value');    if (deviceSnapshot.exists()) {      console.log('✅ Device path exists');      const deviceData = deviceSnapshot.val();      console.log('📊 Device data keys:', Object.keys(deviceData));      if (deviceData.sensors && deviceData.sensors.latest) {        console.log('✅ Latest sensor data exists');        console.log('📊 Latest data:', JSON.stringify(deviceData.sensors.latest, null, 2));        const latestData = deviceData.sensors.latest;        if (latestData.timestamp) {          const dataAge = Date.now() - latestData.timestamp;          console.log(`⏰ Data age: ${Math.round(dataAge / 1000)} seconds ago`);          if (dataAge > 30000) {             console.log('⚠️  Data is old - ESP32 might not be sending data');          } else {            console.log('✅ Data is recent - ESP32 is sending data');          }        }      } else {        console.log('❌ No latest sensor data found');      }      if (deviceData.sensors && deviceData.sensors.history) {        const historyKeys = Object.keys(deviceData.sensors.history);        console.log(`✅ History data exists (${historyKeys.length} entries)`);        if (historyKeys.length > 0) {          const latestHistoryKey = historyKeys[historyKeys.length - 1];          const latestHistory = deviceData.sensors.history[latestHistoryKey];          console.log('📊 Latest history entry:', JSON.stringify(latestHistory, null, 2));        }      } else {        console.log('❌ No history data found');      }      if (deviceData.control) {        console.log('✅ Control paths exist');        console.log('📊 Control data:', JSON.stringify(deviceData.control, null, 2));      } else {        console.log('❌ No control paths found');      }    } else {      console.log('❌ Device path does not exist');      console.log('🔧 Possible issues:');      console.log('   - ESP32 not connected to WiFi');      console.log('   - ESP32 not sending data to Firebase');      console.log('   - Wrong device ID in ESP32 code');      console.log('   - Firebase URL incorrect in ESP32');    }    console.log('\n2. Checking all devices in database:');    const allDevicesRef = database.ref('devices');    const allDevicesSnapshot = await allDevicesRef.once('value');    if (allDevicesSnapshot.exists()) {      const allDevices = allDevicesSnapshot.val();      console.log('📊 All device IDs:', Object.keys(allDevices));    } else {      console.log('❌ No devices found in database');    }  } catch (error) {    console.error('❌ Error during diagnosis:', error);  }  console.log('\n=====================================');  console.log('🔧 Troubleshooting Steps:');  console.log('1. Check ESP32 Serial Monitor for errors');  console.log('2. Verify WiFi connection in ESP32');  console.log('3. Check Firebase URL in ESP32 code');  console.log('4. Verify device ID matches (ESP32_001)');  console.log('5. Check Firebase security rules');  console.log('6. Verify ESP32 is actually running the code');  process.exit(0);}diagnoseESP32Connection();

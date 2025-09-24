@@ -21,11 +21,11 @@ export const useUserDevices = () => {
     try {
       console.log('🔍 Loading assigned devices for user:', userId);
 
-      // Query deviceRequests for assigned devices
+      // Query deviceRequests for assigned devices - Check multiple statuses
       const requestsQuery = query(
         collection(db, 'deviceRequests'),
         where('userId', '==', userId),
-        where('status', 'in', ['assigned', 'device-assigned'])
+        where('status', 'in', ['assigned', 'device-assigned', 'approved', 'completed', 'active'])
       );
 
       const unsubscribe = onSnapshotCollection(requestsQuery, (snapshot) => {
@@ -55,6 +55,13 @@ export const useUserDevices = () => {
         });
 
         console.log('📱 Assigned devices loaded:', devices.length);
+        
+        // If no devices found by userId, try searching by email
+        if (devices.length === 0) {
+          console.log('🔍 No devices found by userId, trying email search...');
+          // This will be handled by the fallback logic in CropFertilizer
+        }
+        
         setAssignedDevices(devices);
         setDeviceCount(devices.length);
 

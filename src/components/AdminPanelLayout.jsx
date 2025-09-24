@@ -55,7 +55,7 @@ const AdminPanelLayout = ({ children }) => {
             <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">A</span>
             </div>
-            <span className="ml-3 text-xl font-semibold text-gray-900">SmartAgro Admin</span>
+            <span className="ml-3 text-xl font-semibold text-gray-900">🍃 SmartAgro Admin</span>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}

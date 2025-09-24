@@ -11,7 +11,8 @@ const Home = () => {
       <div className="relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
           <div className="text-center">
-            <h1 className="text-6xl md:text-8xl font-black mb-6 text-green-600 tracking-wide drop-shadow-lg" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            <h1 className="text-6xl md:text-8xl font-black mb-6 text-green-600 tracking-wide drop-shadow-lg flex items-center justify-center" style={{ fontFamily: 'Poppins, sans-serif' }}>
+              <span className="mr-4 text-7xl md:text-9xl">🍃</span>
               SmartAgro
             </h1>
             <p className="text-xl md:text-2xl text-gray-600 mb-12 max-w-4xl mx-auto font-light leading-relaxed">

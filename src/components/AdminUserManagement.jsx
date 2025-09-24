@@ -1,455 +1,1 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  UsersIcon, 
-  UserPlusIcon, 
-  UserMinusIcon,
-  EyeIcon,
-  ShieldCheckIcon,
-  ShieldExclamationIcon,
-  DevicePhoneMobileIcon,
-  CalendarIcon
-} from '@heroicons/react/24/outline';
-import { usersService, deviceRequestsService } from '../services/firestoreService';
-import toast from 'react-hot-toast';
-
-const AdminUserManagement = () => {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterRole, setFilterRole] = useState('all');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
-    try {
-      setLoading(true);
-      console.log('🔍 Loading users in AdminUserManagement...');
-      
-      // Load users
-      const usersResult = await usersService.getAllUsers();
-      if (usersResult.success) {
-        const usersData = usersResult.users;
-        
-        // Load device requests for each user to get device counts
-        const usersWithDeviceInfo = await Promise.all(
-          usersData.map(async (user) => {
-            const requestsResult = await deviceRequestsService.getUserRequests(user.id);
-            const requests = requestsResult.success ? requestsResult.requests : [];
-            const assignedDevices = requests.filter(req => req.status === 'assigned');
-            const pendingRequests = requests.filter(req => req.status === 'pending');
-            
-            return {
-              ...user,
-              totalRequests: requests.length,
-              assignedDevices: assignedDevices.length,
-              pendingRequests: pendingRequests.length,
-              deviceIds: assignedDevices.map(req => req.deviceId).filter(Boolean)
-            };
-          })
-        );
-        
-        setUsers(usersWithDeviceInfo);
-        console.log('✅ Users loaded with device info:', usersWithDeviceInfo.length);
-      } else {
-        console.error('❌ Failed to load users:', usersResult.error);
-        toast.error('Failed to load users');
-      }
-    } catch (error) {
-      console.error('❌ Error loading users:', error);
-      toast.error('Error loading users');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRoleChange = async (userId, newRole) => {
-    try {
-      const result = await usersService.updateUserRole(userId, newRole);
-      if (result.success) {
-        toast.success(`User role updated to ${newRole}`);
-        loadUsers();
-      } else {
-        toast.error('Failed to update user role');
-      }
-    } catch (error) {
-      console.error('Error updating user role:', error);
-      toast.error('Error updating user role');
-    }
-  };
-
-  const handleToggleUserStatus = async (userId, currentStatus) => {
-    try {
-      const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-      const result = await usersService.updateUserStatus(userId, newStatus);
-      if (result.success) {
-        toast.success(`User ${newStatus === 'active' ? 'activated' : 'deactivated'}`);
-        loadUsers();
-      } else {
-        toast.error('Failed to update user status');
-      }
-    } catch (error) {
-      console.error('Error updating user status:', error);
-      toast.error('Error updating user status');
-    }
-  };
-
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.fullName?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = filterRole === 'all' || user.role === filterRole;
-    return matchesSearch && matchesRole;
-  });
-
-  const getRoleColor = (role) => {
-    switch (role) {
-      case 'admin': return 'text-red-600 bg-red-100';
-      case 'user': return 'text-green-600 bg-green-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'active': return 'text-green-600 bg-green-100';
-      case 'inactive': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const formatDate = (date) => {
-    if (!date) return 'N/A';
-    const d = date.toDate ? date.toDate() : new Date(date);
-    return d.toLocaleDateString();
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-600">Manage user accounts and permissions</p>
-        </div>
-        <button
-          onClick={loadUsers}
-          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-        >
-          Refresh
-        </button>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <UsersIcon className="w-6 h-6 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Users</p>
-              <p className="text-2xl font-bold text-gray-900">{users.length}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <UserPlusIcon className="w-6 h-6 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Active Users</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {users.filter(user => user.status === 'active' || !user.status).length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <ShieldCheckIcon className="w-6 h-6 text-red-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Admins</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {users.filter(user => user.role === 'admin').length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <DevicePhoneMobileIcon className="w-6 h-6 text-purple-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">With Devices</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {users.filter(user => user.assignedDevices > 0).length}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <input
-              type="text"
-              placeholder="Search users by name or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-          <div>
-            <select
-              value={filterRole}
-              onChange={(e) => setFilterRole(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            >
-              <option value="all">All Roles</option>
-              <option value="admin">Admins</option>
-              <option value="user">Users</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Users Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Users ({filteredUsers.length})</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  User Info
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role & Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Devices
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Requests
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Joined
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredUsers.length > 0 ? (
-                filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                          <span className="text-green-600 font-medium text-sm">
-                            {user.fullName?.charAt(0) || user.email?.charAt(0) || 'U'}
-                          </span>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {user.fullName || 'N/A'}
-                          </div>
-                          <div className="text-sm text-gray-500">{user.email}</div>
-                          {user.phone && (
-                            <div className="text-xs text-gray-400">{user.phone}</div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="space-y-2">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
-                          {user.role === 'admin' ? <ShieldCheckIcon className="w-3 h-3 mr-1" /> : <UserPlusIcon className="w-3 h-3 mr-1" />}
-                          {user.role || 'user'}
-                        </span>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(user.status || 'active')}`}>
-                          {user.status === 'inactive' ? <ShieldExclamationIcon className="w-3 h-3 mr-1" /> : <UserPlusIcon className="w-3 h-3 mr-1" />}
-                          {user.status || 'active'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        <div className="flex items-center">
-                          <DevicePhoneMobileIcon className="w-4 h-4 mr-1 text-green-600" />
-                          {user.assignedDevices} assigned
-                        </div>
-                        {user.deviceIds.length > 0 && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            {user.deviceIds.join(', ')}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        <div>{user.totalRequests} total</div>
-                        <div className="text-xs text-gray-500">
-                          {user.pendingRequests} pending
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex items-center">
-                        <CalendarIcon className="w-4 h-4 mr-1" />
-                        {formatDate(user.createdAt)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => {
-                            setSelectedUser(user);
-                            setShowModal(true);
-                          }}
-                          className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors"
-                        >
-                          <EyeIcon className="w-4 h-4" />
-                        </button>
-                        {user.role !== 'admin' && (
-                          <button
-                            onClick={() => handleRoleChange(user.id, 'admin')}
-                            className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors"
-                          >
-                            Make Admin
-                          </button>
-                        )}
-                        {user.role === 'admin' && user.email !== 'joyadministration66@gmail.com' && (
-                          <button
-                            onClick={() => handleRoleChange(user.id, 'user')}
-                            className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors"
-                          >
-                            Remove Admin
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleToggleUserStatus(user.id, user.status)}
-                          className={`px-3 py-1 rounded-md transition-colors ${
-                            user.status === 'inactive'
-                              ? 'text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100'
-                              : 'text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100'
-                          }`}
-                        >
-                          {user.status === 'inactive' ? 'Activate' : 'Deactivate'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center">
-                    <div className="text-gray-500">
-                      <UsersIcon className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                      <p>No users found</p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* User Details Modal */}
-      {showModal && selectedUser && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">User Details</h3>
-              
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Name</label>
-                  <p className="text-sm text-gray-900">{selectedUser.fullName || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
-                  <p className="text-sm text-gray-900">{selectedUser.email}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Phone</label>
-                  <p className="text-sm text-gray-900">{selectedUser.phone || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">NIC</label>
-                  <p className="text-sm text-gray-900">{selectedUser.nic || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Role</label>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(selectedUser.role)}`}>
-                    {selectedUser.role || 'user'}
-                  </span>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Status</label>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedUser.status || 'active')}`}>
-                    {selectedUser.status || 'active'}
-                  </span>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Devices</label>
-                  <p className="text-sm text-gray-900">
-                    {selectedUser.assignedDevices} assigned ({selectedUser.deviceIds.join(', ') || 'None'})
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Requests</label>
-                  <p className="text-sm text-gray-900">
-                    {selectedUser.totalRequests} total ({selectedUser.pendingRequests} pending)
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Joined</label>
-                  <p className="text-sm text-gray-900">{formatDate(selectedUser.createdAt)}</p>
-                </div>
-              </div>
-
-              <div className="flex justify-end mt-6">
-                <button
-                  onClick={() => {
-                    setShowModal(false);
-                    setSelectedUser(null);
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default AdminUserManagement;
+import React, { useState, useEffect } from 'react';import {   UsersIcon,   UserPlusIcon,   UserMinusIcon,  EyeIcon,  ShieldCheckIcon,  ShieldExclamationIcon,  DevicePhoneMobileIcon,  CalendarIcon} from '@heroicons/react/24/outline';import { usersService, deviceRequestsService } from '../services/firestoreService';import toast from 'react-hot-toast';const AdminUserManagement = () => {  const [users, setUsers] = useState([]);  const [loading, setLoading] = useState(true);  const [searchTerm, setSearchTerm] = useState('');  const [filterRole, setFilterRole] = useState('all');  const [selectedUser, setSelectedUser] = useState(null);  const [showModal, setShowModal] = useState(false);  useEffect(() => {    loadUsers();  }, []);  const loadUsers = async () => {    try {      setLoading(true);      console.log('🔍 Loading users in AdminUserManagement...');      const usersResult = await usersService.getAllUsers();      if (usersResult.success) {        const usersData = usersResult.users;        const usersWithDeviceInfo = await Promise.all(          usersData.map(async (user) => {            const requestsResult = await deviceRequestsService.getUserRequests(user.id);            const requests = requestsResult.success ? requestsResult.requests : [];            const assignedDevices = requests.filter(req => req.status === 'assigned');            const pendingRequests = requests.filter(req => req.status === 'pending');            return {              ...user,              totalRequests: requests.length,              assignedDevices: assignedDevices.length,              pendingRequests: pendingRequests.length,              deviceIds: assignedDevices.map(req => req.deviceId).filter(Boolean)            };          })        );        setUsers(usersWithDeviceInfo);        console.log('✅ Users loaded with device info:', usersWithDeviceInfo.length);      } else {        console.error('❌ Failed to load users:', usersResult.error);        toast.error('Failed to load users');      }    } catch (error) {      console.error('❌ Error loading users:', error);      toast.error('Error loading users');    } finally {      setLoading(false);    }  };  const handleRoleChange = async (userId, newRole) => {    try {      const result = await usersService.updateUserRole(userId, newRole);      if (result.success) {        toast.success(`User role updated to ${newRole}`);        loadUsers();      } else {        toast.error('Failed to update user role');      }    } catch (error) {      console.error('Error updating user role:', error);      toast.error('Error updating user role');    }  };  const handleToggleUserStatus = async (userId, currentStatus) => {    try {      const newStatus = currentStatus === 'active' ? 'inactive' : 'active';      const result = await usersService.updateUserStatus(userId, newStatus);      if (result.success) {        toast.success(`User ${newStatus === 'active' ? 'activated' : 'deactivated'}`);        loadUsers();      } else {        toast.error('Failed to update user status');      }    } catch (error) {      console.error('Error updating user status:', error);      toast.error('Error updating user status');    }  };  const filteredUsers = users.filter(user => {    const matchesSearch = user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||                         user.fullName?.toLowerCase().includes(searchTerm.toLowerCase());    const matchesRole = filterRole === 'all' || user.role === filterRole;    return matchesSearch && matchesRole;  });  const getRoleColor = (role) => {    switch (role) {      case 'admin': return 'text-red-600 bg-red-100';      case 'user': return 'text-green-600 bg-green-100';      default: return 'text-gray-600 bg-gray-100';    }  };  const getStatusColor = (status) => {    switch (status) {      case 'active': return 'text-green-600 bg-green-100';      case 'inactive': return 'text-red-600 bg-red-100';      default: return 'text-gray-600 bg-gray-100';    }  };  const formatDate = (date) => {    if (!date) return 'N/A';    const d = date.toDate ? date.toDate() : new Date(date);    return d.toLocaleDateString();  };  if (loading) {    return (      <div className="flex items-center justify-center h-64">        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>      </div>    );  }  return (    <div className="space-y-6">      {}      <div className="flex justify-between items-center">        <div>          <h1 className="text-2xl font-bold text-gray-900">User Management</h1>          <p className="text-gray-600">Manage user accounts and permissions</p>        </div>        <button          onClick={loadUsers}          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"        >          Refresh        </button>      </div>      {}      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">          <div className="flex items-center">            <div className="p-2 bg-blue-100 rounded-lg">              <UsersIcon className="w-6 h-6 text-blue-600" />            </div>            <div className="ml-4">              <p className="text-sm font-medium text-gray-600">Total Users</p>              <p className="text-2xl font-bold text-gray-900">{users.length}</p>            </div>          </div>        </div>        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">          <div className="flex items-center">            <div className="p-2 bg-green-100 rounded-lg">              <UserPlusIcon className="w-6 h-6 text-green-600" />            </div>            <div className="ml-4">              <p className="text-sm font-medium text-gray-600">Active Users</p>              <p className="text-2xl font-bold text-gray-900">                {users.filter(user => user.status === 'active' || !user.status).length}              </p>            </div>          </div>        </div>        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">          <div className="flex items-center">            <div className="p-2 bg-red-100 rounded-lg">              <ShieldCheckIcon className="w-6 h-6 text-red-600" />            </div>            <div className="ml-4">              <p className="text-sm font-medium text-gray-600">Admins</p>              <p className="text-2xl font-bold text-gray-900">                {users.filter(user => user.role === 'admin').length}              </p>            </div>          </div>        </div>        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">          <div className="flex items-center">            <div className="p-2 bg-purple-100 rounded-lg">              <DevicePhoneMobileIcon className="w-6 h-6 text-purple-600" />            </div>            <div className="ml-4">              <p className="text-sm font-medium text-gray-600">With Devices</p>              <p className="text-2xl font-bold text-gray-900">                {users.filter(user => user.assignedDevices > 0).length}              </p>            </div>          </div>        </div>      </div>      {}      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">        <div className="flex flex-col sm:flex-row gap-4">          <div className="flex-1">            <input              type="text"              placeholder="Search users by name or email..."              value={searchTerm}              onChange={(e) => setSearchTerm(e.target.value)}              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"            />          </div>          <div>            <select              value={filterRole}              onChange={(e) => setFilterRole(e.target.value)}              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"            >              <option value="all">All Roles</option>              <option value="admin">Admins</option>              <option value="user">Users</option>            </select>          </div>        </div>      </div>      {}      <div className="bg-white rounded-lg shadow-sm border border-gray-200">        <div className="px-6 py-4 border-b border-gray-200">          <h3 className="text-lg font-medium text-gray-900">Users ({filteredUsers.length})</h3>        </div>        <div className="overflow-x-auto">          <table className="min-w-full divide-y divide-gray-200">            <thead className="bg-gray-50">              <tr>                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">                  User Info                </th>                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">                  Role & Status                </th>                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">                  Devices                </th>                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">                  Requests                </th>                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">                  Joined                </th>                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">                  Actions                </th>              </tr>            </thead>            <tbody className="bg-white divide-y divide-gray-200">              {filteredUsers.length > 0 ? (                filteredUsers.map((user) => (                  <tr key={user.id} className="hover:bg-gray-50">                    <td className="px-6 py-4 whitespace-nowrap">                      <div className="flex items-center">                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">                          <span className="text-green-600 font-medium text-sm">                            {user.fullName?.charAt(0) || user.email?.charAt(0) || 'U'}                          </span>                        </div>                        <div className="ml-4">                          <div className="text-sm font-medium text-gray-900">                            {user.fullName || 'N/A'}                          </div>                          <div className="text-sm text-gray-500">{user.email}</div>                          {user.phone && (                            <div className="text-xs text-gray-400">{user.phone}</div>                          )}                        </div>                      </div>                    </td>                    <td className="px-6 py-4 whitespace-nowrap">                      <div className="space-y-2">                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>                          {user.role === 'admin' ? <ShieldCheckIcon className="w-3 h-3 mr-1" /> : <UserPlusIcon className="w-3 h-3 mr-1" />}                          {user.role || 'user'}                        </span>                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(user.status || 'active')}`}>                          {user.status === 'inactive' ? <ShieldExclamationIcon className="w-3 h-3 mr-1" /> : <UserPlusIcon className="w-3 h-3 mr-1" />}                          {user.status || 'active'}                        </span>                      </div>                    </td>                    <td className="px-6 py-4 whitespace-nowrap">                      <div className="text-sm text-gray-900">                        <div className="flex items-center">                          <DevicePhoneMobileIcon className="w-4 h-4 mr-1 text-green-600" />                          {user.assignedDevices} assigned                        </div>                        {user.deviceIds.length > 0 && (                          <div className="text-xs text-gray-500 mt-1">                            {user.deviceIds.join(', ')}                          </div>                        )}                      </div>                    </td>                    <td className="px-6 py-4 whitespace-nowrap">                      <div className="text-sm text-gray-900">                        <div>{user.totalRequests} total</div>                        <div className="text-xs text-gray-500">                          {user.pendingRequests} pending                        </div>                      </div>                    </td>                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">                      <div className="flex items-center">                        <CalendarIcon className="w-4 h-4 mr-1" />                        {formatDate(user.createdAt)}                      </div>                    </td>                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">                      <div className="flex space-x-2">                        <button                          onClick={() => {                            setSelectedUser(user);                            setShowModal(true);                          }}                          className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors"                        >                          <EyeIcon className="w-4 h-4" />                        </button>                        {user.role !== 'admin' && (                          <button                            onClick={() => handleRoleChange(user.id, 'admin')}                            className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors"                          >                            Make Admin                          </button>                        )}                        {user.role === 'admin' && user.email !== 'joyadministration66@gmail.com' && (                          <button                            onClick={() => handleRoleChange(user.id, 'user')}                            className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md transition-colors"                          >                            Remove Admin                          </button>                        )}                        <button                          onClick={() => handleToggleUserStatus(user.id, user.status)}                          className={`px-3 py-1 rounded-md transition-colors ${                            user.status === 'inactive'                              ? 'text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100'                              : 'text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100'                          }`}                        >                          {user.status === 'inactive' ? 'Activate' : 'Deactivate'}                        </button>                      </div>                    </td>                  </tr>                ))              ) : (                <tr>                  <td colSpan="6" className="px-6 py-12 text-center">                    <div className="text-gray-500">                      <UsersIcon className="w-12 h-12 mx-auto mb-4 text-gray-400" />                      <p>No users found</p>                    </div>                  </td>                </tr>              )}            </tbody>          </table>        </div>      </div>      {}      {showModal && selectedUser && (        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">            <div className="mt-3">              <h3 className="text-lg font-medium text-gray-900 mb-4">User Details</h3>              <div className="space-y-3">                <div>                  <label className="block text-sm font-medium text-gray-700">Name</label>                  <p className="text-sm text-gray-900">{selectedUser.fullName || 'N/A'}</p>                </div>                <div>                  <label className="block text-sm font-medium text-gray-700">Email</label>                  <p className="text-sm text-gray-900">{selectedUser.email}</p>                </div>                <div>                  <label className="block text-sm font-medium text-gray-700">Phone</label>                  <p className="text-sm text-gray-900">{selectedUser.phone || 'N/A'}</p>                </div>                <div>                  <label className="block text-sm font-medium text-gray-700">NIC</label>                  <p className="text-sm text-gray-900">{selectedUser.nic || 'N/A'}</p>                </div>                <div>                  <label className="block text-sm font-medium text-gray-700">Role</label>                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(selectedUser.role)}`}>                    {selectedUser.role || 'user'}                  </span>                </div>                <div>                  <label className="block text-sm font-medium text-gray-700">Status</label>                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedUser.status || 'active')}`}>                    {selectedUser.status || 'active'}                  </span>                </div>                <div>                  <label className="block text-sm font-medium text-gray-700">Devices</label>                  <p className="text-sm text-gray-900">                    {selectedUser.assignedDevices} assigned ({selectedUser.deviceIds.join(', ') || 'None'})                  </p>                </div>                <div>                  <label className="block text-sm font-medium text-gray-700">Requests</label>                  <p className="text-sm text-gray-900">                    {selectedUser.totalRequests} total ({selectedUser.pendingRequests} pending)                  </p>                </div>                <div>                  <label className="block text-sm font-medium text-gray-700">Joined</label>                  <p className="text-sm text-gray-900">{formatDate(selectedUser.createdAt)}</p>                </div>              </div>              <div className="flex justify-end mt-6">                <button                  onClick={() => {                    setShowModal(false);                    setSelectedUser(null);                  }}                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"                >                  Close                </button>              </div>            </div>          </div>        </div>      )}    </div>  );};export default AdminUserManagement;
