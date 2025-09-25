@@ -47,6 +47,10 @@ class AdminApiService {
     return this.makeRequest('/admin/users');
   }
 
+  async getUserDetails(userId) {
+    return this.makeRequest(`/admin/users/${userId}`);
+  }
+
   async promoteUser(userId) {
     return this.makeRequest(`/admin/users/${userId}/promote`, {
       method: 'POST',
@@ -68,6 +72,11 @@ class AdminApiService {
   // Order Management
   async getOrders() {
     return this.makeRequest('/admin/orders');
+  }
+
+  // Device Management
+  async getDevices() {
+    return this.makeRequest('/admin/devices');
   }
 
   async estimateCost(orderId, costData) {
@@ -95,11 +104,6 @@ class AdminApiService {
     return this.makeRequest(`/admin/orders/${orderId}/complete`, {
       method: 'POST',
     });
-  }
-
-  // Device Management
-  async getDevices() {
-    return this.makeRequest('/admin/devices');
   }
 
   async unassignDevice(deviceId) {

@@ -15,49 +15,7 @@ const getMessageCount = async (userId, chatId) => {
   }
 };
 
-// DeepSeek API configuration
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || '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';
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
-
-// Check if DeepSeek API key is valid
-let DEEPSEEK_API_AVAILABLE = false;
-let GEMINI_API_AVAILABLE = false;
-
-// Test DeepSeek API availability on startup
-const testDeepSeekAPI = async () => {
-  if (!DEEPSEEK_API_KEY) {
-    console.log('⚠️  DeepSeek API key not provided');
-    return false;
-  }
-
-  try {
-    const response = await fetch(DEEPSEEK_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [{ role: 'user', content: 'test' }],
-        max_tokens: 10
-      })
-    });
-
-    if (response.ok) {
-      console.log('✅ DeepSeek API is available and working');
-      return true;
-    } else {
-      console.log('❌ DeepSeek API not available:', response.status);
-      return false;
-    }
-  } catch (error) {
-    console.log('❌ DeepSeek API test failed:', error.message);
-    return false;
-  }
-};
-
-// Fallback Gemini API configuration (if DeepSeek fails)
+// Gemini API configuration
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyCcTiJlPxvcvX_Cyfj-RGZ9hr6Hs8nxz7Q'; // Working Gemini API key
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
@@ -96,11 +54,8 @@ const testGeminiAPI = async () => {
   }
 };
 
-// Test APIs on startup
-testDeepSeekAPI().then(available => {
-  DEEPSEEK_API_AVAILABLE = available;
-});
-
+// Test Gemini API on startup
+let GEMINI_API_AVAILABLE = false;
 testGeminiAPI().then(available => {
   GEMINI_API_AVAILABLE = available;
 });
@@ -163,57 +118,6 @@ Be friendly, informative, and always helpful. Keep responses clear and well-stru
   return context;
 };
 
-// Function to call DeepSeek API
-const callDeepSeekAPI = async (message, systemPrompt) => {
-  if (!DEEPSEEK_API_KEY) {
-    console.error('DEEPSEEK_API_KEY not found');
-    return 'I apologize, but the AI service is not properly configured. Please check the server configuration.';
-  }
-
-  try {
-    const response = await fetch(DEEPSEEK_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt
-          },
-          {
-            role: 'user',
-            content: message
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 1024,
-        top_p: 0.8
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('DeepSeek API error:', response.status, errorData);
-      throw new Error(`DeepSeek API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
-      return data.choices[0].message.content;
-    } else {
-      console.error('Unexpected DeepSeek response format:', data);
-      return 'I apologize, but I received an unexpected response format. Please try again.';
-    }
-  } catch (error) {
-    console.error('DeepSeek API error:', error);
-    throw error; // Re-throw to trigger fallback
-  }
-};
 
 // Function to call Gemini API (fallback)
 const callGeminiAPI = async (message, systemPrompt) => {
@@ -401,23 +305,11 @@ router.post('/', async (req, res) => {
     // Get system prompt with context
     const systemPrompt = getSystemPrompt(sensorData, cropData);
     
-    // Get AI response - try DeepSeek first (if available), then Gemini, then canned responses
+    // Get AI response - try Gemini API first, then canned responses
     let aiResponse;
     
-    if (DEEPSEEK_API_AVAILABLE) {
-      try {
-        console.log('🤖 Using DeepSeek API...');
-        aiResponse = await callDeepSeekAPI(message, systemPrompt);
-        console.log('✅ DeepSeek API successful');
-      } catch (deepSeekError) {
-        console.error('❌ DeepSeek API failed:', deepSeekError.message);
-        DEEPSEEK_API_AVAILABLE = false; // Mark as unavailable for future requests
-        // Fall through to next option
-      }
-    }
-    
-    // Try Gemini API first (since DeepSeek is not working)
-    if (!aiResponse && GEMINI_API_AVAILABLE) {
+    // Try Gemini API first
+    if (GEMINI_API_AVAILABLE) {
       try {
         console.log('🤖 Using Gemini API for AI response...');
         aiResponse = await callGeminiAPI(message, systemPrompt);

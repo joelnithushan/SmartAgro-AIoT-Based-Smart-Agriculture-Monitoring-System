@@ -90,6 +90,13 @@ class ApiService {
     });
   }
 
+  // User account management
+  async deleteUserAccount() {
+    return this.makeRequest('/api/users/account', {
+      method: 'DELETE',
+    });
+  }
+
   // Retry logic for network errors
   async makeRequestWithRetry(endpoint, options = {}, maxRetries = 1) {
     let lastError;

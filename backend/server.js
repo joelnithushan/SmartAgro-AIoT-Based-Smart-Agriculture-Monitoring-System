@@ -7,11 +7,19 @@ import { processAlerts } from "./functions/alertProcessor.js";
 import { getSLTimeForLogging, getSLTimezoneOffset } from "./utils/timeUtils.js";
 import adminRouter from "./routes/admin.js";
 import chatRouter from "./routes/chat.js";
+import usersRouter from "./routes/users.js";
+import devicesRouter from "./routes/devices.js";
+import recommendationsRouter from "./routes/recommendations.js";
+import analyzeRouter from "./routes/analyze.js";
+import validationTestRouter from "./routes/validation-test.js";
 
 dotenv.config();
 
 // Initialize Firebase Admin
 const initializeFirebase = async () => {
+  console.log('🔧 Initializing Firebase Admin SDK...');
+  console.log('📊 Current admin apps:', admin.apps.length);
+  
   if (!admin.apps.length) {
     try {
       // Try to load service account key from file
@@ -19,12 +27,25 @@ const initializeFirebase = async () => {
       const require = createRequire(import.meta.url);
       const serviceAccount = require('./config/serviceAccountKey.json');
       
+      console.log('📋 Service account loaded:', {
+        project_id: serviceAccount.project_id,
+        client_email: serviceAccount.client_email,
+        has_private_key: !!serviceAccount.private_key
+      });
+      
       if (serviceAccount.private_key && !serviceAccount.private_key.includes('MOCK')) {
+        // Set the project ID environment variable
+        process.env.GOOGLE_APPLICATION_CREDENTIALS = './config/serviceAccountKey.json';
+        process.env.GCLOUD_PROJECT = serviceAccount.project_id;
+        
         admin.initializeApp({
           credential: admin.credential.cert(serviceAccount),
+          projectId: serviceAccount.project_id,
           databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://smartagro-solution-default-rtdb.asia-southeast1.firebasedatabase.app'
         });
         console.log('✅ Firebase Admin SDK initialized with service account key');
+        console.log('📋 Project ID:', serviceAccount.project_id);
+        console.log('📊 Admin apps after initialization:', admin.apps.length);
       } else {
         console.log('⚠️  Firebase service account not configured - using demo mode');
       }
@@ -32,6 +53,8 @@ const initializeFirebase = async () => {
       console.log('⚠️  Firebase initialization failed:', error.message);
       console.log('   Using demo mode for development');
     }
+  } else {
+    console.log('✅ Firebase Admin SDK already initialized');
   }
 };
 
@@ -39,9 +62,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Mount admin routes
+// Mount routes
 app.use('/api/admin', adminRouter);
 app.use('/api/chat', chatRouter);
+app.use('/api/users', usersRouter);
+app.use('/api/devices', devicesRouter);
+app.use('/api/recommendations', recommendationsRouter);
+app.use('/api/v1', analyzeRouter);
+app.use('/api/validation', validationTestRouter);
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const db = admin.apps.length > 0 ? admin.firestore() : null;
@@ -515,7 +543,7 @@ app.get('/health', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString(),
     geminiConfigured: !!GEMINI_API_KEY,
-    firebaseConfigured: !!process.env.FIREBASE_SERVICE_ACCOUNT
+    firebaseConfigured: admin.apps.length > 0
   });
 });
 
@@ -547,10 +575,10 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   await initializeFirebase();
   
-  app.listen(PORT, () => {
+app.listen(PORT, () => {
     console.log(`🚀 AI Chatbot Server running on port ${PORT}`);
     console.log(`📡 Gemini API configured: ${!!GEMINI_API_KEY}`);
-    console.log(`🔥 Firebase configured: ${!!process.env.FIREBASE_SERVICE_ACCOUNT}`);
+    console.log(`🔥 Firebase configured: ${admin.apps.length > 0}`);
     console.log(`🕐 Server started at: ${getSLTimeForLogging()} (${getSLTimezoneOffset()})`);
     console.log(`🌍 Timezone: Asia/Colombo (Sri Lanka)`);
     console.log(`🔗 Health check: http://localhost:${PORT}/health`);

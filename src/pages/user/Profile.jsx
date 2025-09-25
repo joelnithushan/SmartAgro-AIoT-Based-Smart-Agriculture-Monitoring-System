@@ -2,10 +2,14 @@ import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUserDevices } from '../../hooks/useUserDevices';
 import DeviceSwitcherInProfile from '../../components/DeviceSwitcherInProfile';
+import ConfirmModal from '../../components/common/ConfirmModal';
+import apiService from '../../services/api';
+import { deleteUser } from 'firebase/auth';
+import { auth } from '../../config/firebase';
 import toast from 'react-hot-toast';
 
 const Profile = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, logout } = useAuth();
   const {
     assignedDevices,
     activeDeviceId,
@@ -15,6 +19,8 @@ const Profile = () => {
   } = useUserDevices();
 
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDeviceSwitch = async (deviceId) => {
     if (deviceId === activeDeviceId) return;
@@ -29,6 +35,48 @@ const Profile = () => {
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const handleDeleteAccount = () => {
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteAccount = async () => {
+    if (!currentUser) return;
+
+    setIsDeleting(true);
+    try {
+      // First, delete user data from backend
+      await apiService.deleteUserAccount();
+      
+      // Then delete the Firebase Auth account
+      await deleteUser(currentUser);
+      
+      toast.success('Account deleted successfully');
+      
+      // Logout and redirect
+      await logout();
+      window.location.href = '/';
+      
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      
+      // If backend deletion succeeded but Firebase deletion failed, still logout
+      if (error.message.includes('Firebase')) {
+        toast.error('Account data deleted, but there was an issue with authentication. Please sign out manually.');
+        await logout();
+        window.location.href = '/';
+      } else {
+        toast.error('Failed to delete account. Please try again.');
+      }
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+    }
+  };
+
+  const cancelDeleteAccount = () => {
+    setShowDeleteModal(false);
   };
 
   const activeDevice = getActiveDevice();
@@ -90,6 +138,30 @@ const Profile = () => {
             </div>
           </div>
 
+          {/* Account Management */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Management</h3>
+            <div className="space-y-4">
+              <div className="border-t border-gray-200 pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-900">Deactivate Account</h4>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Permanently delete your account and all associated data. This action cannot be undone.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={isDeleting}
+                    className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                  >
+                    {isDeleting ? 'Deleting...' : 'Deactivate Account'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Device Management */}
           <DeviceSwitcherInProfile />
 
@@ -144,6 +216,19 @@ const Profile = () => {
           )}
         </div>
       </div>
+
+      {/* Account Deletion Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={cancelDeleteAccount}
+        onConfirm={confirmDeleteAccount}
+        title="Deactivate Account"
+        message={`Are you sure you want to permanently delete your account? This will remove all your data including devices, orders, and profile information. This action cannot be undone.`}
+        confirmText="Yes, Delete My Account"
+        cancelText="Cancel"
+        confirmColor="red"
+        loading={isDeleting}
+      />
     </div>
   );
 };

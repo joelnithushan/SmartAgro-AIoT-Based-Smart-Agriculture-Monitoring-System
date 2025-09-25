@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../../config/firebase';
+import ViewModal from '../../components/admin/ViewModal';
 
 const Farms = () => {
   const [farms, setFarms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedFarm, setSelectedFarm] = useState(null);
+  const [showViewModal, setShowViewModal] = useState(false);
 
   useEffect(() => {
     fetchFarms();
@@ -36,12 +38,9 @@ const Farms = () => {
     return date.toLocaleDateString();
   };
 
-  const openFarmDetails = (farm) => {
+  const handleViewFarm = (farm) => {
     setSelectedFarm(farm);
-  };
-
-  const closeFarmDetails = () => {
-    setSelectedFarm(null);
+    setShowViewModal(true);
   };
 
   if (loading) {
@@ -130,10 +129,10 @@ const Farms = () => {
                       Created: {formatDate(farm.createdAt)}
                     </div>
                     <button
-                      onClick={() => openFarmDetails(farm)}
-                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md text-sm font-medium"
+                      onClick={() => handleViewFarm(farm)}
+                      className="bg-green-50 border border-green-200 text-green-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500"
                     >
-                      View Details
+                      View
                     </button>
                   </div>
                 </div>
@@ -143,77 +142,14 @@ const Farms = () => {
         )}
       </div>
 
-      {/* Farm Details Modal */}
-      {selectedFarm && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Farm Details
-                </h3>
-                <button
-                  onClick={closeFarmDetails}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <span className="sr-only">Close</span>
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Farm Name</label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedFarm.name || 'Unnamed Farm'}</p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Owner</label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedFarm.ownerEmail || selectedFarm.userId || 'Unknown'}</p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Location</label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedFarm.location || 'Not specified'}</p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Size</label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedFarm.size ? `${selectedFarm.size} acres` : 'Not specified'}</p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Crop Type</label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedFarm.cropType || 'Not specified'}</p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Created Date</label>
-                  <p className="mt-1 text-sm text-gray-900">{formatDate(selectedFarm.createdAt)}</p>
-                </div>
-                
-                {selectedFarm.description && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Description</label>
-                    <p className="mt-1 text-sm text-gray-900">{selectedFarm.description}</p>
-                  </div>
-                )}
-              </div>
-              
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={closeFarmDetails}
-                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-md text-sm font-medium"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* View Modal */}
+      <ViewModal
+        isOpen={showViewModal}
+        onClose={() => setShowViewModal(false)}
+        title="Farm Details"
+        data={selectedFarm}
+        type="farm"
+      />
     </div>
   );
 };

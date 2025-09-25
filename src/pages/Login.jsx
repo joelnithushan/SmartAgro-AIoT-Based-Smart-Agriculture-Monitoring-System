@@ -1,45 +1,34 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useFormValidation } from '../hooks/useFormValidation';
+import { validationSchemas } from '../utils/validationSchemas';
+import FormWrapper from '../components/common/FormWrapper';
+import FormField from '../components/common/FormField';
 import toast from 'react-hot-toast';
 
 const Login = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
-  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
 
   const { login, googleSignIn, appleSignIn, resetUserPassword } = useAuth();
   const navigate = useNavigate();
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
+  // Form validation
+  const loginForm = useFormValidation(validationSchemas.auth.login);
+  const forgotPasswordForm = useFormValidation(validationSchemas.auth.passwordReset);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
+  const handleLoginSubmit = async (data) => {
     try {
-      const result = await login(formData.email, formData.password);
+      const result = await login(data.email, data.password);
       if (result.success) {
         toast.success('Login successful!');
-        // Redirect to role-based dashboard
         navigate('/redirect');
       } else if (result.needsVerification) {
         toast.error('Please verify your email address before logging in.');
-        // Redirect to waiting page for unverified users
         navigate('/waiting', { 
           state: { 
-            email: formData.email,
+            email: data.email,
             fromLogin: true 
           } 
         });
@@ -49,17 +38,23 @@ const Login = () => {
     } catch (err) {
       toast.error('Failed to log in');
     }
-    setLoading(false);
+  };
+
+  const handleForgotPasswordSubmit = async (data) => {
+    try {
+      await resetUserPassword(data.email);
+      toast.success('Password reset email sent!');
+      setShowForgotPassword(false);
+    } catch (err) {
+      toast.error('Failed to send password reset email');
+    }
   };
 
   const handleGoogleSignIn = async () => {
-    setLoading(true);
-
     try {
       const result = await googleSignIn();
       if (result.success) {
         toast.success('Google sign-in successful!');
-        // Redirect to role-based dashboard
         navigate('/redirect');
       } else {
         toast.error(result.error || 'Google sign-in failed');
@@ -67,17 +62,13 @@ const Login = () => {
     } catch (err) {
       toast.error('Failed to sign in with Google');
     }
-    setLoading(false);
   };
 
   const handleAppleSignIn = async () => {
-    setLoading(true);
-
     try {
       const result = await appleSignIn();
       if (result.success) {
         toast.success('Apple sign-in successful!');
-        // Redirect to role-based dashboard
         navigate('/redirect');
       } else {
         toast.error(result.error || 'Apple sign-in failed');
@@ -85,28 +76,7 @@ const Login = () => {
     } catch (err) {
       toast.error('Failed to sign in with Apple');
     }
-    setLoading(false);
   };
-
-  const handleForgotPassword = async (e) => {
-    e.preventDefault();
-    setForgotPasswordLoading(true);
-
-    try {
-      const result = await resetUserPassword(forgotPasswordEmail);
-      if (result.success) {
-        toast.success('Password reset email sent! Please check your inbox.');
-        setForgotPasswordEmail('');
-        setShowForgotPassword(false);
-      } else {
-        toast.error(result.error || 'Failed to send password reset email');
-      }
-    } catch (err) {
-      toast.error('Failed to send password reset email');
-    }
-    setForgotPasswordLoading(false);
-  };
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-green-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -126,13 +96,11 @@ const Login = () => {
 
         {/* Login Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-
           {/* Social Login Buttons */}
           <div className="space-y-3 mb-6">
             <button
               onClick={handleGoogleSignIn}
-              disabled={loading}
-              className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:shadow-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:shadow-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
             >
               <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -145,8 +113,7 @@ const Login = () => {
 
             <button
               onClick={handleAppleSignIn}
-              disabled={loading}
-              className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:shadow-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:shadow-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200"
             >
               <svg className="w-5 h-5 mr-3" fill="#000000" viewBox="0 0 24 24">
                 <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
@@ -166,82 +133,130 @@ const Login = () => {
           </div>
 
           {/* Login Form */}
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email/Mobile
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
+          <FormWrapper
+            form={loginForm}
+            onSubmit={handleLoginSubmit}
+            submitButtonText="Sign in"
+            showSubmitButton={false}
+          >
+            <FormField
+              name="email"
+              label="Email"
+              type="email"
+              placeholder="Enter your email address"
+              required
+              autoComplete="email"
+            />
+
+            <div className="relative">
+              <FormField
+                name="password"
+                label="Password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Enter your password"
                 required
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                placeholder="Enter your email or mobile number"
+                autoComplete="current-password"
               />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                  placeholder="Enter your password"
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-                    </svg>
-                  ) : (
-                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Forgot Password Link */}
-            <div className="text-right">
               <button
                 type="button"
-                onClick={() => setShowForgotPassword(true)}
-                className="text-sm text-green-600 hover:text-green-500 transition-colors duration-200"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center mt-6"
               >
-                Forgot your password?
+                {showPassword ? (
+                  <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                  </svg>
+                ) : (
+                  <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
               </button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <input
+                  id="remember-me"
+                  name="remember-me"
+                  type="checkbox"
+                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                />
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                  Remember me
+                </label>
+              </div>
+
+              <div className="text-sm">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="font-medium text-green-600 hover:text-green-500 transition-colors duration-200"
+                >
+                  Forgot your password?
+                </button>
+              </div>
             </div>
 
             <div>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={!loginForm.canSubmit || loginForm.isSubmitting}
                 className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 px-4 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Signing in...' : 'Login'}
+                {loginForm.isSubmitting ? 'Signing in...' : 'Login'}
               </button>
             </div>
-          </form>
+          </FormWrapper>
 
-          {/* Register Link */}
+          {/* Forgot Password Modal */}
+          {showForgotPassword && (
+            <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+              <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div className="mt-3">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">
+                    Reset Password
+                  </h3>
+                  
+                  <FormWrapper
+                    form={forgotPasswordForm}
+                    onSubmit={handleForgotPasswordSubmit}
+                    submitButtonText="Send Reset Email"
+                    showSubmitButton={false}
+                  >
+                    <FormField
+                      name="email"
+                      label="Email Address"
+                      type="email"
+                      placeholder="Enter your email address"
+                      required
+                      autoComplete="email"
+                    />
+
+                    <div className="flex justify-end space-x-3 mt-4">
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotPassword(false)}
+                        className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors duration-200"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={!forgotPasswordForm.canSubmit || forgotPasswordForm.isSubmitting}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                      >
+                        {forgotPasswordForm.isSubmitting ? 'Sending...' : 'Send Reset Email'}
+                      </button>
+                    </div>
+                  </FormWrapper>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sign Up Link */}
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               Don't have an account?{' '}
@@ -249,67 +264,11 @@ const Login = () => {
                 to="/register"
                 className="font-medium text-green-600 hover:text-green-500 transition-colors duration-200"
               >
-                Register
+                Sign up here
               </Link>
             </p>
           </div>
         </div>
-
-        {/* Forgot Password Modal */}
-        {showForgotPassword && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
-              <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                  Reset Password
-                </h3>
-                <p className="text-gray-600">
-                  Enter your email address and we'll send you a link to reset your password.
-                </p>
-              </div>
-
-
-
-              <form onSubmit={handleForgotPassword} className="space-y-6">
-                <div>
-                  <label htmlFor="forgot-email" className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address
-                  </label>
-                  <input
-                    id="forgot-email"
-                    type="email"
-                    required
-                    value={forgotPasswordEmail}
-                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                    placeholder="Enter your email address"
-                  />
-                </div>
-
-                <div className="flex space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowForgotPassword(false);
-                      setForgotPasswordEmail('');
-                    }}
-                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={forgotPasswordLoading}
-                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 px-4 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {forgotPasswordLoading ? 'Sending...' : 'Send Reset Link'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
       </div>
     </div>
   );

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../config/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, where } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatToSLTime } from '../../utils/timeUtils';
+import ManualIrrigationControl from '../../components/ManualIrrigationControl';
+import { useRealtimeSensorData } from '../../hooks/useRealtimeSensorData';
 
 const Alerts = () => {
   const { user } = useAuth();
@@ -12,6 +14,13 @@ const Alerts = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [alertToDelete, setAlertToDelete] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [autoIrrigationEnabled, setAutoIrrigationEnabled] = useState(true); // Enable/disable auto irrigation
+  const [autoIrrigationLoading, setAutoIrrigationLoading] = useState(false);
+  
+  // Get user's assigned device for irrigation control
+  const [assignedDevices, setAssignedDevices] = useState([]);
+  const [currentDeviceId, setCurrentDeviceId] = useState(null);
+  const { sensorData, isOnline, loading: sensorLoading } = useRealtimeSensorData(currentDeviceId);
 
   const [formData, setFormData] = useState({
     type: 'email',
@@ -62,6 +71,83 @@ const Alerts = () => {
 
     return () => unsubscribe();
   }, [user]);
+
+  // Load user's assigned devices for irrigation control
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const requestsQuery = query(
+      collection(db, 'deviceRequests'),
+      where('userId', '==', user.uid)
+    );
+
+    const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
+      const requests = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      const assignedRequests = requests.filter(req => req.status === 'assigned' || req.status === 'completed');
+      setAssignedDevices(assignedRequests);
+      
+      if (assignedRequests.length > 0 && assignedRequests[0].deviceId) {
+        setCurrentDeviceId(assignedRequests[0].deviceId);
+      }
+    }, (error) => {
+      console.error('Error loading device requests:', error);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  // Load auto irrigation settings from Firestore
+  useEffect(() => {
+    if (!user?.uid || !currentDeviceId) return;
+
+    const autoIrrigationRef = doc(db, 'users', user.uid, 'irrigationSettings', currentDeviceId);
+    
+    const unsubscribe = onSnapshot(autoIrrigationRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        setAutoIrrigationEnabled(data.autoIrrigationEnabled ?? true);
+      }
+    }, (error) => {
+      console.error('Error loading auto irrigation settings:', error);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid, currentDeviceId]);
+
+  // Save auto irrigation settings to Firestore
+  const saveAutoIrrigationSettings = async (enabled) => {
+    if (!user?.uid || !currentDeviceId) return;
+
+    setAutoIrrigationLoading(true);
+    try {
+      const autoIrrigationRef = doc(db, 'users', user.uid, 'irrigationSettings', currentDeviceId);
+      await updateDoc(autoIrrigationRef, {
+        autoIrrigationEnabled: enabled,
+        lastUpdated: new Date(),
+        deviceId: currentDeviceId
+      });
+      console.log('✅ Auto irrigation settings saved to Firestore');
+    } catch (error) {
+      console.error('Error saving auto irrigation settings:', error);
+      // If document doesn't exist, create it
+      try {
+        await addDoc(collection(db, 'users', user.uid, 'irrigationSettings'), {
+          deviceId: currentDeviceId,
+          autoIrrigationEnabled: enabled,
+          lastUpdated: new Date()
+        });
+        console.log('✅ Auto irrigation settings created in Firestore');
+      } catch (createError) {
+        console.error('Error creating auto irrigation settings:', createError);
+      }
+    } finally {
+      setAutoIrrigationLoading(false);
+    }
+  };
 
   const validateForm = () => {
     if (!formData.value.trim()) {
@@ -184,8 +270,8 @@ const Alerts = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Alert Management</h1>
-              <p className="mt-2 text-gray-600">Configure alerts for your farm monitoring system</p>
+              <h1 className="text-3xl font-bold text-gray-900">Alert & Irrigation</h1>
+              <p className="mt-2 text-gray-600">Manage alerts and control irrigation for your farm monitoring system</p>
             </div>
             <button
               onClick={() => setShowForm(true)}
@@ -200,10 +286,10 @@ const Alerts = () => {
         </div>
 
 
-        {/* Alerts List */}
-        <div className="bg-white rounded-lg shadow">
+        {/* Alerts Section */}
+        <div className="bg-white rounded-lg shadow mb-8">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Your Alerts ({alerts.length})</h2>
+            <h2 className="text-lg font-semibold text-gray-900">🔔 Your Alerts ({alerts.length})</h2>
           </div>
           
           {alerts.length === 0 ? (
@@ -290,6 +376,132 @@ const Alerts = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+
+        {/* Smart Irrigation Section */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">💧 Smart Irrigation</h2>
+          </div>
+          
+          {currentDeviceId ? (
+            <div className="p-6">
+              {/* Manual Irrigation Section */}
+              <div className="mb-8">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">🔧 Manual Irrigation Control</h3>
+                <ManualIrrigationControl 
+                  deviceId={currentDeviceId} 
+                  sensorData={sensorData}
+                  isOnline={isOnline}
+                />
+              </div>
+
+              {/* Separator */}
+              <div className="border-t border-gray-200 my-8"></div>
+
+              {/* Auto Irrigation Section */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">🤖 Automatic Irrigation Control</h3>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-sm text-gray-600">Auto Irrigation:</span>
+                    <button
+                      onClick={() => {
+                        const newValue = !autoIrrigationEnabled;
+                        setAutoIrrigationEnabled(newValue);
+                        saveAutoIrrigationSettings(newValue);
+                      }}
+                      disabled={autoIrrigationLoading}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        autoIrrigationEnabled ? 'bg-green-600' : 'bg-gray-200'
+                      } ${autoIrrigationLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          autoIrrigationEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                    <span className={`text-sm font-medium ${
+                      autoIrrigationEnabled ? 'text-green-600' : 'text-gray-500'
+                    }`}>
+                      {autoIrrigationEnabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={`p-4 rounded-lg ${
+                  autoIrrigationEnabled ? 'bg-blue-50' : 'bg-gray-50'
+                }`}>
+                  <h4 className={`text-lg font-medium mb-2 ${
+                    autoIrrigationEnabled ? 'text-blue-900' : 'text-gray-600'
+                  }`}>
+                    Automatic Irrigation System
+                  </h4>
+                  
+                  {autoIrrigationEnabled ? (
+                    <div>
+                      <p className="text-sm text-blue-700 mb-3">
+                        The system will automatically control the water pump based on soil moisture levels (pump starts OFF for safety):
+                      </p>
+                      <ul className="text-sm text-blue-700 space-y-1 mb-4">
+                        <li>• <strong>Pump ON:</strong> When soil moisture drops below 10%</li>
+                        <li>• <strong>Pump OFF:</strong> When soil moisture reaches 30% or higher</li>
+                      </ul>
+                      <div className="p-3 bg-white rounded border">
+                        <p className="text-sm text-gray-600">
+                          Current soil moisture: <span className="font-medium">{sensorData?.soilMoisture || 0}%</span>
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Pump will turn {sensorData?.soilMoisture < 10 ? 'ON' : sensorData?.soilMoisture > 30 ? 'OFF' : 'stay as is'} automatically
+                        </p>
+                        <div className="mt-2">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            sensorData?.soilMoisture < 10 
+                              ? 'bg-red-100 text-red-800' 
+                              : sensorData?.soilMoisture > 30 
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {sensorData?.soilMoisture < 10 
+                              ? '🔴 Pump will turn ON' 
+                              : sensorData?.soilMoisture > 30 
+                                ? '🟢 Pump will turn OFF'
+                                : '🟡 Pump will stay as is'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-sm text-gray-600 mb-3">
+                        Automatic irrigation is currently disabled. The system will not automatically control the water pump.
+                      </p>
+                      <div className="p-3 bg-white rounded border">
+                        <p className="text-sm text-gray-600">
+                          Current soil moisture: <span className="font-medium">{sensorData?.soilMoisture || 0}%</span>
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          Use manual controls above to operate the pump
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-8 text-center">
+              <div className="text-6xl mb-4">💧</div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No Device Assigned</h3>
+              <p className="text-gray-600 mb-6">
+                You need an assigned device to control irrigation. Please request a device first.
+              </p>
+              <div className="text-sm text-gray-500">
+                Assigned devices: {assignedDevices.length}
+              </div>
             </div>
           )}
         </div>

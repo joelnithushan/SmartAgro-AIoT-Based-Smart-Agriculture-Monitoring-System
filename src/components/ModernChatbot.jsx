@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useFormValidation } from '../hooks/useFormValidation';
+import { validationSchemas } from '../utils/validationSchemas';
 
 const ModernChatbot = () => {
   const { currentUser } = useAuth();
@@ -13,6 +15,9 @@ const ModernChatbot = () => {
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Form validation for message input
+  const messageForm = useFormValidation(validationSchemas.communication.chatMessage);
   const [chatHistory, setChatHistory] = useState([
     { id: 1, title: "New Chat", timestamp: new Date(), active: true }
   ]);
@@ -203,9 +208,16 @@ const ModernChatbot = () => {
     }
   };
 
-  // Send message function
+  // Send message function with validation
   const sendMessage = async (message) => {
     console.log('sendMessage called with:', { message, isLoading, currentUser, currentChatId });
+    
+    // Validate message using form validation
+    const validationResult = await messageForm.validateForm();
+    if (!validationResult) {
+      console.log('Message validation failed');
+      return;
+    }
     
     if (!message.trim()) {
       console.log('Message is empty, returning');
@@ -367,11 +379,16 @@ const ModernChatbot = () => {
       <div className="w-56 bg-white border-r border-gray-200 flex flex-col shadow-sm">
         {/* Header */}
         <div className="p-3 border-b border-gray-200">
-          <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 bg-green-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xs">🍃</span>
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center shadow-sm">
+              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75S7 14 17 8z"/>
+              </svg>
             </div>
-            <span className="font-semibold text-base text-gray-900">SmartAgro</span>
+            <div className="flex flex-col">
+              <span className="font-bold text-lg text-gray-900">SmartAgro</span>
+              <span className="text-xs text-gray-500">IoT Monitoring</span>
+            </div>
           </div>
         </div>
 
@@ -437,7 +454,7 @@ const ModernChatbot = () => {
         {/* User Profile */}
         <div className="p-3 border-t border-gray-200">
           <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+            <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
               <span className="text-white font-bold text-xs">
                 {currentUser?.displayName?.charAt(0) || currentUser?.email?.charAt(0) || 'U'}
               </span>
@@ -450,6 +467,11 @@ const ModernChatbot = () => {
                 {currentUser?.email}
               </div>
             </div>
+            <div className="w-4 h-4 bg-green-600 rounded-full flex items-center justify-center">
+              <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75S7 14 17 8z"/>
+              </svg>
+            </div>
           </div>
         </div>
       </div>
@@ -459,9 +481,17 @@ const ModernChatbot = () => {
         {/* Chat Header */}
         <div className="bg-white border-b border-gray-200 p-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <h1 className="text-lg font-semibold text-gray-900">SmartAgro AI Assistant</h1>
-              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">Beta</span>
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center shadow-sm">
+                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75S7 14 17 8z"/>
+                </svg>
+              </div>
+              <div className="flex flex-col">
+                <h1 className="text-lg font-semibold text-gray-900">SmartAgro AI Assistant</h1>
+                <span className="text-xs text-gray-500">IoT Monitoring & Farming Support</span>
+              </div>
+              <span className="bg-green-600 text-white text-xs px-2 py-1 rounded-full">Beta</span>
             </div>
             <div className="flex items-center space-x-2 text-xs text-gray-600">
               <span>Farming Assistant</span>
@@ -483,7 +513,7 @@ const ModernChatbot = () => {
               <div
                 className={`max-w-2xl px-3 py-2 rounded-xl group ${
                   message.type === 'user'
-                    ? 'bg-green-500 text-white'
+                    ? 'bg-green-600 text-white'
                     : 'bg-white text-gray-900 border border-gray-200 shadow-sm'
                 }`}
               >
@@ -495,7 +525,7 @@ const ModernChatbot = () => {
                     <textarea
                       value={editingContent}
                       onChange={(e) => setEditingContent(e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                      className="w-full p-3 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent resize-none"
                       rows={3}
                       placeholder="Edit your message..."
                       autoFocus
@@ -504,7 +534,7 @@ const ModernChatbot = () => {
                       <button
                         onClick={() => editMessage(message.id, editingContent)}
                         disabled={!editingContent.trim()}
-                        className="bg-green-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-1"
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-1"
                       >
                         <span>✓</span>
                         <span>Save & Submit</span>
@@ -604,11 +634,24 @@ const ModernChatbot = () => {
               <input
                 type="text"
                 value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
+                onChange={(e) => {
+                  setInputMessage(e.target.value);
+                  // Trigger validation on change
+                  messageForm.setValue('message', e.target.value);
+                }}
                 placeholder="Ask anything about farming..."
-                className="w-full bg-white text-gray-900 px-3 py-2 pr-10 rounded-lg border border-gray-300 focus:border-green-500 focus:outline-none resize-none shadow-sm text-sm"
+                className={`w-full bg-white text-gray-900 px-3 py-2 pr-10 rounded-lg border focus:outline-none resize-none shadow-sm text-sm ${
+                  messageForm.hasFieldError('message') 
+                    ? 'border-red-500 focus:border-red-500' 
+                    : 'border-gray-300 focus:border-green-600'
+                }`}
                 disabled={isLoading}
               />
+              {messageForm.hasFieldError('message') && (
+                <p className="text-xs text-red-600 mt-1">
+                  {messageForm.getFieldError('message')}
+                </p>
+              )}
               <button
                 type="button"
                 className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
@@ -621,7 +664,7 @@ const ModernChatbot = () => {
             <button
               type="submit"
               disabled={!inputMessage.trim() || isLoading}
-              className="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-1 shadow-sm text-sm"
+              className="bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-1 shadow-sm text-sm"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

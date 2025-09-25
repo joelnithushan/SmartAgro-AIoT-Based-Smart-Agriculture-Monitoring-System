@@ -1,8 +1,8 @@
-const express = require('express');
+import express from 'express';
+import admin from 'firebase-admin';
+import { validateRequest } from '../middleware/validation.js';
+
 const router = express.Router();
-const { admin, db } = require('../config/firebase');
-const { ref, update, get } = require('firebase/database');
-const { doc, getDoc, updateDoc, serverTimestamp } = require('firebase/firestore');
 
 // Middleware to verify admin access
 const verifyAdmin = async (req, res, next) => {
@@ -18,19 +18,43 @@ const verifyAdmin = async (req, res, next) => {
   }
 };
 
+// Middleware to verify Firebase token
+const verifyToken = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'No token provided'
+      });
+    }
+
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = decodedToken;
+    next();
+  } catch (error) {
+    console.error('Token verification error:', error);
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid token'
+    });
+  }
+};
+
 // Middleware to verify user access to device
 const verifyDeviceAccess = async (req, res, next) => {
   try {
     const { deviceId } = req.params;
-    const userId = req.headers['x-user-id'];
+    const userId = req.user?.uid || req.headers['x-user-id'];
     
     if (!userId) {
       return res.status(401).json({ success: false, error: 'User authentication required' });
     }
 
     // Check if user has access to this device
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    if (!userDoc.exists()) {
+    const userDoc = await admin.firestore().collection('users').doc(userId).get();
+    if (!userDoc.exists) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
 
@@ -47,6 +71,79 @@ const verifyDeviceAccess = async (req, res, next) => {
     res.status(500).json({ success: false, error: 'Access verification error' });
   }
 };
+
+/**
+ * POST /api/devices/register
+ * Register a new device
+ */
+router.post('/register', verifyToken, validateRequest('deviceRegistration'), async (req, res) => {
+  try {
+    const { uid } = req.user;
+    const deviceData = req.body;
+    
+    // Add device metadata
+    const newDevice = {
+      ...deviceData,
+      ownerId: uid,
+      status: 'active',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    
+    // Save device to Firestore
+    const deviceRef = await admin.firestore().collection('devices').add(newDevice);
+    
+    res.status(201).json({
+      success: true,
+      message: 'Device registered successfully',
+      data: {
+        deviceId: deviceRef.id,
+        ...newDevice
+      }
+    });
+  } catch (error) {
+    console.error('Device registration error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to register device'
+    });
+  }
+});
+
+/**
+ * GET /api/devices
+ * Get user's devices
+ */
+router.get('/', verifyToken, async (req, res) => {
+  try {
+    const { uid } = req.user;
+    
+    // Get user's devices from Firestore
+    const devicesSnapshot = await admin.firestore()
+      .collection('devices')
+      .where('ownerId', '==', uid)
+      .get();
+    
+    const devices = [];
+    devicesSnapshot.forEach(doc => {
+      devices.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    res.json({
+      success: true,
+      data: devices
+    });
+  } catch (error) {
+    console.error('Get devices error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get devices'
+    });
+  }
+});
 
 /**
  * POST /api/devices/:deviceId/relay
@@ -66,16 +163,16 @@ router.post('/:deviceId/relay', verifyDeviceAccess, async (req, res) => {
     }
 
     // Get user info for logging
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    const userEmail = userDoc.exists() ? userDoc.data().email : 'unknown';
+    const userDoc = await admin.firestore().collection('users').doc(userId).get();
+    const userEmail = userDoc.exists ? userDoc.data().email : 'unknown';
 
     // Update instant relay control path
-    const relayStatusRef = ref(admin.database(), `devices/${deviceId}/control/relay/status`);
-    await update(relayStatusRef, status);
+    const relayStatusRef = admin.database().ref(`devices/${deviceId}/control/relay/status`);
+    await relayStatusRef.set(status);
 
     // Update main relay control for consistency
-    const relayRef = ref(admin.database(), `devices/${deviceId}/control/relay`);
-    await update(relayRef, {
+    const relayRef = admin.database().ref(`devices/${deviceId}/control/relay`);
+    await relayRef.update({
       status: status,
       mode: mode,
       lastChangedBy: userEmail,
@@ -83,8 +180,8 @@ router.post('/:deviceId/relay', verifyDeviceAccess, async (req, res) => {
     });
 
     // Update sensor data to reflect relay status
-    const sensorRef = ref(admin.database(), `devices/${deviceId}/sensors/latest`);
-    await update(sensorRef, {
+    const sensorRef = admin.database().ref(`devices/${deviceId}/sensors/latest`);
+    await sensorRef.update({
       relayStatus: status,
       timestamp: Date.now()
     });
@@ -480,4 +577,4 @@ router.post('/:deviceId/thresholds', verifyDeviceAccess, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

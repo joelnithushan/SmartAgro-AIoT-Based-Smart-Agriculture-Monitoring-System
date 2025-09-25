@@ -44,6 +44,9 @@ const CropFertilizer = () => {
   const deviceIdToUse = activeDeviceId || fallbackDeviceId;
   const { sensorData, isOnline, loading: sensorLoading } = useDeviceRealtime(deviceIdToUse);
   
+  // Use the hook's isOnline status directly (it already has proper offline detection)
+  const isActuallyOnline = isOnline;
+  
   // Fallback device check - Enhanced with multiple detection methods
   useEffect(() => {
     if (!currentUser || activeDeviceId) return; // Skip if user not loaded or device already found
@@ -192,6 +195,10 @@ const CropFertilizer = () => {
     console.log('CropFertilizer - sensorLoading:', sensorLoading);
     console.log('CropFertilizer - hasDevice:', !!deviceIdToUse);
     console.log('CropFertilizer - shouldShowNoDevice:', !deviceIdToUse && !devicesLoading);
+    console.log('CropFertilizer - sensorData.timestamp:', sensorData.timestamp);
+    console.log('CropFertilizer - sensorData.deviceOnline:', sensorData.deviceOnline);
+    console.log('CropFertilizer - isActuallyOnline:', isActuallyOnline);
+    console.log('CropFertilizer - deviceIdToUse:', deviceIdToUse);
     console.log('================================');
   }, [assignedDevices, activeDeviceId, fallbackDeviceId, deviceIdToUse, devicesLoading, devicesError, currentUser, sensorData, isOnline, sensorLoading]);
 
@@ -414,21 +421,54 @@ const CropFertilizer = () => {
         )}
 
         {/* Device Status Display */}
-        {deviceIdToUse && (
-          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+        {deviceIdToUse ? (
+          <div className={`mb-6 rounded-lg p-4 border ${
+            isActuallyOnline 
+              ? 'bg-green-50 border-green-200' 
+              : 'bg-red-50 border-red-200'
+          }`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <span className="text-green-600 text-xl mr-3">✅</span>
+                <span className={`text-xl mr-3 ${
+                  isActuallyOnline ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {isActuallyOnline ? '✅' : '❌'}
+                </span>
                 <div>
-                  <h3 className="text-green-800 font-medium">Device Connected</h3>
-                  <p className="text-green-700 text-sm mt-1">
-                    Device ID: {deviceIdToUse} | Status: {isOnline ? 'Online' : 'Offline'}
+                  <h3 className={`font-medium ${
+                    isActuallyOnline ? 'text-green-800' : 'text-red-800'
+                  }`}>
+                    Device {isActuallyOnline ? 'Connected' : 'Disconnected'}
+                  </h3>
+                  <p className={`text-sm mt-1 ${
+                    isActuallyOnline ? 'text-green-700' : 'text-red-700'
+                  }`}>
+                    Device ID: {deviceIdToUse} | Status: {isActuallyOnline ? 'Online' : 'Offline'}
                   </p>
                 </div>
               </div>
-              <div className="text-right text-xs text-green-600">
+              <div className={`text-right text-xs ${
+                isActuallyOnline ? 'text-green-600' : 'text-red-600'
+              }`}>
                 <div>Last Update: {sensorData.timestamp ? new Date(sensorData.timestamp).toLocaleTimeString() : 'Never'}</div>
                 <div>Sensor Data: {Object.keys(sensorData).length} fields</div>
+                {!isActuallyOnline && sensorData.timestamp && (
+                  <div className="text-red-500 font-medium">
+                    Data is {Math.round((Date.now() - new Date(sensorData.timestamp).getTime()) / 1000)}s old
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <span className="text-yellow-600 text-xl mr-3">⚠️</span>
+              <div>
+                <h3 className="text-yellow-800 font-medium">No Device Assigned</h3>
+                <p className="text-yellow-700 text-sm mt-1">
+                  Please assign a device to view real-time data
+                </p>
               </div>
             </div>
           </div>
@@ -474,35 +514,35 @@ const CropFertilizer = () => {
                       value={sensorData.soilMoisturePct}
                       unit="%"
                       recommendedRange={selectedCrop?.recommendedRanges?.soilMoisturePct}
-                      isOnline={isOnline}
+                      isOnline={isActuallyOnline}
                     />
                     <ParameterCard
                       label="🌡️ Air Temperature"
                       value={sensorData.airTemperature}
                       unit="°C"
                       recommendedRange={selectedCrop?.recommendedRanges?.airTemperature}
-                      isOnline={isOnline}
+                      isOnline={isActuallyOnline}
                     />
                     <ParameterCard
                       label="💧 Air Humidity"
                       value={sensorData.airHumidity}
                       unit="%"
                       recommendedRange={selectedCrop?.recommendedRanges?.airHumidity}
-                      isOnline={isOnline}
+                      isOnline={isActuallyOnline}
                     />
                     <ParameterCard
                       label="🌡️ Soil Temperature"
                       value={sensorData.soilTemperature}
                       unit="°C"
                       recommendedRange={selectedCrop?.recommendedRanges?.soilTemperature}
-                      isOnline={isOnline}
+                      isOnline={isActuallyOnline}
                     />
                     <ParameterCard
                       label="🌬️ Air Quality"
                       value={sensorData.airQualityIndex}
                       unit="ppm"
                       recommendedRange={selectedCrop?.recommendedRanges?.airQualityIndex}
-                      isOnline={isOnline}
+                      isOnline={isActuallyOnline}
                     />
                   </div>
                 ) : (

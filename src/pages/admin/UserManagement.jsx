@@ -1,33 +1,61 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, onSnapshot } from 'firebase/firestore';
+import { collection, query, onSnapshot, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../config/firebase';
+import { useAuth } from '../../contexts/AuthContext';
 import Table from '../../components/common/Table';
 import UserActions from '../../components/admin/UserActions';
+import UserDetailsModal from '../../components/admin/UserDetailsModal';
 import toast from 'react-hot-toast';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showUserDetails, setShowUserDetails] = useState(false);
+  const { currentUser } = useAuth();
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(
-      query(collection(db, 'users')),
-      (snapshot) => {
-        const usersData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+    const fetchUsersWithDetails = async () => {
+      try {
+        // Fetch users from Firestore
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        const usersData = [];
+        
+        for (const userDoc of usersSnapshot.docs) {
+          const userData = { id: userDoc.id, ...userDoc.data() };
+          
+          // Fetch device request data for this user
+          try {
+            const deviceRequestsQuery = query(
+              collection(db, 'deviceRequests'),
+              where('userId', '==', userDoc.id),
+              orderBy('createdAt', 'desc'),
+              limit(1)
+            );
+            const deviceRequestsSnapshot = await getDocs(deviceRequestsQuery);
+            
+            if (!deviceRequestsSnapshot.empty) {
+              const latestRequest = deviceRequestsSnapshot.docs[0].data();
+              // Merge device request data with priority
+              userData.deviceRequestData = latestRequest;
+            }
+          } catch (error) {
+            console.warn('Error fetching device request data for user:', userDoc.id, error);
+          }
+          
+          usersData.push(userData);
+        }
+        
         setUsers(usersData);
         setLoading(false);
-      },
-      (error) => {
+      } catch (error) {
         console.error('Error fetching users:', error);
         toast.error('Failed to load users');
         setLoading(false);
       }
-    );
+    };
 
-    return () => unsubscribe();
+    fetchUsersWithDetails();
   }, []);
 
   const handleUserUpdated = () => {
@@ -40,9 +68,38 @@ const UserManagement = () => {
     toast.success('User deleted successfully');
   };
 
+  const handleViewUser = (user) => {
+    setSelectedUser(user);
+    setShowUserDetails(true);
+  };
+
+  const handleCloseUserDetails = () => {
+    setSelectedUser(null);
+    setShowUserDetails(false);
+  };
+
+  // Function to get the best available name for a user
+  const getUserDisplayName = (user) => {
+    // Priority: profile > device request > Firebase Auth (Google/Apple) > fallback to email
+    if (user.fullName) return user.fullName;
+    if (user.deviceRequestData?.fullName) return user.deviceRequestData.fullName;
+    if (user.displayName) return user.displayName;
+    if (user.email) return user.email.split('@')[0]; // Use email prefix as fallback
+    return 'Unknown User';
+  };
+
+  // Function to get the best available email for a user
+  const getUserEmail = (user) => {
+    // Priority: profile > device request > Firebase Auth > fallback
+    if (user.email) return user.email;
+    if (user.deviceRequestData?.email) return user.deviceRequestData.email;
+    return 'No email available';
+  };
+
   const getStatusBadge = (user) => {
     const SUPERADMIN_EMAIL = 'joelnithushan6@gmail.com';
-    const isSuperAdmin = user.email === SUPERADMIN_EMAIL;
+    const userEmail = getUserEmail(user);
+    const isSuperAdmin = userEmail === SUPERADMIN_EMAIL;
     
     if (isSuperAdmin) {
       return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Super Admin</span>;
@@ -50,6 +107,24 @@ const UserManagement = () => {
       return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Admin</span>;
     }
     return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">User</span>;
+  };
+
+  const getVerificationStatus = (user) => {
+    const SUPERADMIN_EMAIL = 'joelnithushan6@gmail.com';
+    const userEmail = getUserEmail(user);
+    const isSuperAdmin = userEmail === SUPERADMIN_EMAIL;
+    
+    // Super Admin is always verified
+    if (isSuperAdmin) {
+      return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Super Admin (Verified)</span>;
+    }
+    
+    // For other users, check emailVerified status
+    if (user.emailVerified) {
+      return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Verified</span>;
+    }
+    
+    return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Unverified</span>;
   };
 
   const renderUserRow = (user) => (
@@ -62,47 +137,34 @@ const UserManagement = () => {
             ) : (
               <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
                 <span className="text-sm font-medium text-gray-700">
-                  {user.displayName?.charAt(0) || user.email?.charAt(0) || '?'}
+                  {getUserDisplayName(user).charAt(0).toUpperCase()}
                 </span>
               </div>
             )}
           </div>
           <div className="ml-4">
             <div className="text-sm font-medium text-gray-900">
-              {user.displayName || 'No name'}
+              {getUserDisplayName(user)}
             </div>
-            <div className="text-sm text-gray-500">{user.email}</div>
           </div>
         </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {getUserEmail(user)}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         {getStatusBadge(user)}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {user.phoneNumber || 'N/A'}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {user.emailVerified ? (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-            Verified
-          </span>
-        ) : (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-            Not Verified
-          </span>
-        )}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {user.createdAt ? new Date(user.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {user.lastSignInTime ? new Date(user.lastSignInTime).toLocaleDateString() : 'Never'}
+        {getVerificationStatus(user)}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
         <UserActions 
           user={user} 
           onUserUpdated={handleUserUpdated}
           onUserDeleted={handleUserDeleted}
+          onViewUser={handleViewUser}
+          currentUserEmail={currentUser?.email}
         />
       </td>
     </tr>
@@ -128,11 +190,22 @@ const UserManagement = () => {
 
       {/* Users Table */}
       <Table
-        headers={['User', 'Role', 'Phone', 'Email Status', 'Created', 'Last Sign In', 'Actions']}
+        headers={['Name', 'Email', 'Role', 'Verified Status', 'Actions']}
         data={users}
         renderRow={renderUserRow}
         emptyMessage="No users found"
       />
+
+      {/* User Details Modal */}
+      {showUserDetails && selectedUser && (
+        <UserDetailsModal
+          user={selectedUser}
+          isOpen={showUserDetails}
+          onClose={handleCloseUserDetails}
+          getUserDisplayName={getUserDisplayName}
+          getUserEmail={getUserEmail}
+        />
+      )}
     </div>
   );
 };

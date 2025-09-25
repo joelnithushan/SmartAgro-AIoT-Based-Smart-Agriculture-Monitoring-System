@@ -106,7 +106,7 @@ const UserNavbar = () => {
     { path: '/user/dashboard', label: 'Dashboard' },
     { path: '/user/orders', label: 'Orders' },
     { path: '/user/crops', label: 'Crop & Fertilizer' },
-    { path: '/user/alerts', label: 'Alerts' },
+    { path: '/user/alerts', label: 'Alert & Irrigation' },
     { path: '/user/ai-chatbot', label: 'AI Chatbot' },
   ];
 

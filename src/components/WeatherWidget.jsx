@@ -136,9 +136,6 @@ const WeatherWidget = () => {
             </div>
           </div>
 
-          <div className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded p-2">
-            ℹ️ Demo weather data - Real-time data available with API integration
-          </div>
         </div>
       )}
     </div>

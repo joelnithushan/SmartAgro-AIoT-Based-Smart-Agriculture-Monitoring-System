@@ -59,9 +59,7 @@ const AlertBell = () => {
         onClick={() => setShowAlerts(!showAlerts)}
         className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 rounded-full"
       >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4.828 7l2.586 2.586a2 2 0 002.828 0L12.828 7H4.828zM4.828 17h8l-2.586-2.586a2 2 0 00-2.828 0L4.828 17z" />
-        </svg>
+        <span className="text-2xl">🔔</span>
         
         {/* Alert Count Badge */}
         {triggeredAlerts.length > 0 && (

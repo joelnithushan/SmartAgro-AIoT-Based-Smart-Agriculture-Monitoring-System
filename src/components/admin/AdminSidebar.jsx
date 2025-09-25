@@ -40,7 +40,7 @@ const AdminSidebar = ({ children }) => {
     { name: 'Dashboard', path: '/admin/dashboard', icon: '📊' },
     { name: 'Users', path: '/admin/users', icon: '👥' },
     { name: 'Orders', path: '/admin/orders', icon: '📋' },
-    { name: 'Devices', path: '/admin/devices', icon: '📱' },
+    { name: 'Devices', path: '/admin/devices', icon: '🔧' },
     { name: 'Farms', path: '/admin/farms', icon: '🚜' },
   ];
 
@@ -114,7 +114,7 @@ const AdminSidebar = ({ children }) => {
                         onClick={handleLogout}
                         className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors duration-200"
                       >
-                        🚪 Logout
+                        Logout
                       </button>
                     </div>
                   )}

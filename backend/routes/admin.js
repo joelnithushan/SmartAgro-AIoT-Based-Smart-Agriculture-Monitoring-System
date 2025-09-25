@@ -4,6 +4,125 @@ import { admin } from '../config/firebase.js';
 
 const router = express.Router();
 
+// Helper function to completely delete user data from Firestore
+const deleteUserDataFromFirestore = async (db, userId) => {
+  try {
+    console.log(`🗑️ Starting complete deletion of user data for: ${userId}`);
+    
+    // List of subcollections to delete
+    const subcollections = [
+      'alerts',
+      'triggeredAlerts', 
+      'chats',
+      'crops',
+      'fertilizers',
+      'recommendations'
+    ];
+    
+    // Delete all subcollections
+    for (const subcollection of subcollections) {
+      try {
+        const subcollectionRef = db.collection('users').doc(userId).collection(subcollection);
+        const snapshot = await subcollectionRef.get();
+        
+        if (!snapshot.empty) {
+          const batch = db.batch();
+          snapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+          });
+          await batch.commit();
+          console.log(`✅ Deleted ${snapshot.size} documents from ${subcollection}`);
+        }
+      } catch (error) {
+        console.warn(`⚠️ Error deleting subcollection ${subcollection}:`, error.message);
+      }
+    }
+    
+    // Delete chat messages (nested subcollection)
+    try {
+      const chatsRef = db.collection('users').doc(userId).collection('chats');
+      const chatsSnapshot = await chatsRef.get();
+      
+      for (const chatDoc of chatsSnapshot.docs) {
+        const messagesRef = chatDoc.ref.collection('messages');
+        const messagesSnapshot = await messagesRef.get();
+        
+        if (!messagesSnapshot.empty) {
+          const batch = db.batch();
+          messagesSnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+          });
+          await batch.commit();
+          console.log(`✅ Deleted ${messagesSnapshot.size} messages from chat ${chatDoc.id}`);
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Error deleting chat messages:', error.message);
+    }
+    
+    // Delete user's device requests
+    try {
+      const deviceRequestsRef = db.collection('deviceRequests');
+      const deviceRequestsSnapshot = await deviceRequestsRef.where('userId', '==', userId).get();
+      
+      if (!deviceRequestsSnapshot.empty) {
+        const batch = db.batch();
+        deviceRequestsSnapshot.docs.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        await batch.commit();
+        console.log(`✅ Deleted ${deviceRequestsSnapshot.size} device requests`);
+      }
+    } catch (error) {
+      console.warn('⚠️ Error deleting device requests:', error.message);
+    }
+    
+    // Delete user's orders
+    try {
+      const ordersRef = db.collection('orders');
+      const ordersSnapshot = await ordersRef.where('userId', '==', userId).get();
+      
+      if (!ordersSnapshot.empty) {
+        const batch = db.batch();
+        ordersSnapshot.docs.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        await batch.commit();
+        console.log(`✅ Deleted ${ordersSnapshot.size} orders`);
+      }
+    } catch (error) {
+      console.warn('⚠️ Error deleting orders:', error.message);
+    }
+    
+    // Delete user's notifications
+    try {
+      const notificationsRef = db.collection('notifications');
+      const notificationsSnapshot = await notificationsRef.where('userId', '==', userId).get();
+      
+      if (!notificationsSnapshot.empty) {
+        const batch = db.batch();
+        notificationsSnapshot.docs.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        await batch.commit();
+        console.log(`✅ Deleted ${notificationsSnapshot.size} notifications`);
+      }
+    } catch (error) {
+      console.warn('⚠️ Error deleting notifications:', error.message);
+    }
+    
+    // Finally, delete the main user document
+    const userRef = db.collection('users').doc(userId);
+    await userRef.delete();
+    console.log(`✅ Deleted main user document for: ${userId}`);
+    
+    console.log(`🎉 Complete user data deletion finished for: ${userId}`);
+  } catch (error) {
+    console.error('❌ Error in deleteUserDataFromFirestore:', error);
+    throw error;
+  }
+};
+
 // Helper function to get Firestore instance
 const getDb = () => {
   try {
@@ -13,22 +132,16 @@ const getDb = () => {
       return null;
     }
     
-    // Check if we have the required environment variables for Firestore
-    if (!process.env.FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID === 'placeholder') {
-      console.log('🔧 Firebase Project ID not configured, returning null');
-      return null;
-    }
-    
     // Try to get Firestore instance
     const db = admin.firestore();
     
-    // Test if the Firestore instance is actually usable by checking if it has a project ID
-    if (!db._settings || !db._settings.projectId) {
-      console.log('🔧 Firestore instance not properly configured, returning null');
+    // Test if the Firestore instance is actually usable
+    if (!db) {
+      console.log('🔧 Firestore instance is null');
       return null;
     }
     
-    console.log('🔧 Firestore instance obtained and configured');
+    console.log('✅ Firestore instance obtained and ready');
     return db;
   } catch (error) {
     console.log('🔧 Firestore not available:', error.message);
@@ -41,10 +154,12 @@ const verifyAdmin = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('❌ No authorization token provided');
       return res.status(401).json({ success: false, error: 'No authorization token provided' });
     }
 
     const token = authHeader.split('Bearer ')[1];
+    console.log('🔍 Verifying admin token...');
     
     // Check if Firebase Admin SDK is properly initialized
     if (admin.apps.length === 0) {
@@ -55,6 +170,7 @@ const verifyAdmin = async (req, res, next) => {
         console.log('🔧 Demo mode: Admin access granted');
         return next();
       } else {
+        console.log('❌ Invalid token format in demo mode');
         return res.status(401).json({ success: false, error: 'Invalid token format' });
       }
     }
@@ -62,9 +178,10 @@ const verifyAdmin = async (req, res, next) => {
     let decodedToken;
     try {
       decodedToken = await admin.auth().verifyIdToken(token);
+      console.log('✅ Token verified successfully for:', decodedToken.email);
     } catch (verifyError) {
-      console.error('Token verification failed:', verifyError.message);
-      // If Firebase Admin SDK fails, fall back to demo mode
+      console.error('❌ Token verification failed:', verifyError.message);
+      // If Firebase Admin SDK fails, fall back to demo mode for development
       if (token && token.length > 50) {
         req.adminUid = 'demo-admin-uid';
         req.adminEmail = 'joelnithushan6@gmail.com';
@@ -78,22 +195,35 @@ const verifyAdmin = async (req, res, next) => {
 
     // Check if user is admin by email or role
     if (decodedToken.email !== 'joelnithushan6@gmail.com') {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (!userDoc.exists()) {
+      const db = getDb();
+      if (!db) {
+        console.log('🔧 Demo mode: Skipping role check');
+        req.adminUid = uid;
+        req.adminEmail = decodedToken.email;
+        return next();
+      }
+
+      const userDoc = await db.collection('users').doc(uid).get();
+      if (!userDoc.exists) {
+        console.log('❌ User not found in Firestore');
         return res.status(403).json({ success: false, error: 'User not found' });
       }
 
       const userData = userDoc.data();
       if (userData.role !== 'admin') {
+        console.log('❌ User is not an admin, role:', userData.role);
         return res.status(403).json({ success: false, error: 'Admin access required' });
       }
+      console.log('✅ Admin role verified for:', decodedToken.email);
+    } else {
+      console.log('✅ Super admin access granted for:', decodedToken.email);
     }
 
     req.adminUid = uid;
     req.adminEmail = decodedToken.email;
     next();
   } catch (error) {
-    console.error('Admin verification error:', error);
+    console.error('❌ Admin verification error:', error);
     return res.status(401).json({ success: false, error: 'Invalid token' });
   }
 };
@@ -108,22 +238,19 @@ router.use(verifyAdmin);
 router.get('/dashboard/stats', async (req, res) => {
   try {
     // Get users count (excluding admin)
-    const usersQuery = query(collection(db, 'users'));
-    const usersSnapshot = await getDocs(usersQuery);
+    const usersSnapshot = await db.collection('users').get();
     const allUsers = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const totalUsers = allUsers.filter(user => user.role !== 'admin').length;
 
     // Get device requests
-    const requestsQuery = query(collection(db, 'deviceRequests'));
-    const requestsSnapshot = await getDocs(requestsQuery);
+    const requestsSnapshot = await db.collection('deviceRequests').get();
     const requests = requestsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     const pendingRequests = requests.filter(req => req.status === 'pending').length;
     const rejectedRequests = requests.filter(req => req.status === 'rejected').length;
 
     // Get devices
-    const devicesQuery = query(collection(db, 'devices'));
-    const devicesSnapshot = await getDocs(devicesQuery);
+    const devicesSnapshot = await db.collection('devices').get();
     const devices = devicesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const activeDevices = devices.filter(device => device.assignedTo).length;
 
@@ -204,13 +331,13 @@ router.post('/users/:uid/promote', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Cannot promote yourself' });
     }
 
-    // Demo mode: Simulate successful promotion
+    // Check if Firebase Admin SDK is properly initialized
     const db = getDb();
     if (!db) {
-      console.log('🔧 Demo mode: Simulating user promotion');
-      return res.json({
-        success: true,
-        message: 'User promoted to admin successfully (demo mode)'
+      console.log('❌ Firebase Admin SDK not initialized - cannot promote user');
+      return res.status(500).json({
+        success: false,
+        error: 'Firebase Admin SDK not initialized. Please check server configuration.'
       });
     }
 
@@ -228,14 +355,26 @@ router.post('/users/:uid/promote', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Cannot modify super admin' });
     }
 
+    // Update Firestore user document
     await userRef.update({
       role: 'admin',
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
+    console.log(`✅ Updated Firestore role to admin for user: ${uid}`);
+
+    // Set Firebase Auth custom claims
+    if (admin.apps.length > 0) {
+      await admin.auth().setCustomUserClaims(uid, { role: 'admin' });
+      console.log(`✅ Set custom claims for user ${uid}: role=admin`);
+    } else {
+      console.log('⚠️ Firebase Admin SDK not available, skipping custom claims');
+    }
 
     res.json({
       success: true,
-      message: 'User promoted to admin successfully'
+      message: 'User promoted to admin successfully',
+      userId: uid,
+      newRole: 'admin'
     });
   } catch (error) {
     console.error('Error promoting user:', error);
@@ -255,13 +394,13 @@ router.post('/users/:uid/demote', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Cannot demote yourself' });
     }
 
-    // Demo mode: Simulate successful demotion
+    // Check if Firebase Admin SDK is properly initialized
     const db = getDb();
     if (!db) {
-      console.log('🔧 Demo mode: Simulating user demotion');
-      return res.json({
-        success: true,
-        message: 'User demoted successfully (demo mode)'
+      console.log('❌ Firebase Admin SDK not initialized - cannot demote user');
+      return res.status(500).json({
+        success: false,
+        error: 'Firebase Admin SDK not initialized. Please check server configuration.'
       });
     }
 
@@ -279,14 +418,26 @@ router.post('/users/:uid/demote', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Cannot modify super admin' });
     }
 
+    // Update Firestore user document
     await userRef.update({
       role: 'user',
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
+    console.log(`✅ Updated Firestore role to user for user: ${uid}`);
+
+    // Set Firebase Auth custom claims
+    if (admin.apps.length > 0) {
+      await admin.auth().setCustomUserClaims(uid, { role: 'user' });
+      console.log(`✅ Set custom claims for user ${uid}: role=user`);
+    } else {
+      console.log('⚠️ Firebase Admin SDK not available, skipping custom claims');
+    }
 
     res.json({
       success: true,
-      message: 'User demoted successfully'
+      message: 'User demoted successfully',
+      userId: uid,
+      newRole: 'user'
     });
   } catch (error) {
     console.error('Error demoting user:', error);
@@ -306,13 +457,13 @@ router.delete('/users/:uid', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Cannot delete yourself' });
     }
 
-    // Demo mode: Simulate successful deletion
+    // Check if Firebase Admin SDK is properly initialized
     const db = getDb();
     if (!db) {
-      console.log('🔧 Demo mode: Simulating user deletion');
-      return res.json({
-        success: true,
-        message: 'User deleted successfully (demo mode)'
+      console.log('❌ Firebase Admin SDK not initialized - cannot delete user');
+      return res.status(500).json({
+        success: false,
+        error: 'Firebase Admin SDK not initialized. Please check server configuration.'
       });
     }
 
@@ -333,10 +484,46 @@ router.delete('/users/:uid', async (req, res) => {
     // Delete user from Firebase Auth (only if Firebase Admin SDK is available)
     if (admin.apps.length > 0) {
       await admin.auth().deleteUser(uid);
+      console.log(`✅ Deleted user from Firebase Auth: ${uid}`);
+    } else {
+      console.log('⚠️ Firebase Admin SDK not available, skipping Auth deletion');
     }
 
-    // Delete user document from Firestore
-    await userRef.delete();
+    // Delete user document and all subcollections from Firestore
+    await deleteUserDataFromFirestore(db, uid);
+
+    // Clean up Realtime Database data (if available)
+    try {
+      const rtdb = admin.database();
+      if (rtdb) {
+        // Remove user from device ownership in Realtime Database
+        const devicesRef = rtdb.ref('devices');
+        const devicesSnapshot = await devicesRef.once('value');
+        
+        if (devicesSnapshot.exists()) {
+          const devices = devicesSnapshot.val();
+          const updates = {};
+          
+          // Find devices owned by this user and unassign them
+          for (const [deviceId, deviceData] of Object.entries(devices)) {
+            if (deviceData.ownerId === uid) {
+              updates[`devices/${deviceId}/ownerId`] = null;
+              updates[`devices/${deviceId}/ownerName`] = null;
+              updates[`devices/${deviceId}/ownerEmail`] = null;
+              updates[`devices/${deviceId}/assignedAt`] = null;
+            }
+          }
+          
+          if (Object.keys(updates).length > 0) {
+            await rtdb.ref().update(updates);
+            console.log(`Cleaned up ${Object.keys(updates).length / 4} devices for user ${uid}`);
+          }
+        }
+      }
+    } catch (rtdbError) {
+      console.warn('Error cleaning up Realtime Database data:', rtdbError.message);
+      // Don't fail the entire operation if RTDB cleanup fails
+    }
 
     res.json({
       success: true,
@@ -354,8 +541,7 @@ router.delete('/users/:uid', async (req, res) => {
  */
 router.get('/orders', async (req, res) => {
   try {
-    const ordersQuery = query(collection(db, 'deviceRequests'));
-    const ordersSnapshot = await getDocs(ordersQuery);
+    const ordersSnapshot = await db.collection('deviceRequests').get();
     const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     res.json({
@@ -384,8 +570,8 @@ router.post('/orders/:id/estimate', async (req, res) => {
       });
     }
 
-    const requestRef = doc(db, 'deviceRequests', id);
-    const requestSnap = await getDoc(requestRef);
+    const requestRef = db.collection('deviceRequests').doc(id);
+    const requestSnap = await requestRef.get();
     
     if (!requestSnap.exists()) {
       return res.status(404).json({ success: false, error: 'Order not found' });
@@ -413,7 +599,7 @@ router.post('/orders/:id/estimate', async (req, res) => {
     });
 
     // Create notification for user
-    const notificationRef = doc(collection(db, 'notifications', requestData.userId, 'items'));
+    const notificationRef = db.collection('notifications').doc(requestData.userId).collection('items').doc();
     await setDoc(notificationRef, {
       title: 'Cost Estimate Ready',
       message: `Your device request has been reviewed. Total cost: $${totalCost.toFixed(2)}`,
@@ -447,8 +633,8 @@ router.post('/orders/:id/assign', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing deviceId' });
     }
 
-    const requestRef = doc(db, 'deviceRequests', id);
-    const requestSnap = await getDoc(requestRef);
+    const requestRef = db.collection('deviceRequests').doc(id);
+    const requestSnap = await requestRef.get();
     
     if (!requestSnap.exists()) {
       return res.status(404).json({ success: false, error: 'Order not found' });
@@ -465,7 +651,7 @@ router.post('/orders/:id/assign', async (req, res) => {
     const batch = writeBatch(db);
 
     // Create device metadata
-    const deviceRef = doc(db, 'devices', deviceId);
+    const deviceRef = db.collection('devices').doc(deviceId);
     batch.set(deviceRef, {
       assignedTo: requestData.userId,
       assignedToName: requestData.fullName,
@@ -487,7 +673,7 @@ router.post('/orders/:id/assign', async (req, res) => {
     });
 
     // Create notification for user
-    const notificationRef = doc(collection(db, 'notifications', requestData.userId, 'items'));
+    const notificationRef = db.collection('notifications').doc(requestData.userId).collection('items').doc();
     batch.set(notificationRef, {
       title: 'Device Assigned',
       message: `Your device ${deviceId} has been assigned and is ready for setup.`,
@@ -520,8 +706,8 @@ router.post('/orders/:id/reject', async (req, res) => {
     const { id } = req.params;
     const { reason } = req.body;
 
-    const requestRef = doc(db, 'deviceRequests', id);
-    const requestSnap = await getDoc(requestRef);
+    const requestRef = db.collection('deviceRequests').doc(id);
+    const requestSnap = await requestRef.get();
     
     if (!requestSnap.exists()) {
       return res.status(404).json({ success: false, error: 'Order not found' });
@@ -538,7 +724,7 @@ router.post('/orders/:id/reject', async (req, res) => {
     });
 
     // Create notification for user
-    const notificationRef = doc(collection(db, 'notifications', requestData.userId, 'items'));
+    const notificationRef = db.collection('notifications').doc(requestData.userId).collection('items').doc();
     await setDoc(notificationRef, {
       title: 'Order Rejected',
       message: `Your device request has been rejected. Reason: ${reason || 'No reason provided'}`,
@@ -566,8 +752,8 @@ router.post('/orders/:id/complete', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const requestRef = doc(db, 'deviceRequests', id);
-    const requestSnap = await getDoc(requestRef);
+    const requestRef = db.collection('deviceRequests').doc(id);
+    const requestSnap = await requestRef.get();
     
     if (!requestSnap.exists()) {
       return res.status(404).json({ success: false, error: 'Order not found' });
@@ -589,7 +775,7 @@ router.post('/orders/:id/complete', async (req, res) => {
     });
 
     // Create notification for user
-    const notificationRef = doc(collection(db, 'notifications', requestData.userId, 'items'));
+    const notificationRef = db.collection('notifications').doc(requestData.userId).collection('items').doc();
     await setDoc(notificationRef, {
       title: 'Order Completed',
       message: `Your device ${requestData.deviceId} setup is complete and ready for use.`,
@@ -612,17 +798,76 @@ router.post('/orders/:id/complete', async (req, res) => {
 
 /**
  * GET /api/admin/devices
- * Get all devices
+ * Get all devices with Realtime Database data and user info
  */
 router.get('/devices', async (req, res) => {
   try {
-    const devicesQuery = query(collection(db, 'devices'));
-    const devicesSnapshot = await getDocs(devicesQuery);
-    const devices = devicesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const db = admin.firestore();
+    
+    // Get devices from Firestore
+    const devicesSnapshot = await db.collection('devices').get();
+    const firestoreDevices = devicesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // Get devices from Realtime Database
+    let rtdbDevices = {};
+    try {
+      const rtdb = admin.database();
+      if (rtdb) {
+        const devicesRef = rtdb.ref('devices');
+        const devicesSnapshot = await devicesRef.once('value');
+        if (devicesSnapshot.exists()) {
+          rtdbDevices = devicesSnapshot.val();
+        }
+      }
+    } catch (rtdbError) {
+      console.warn('Error fetching devices from Realtime Database:', rtdbError.message);
+    }
+
+    // Combine Firestore and Realtime Database data
+    const devicesWithUserInfo = [];
+
+    for (const firestoreDevice of firestoreDevices) {
+      const device = { ...firestoreDevice };
+      
+      // Get Realtime Database data for this device
+      if (rtdbDevices[device.id]) {
+        const rtdbData = rtdbDevices[device.id];
+        device.ownerId = rtdbData.meta?.ownerId || rtdbData.ownerId;
+        device.lastSeen = rtdbData.meta?.lastSeen || rtdbData.lastSeen;
+        device.status = rtdbData.meta?.status || rtdbData.status || 'unknown';
+        device.ownerName = rtdbData.ownerName;
+        device.ownerEmail = rtdbData.ownerEmail;
+        device.assignedAt = rtdbData.assignedAt;
+      }
+
+      // Fetch user information if device has an owner
+      if (device.ownerId) {
+        try {
+          const userDoc = await db.collection('users').doc(device.ownerId).get();
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            device.userName = userData.fullName || userData.displayName || 'Unknown';
+            device.userEmail = userData.email || device.ownerEmail || 'N/A';
+          } else {
+            device.userName = 'User not found';
+            device.userEmail = device.ownerEmail || 'N/A';
+          }
+        } catch (error) {
+          console.warn(`Error fetching user info for ${device.ownerId}:`, error.message);
+          device.userName = 'Error loading user';
+          device.userEmail = device.ownerEmail || 'N/A';
+        }
+      } else {
+        device.userName = 'Unassigned';
+        device.userEmail = 'N/A';
+      }
+
+      devicesWithUserInfo.push(device);
+    }
 
     res.json({
       success: true,
-      data: devices
+      data: devicesWithUserInfo
     });
   } catch (error) {
     console.error('Error fetching devices:', error);
@@ -638,8 +883,8 @@ router.post('/devices/:id/unassign', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const deviceRef = doc(db, 'devices', id);
-    const deviceSnap = await getDoc(deviceRef);
+    const deviceRef = db.collection('devices').doc(id);
+    const deviceSnap = await deviceRef.get();
     
     if (!deviceSnap.exists()) {
       return res.status(404).json({ success: false, error: 'Device not found' });
@@ -664,7 +909,7 @@ router.post('/devices/:id/unassign', async (req, res) => {
     });
 
     // Create notification for user
-    const notificationRef = doc(collection(db, 'notifications', deviceData.assignedTo, 'items'));
+    const notificationRef = db.collection('notifications').doc(deviceData.assignedTo).collection('items').doc();
     batch.set(notificationRef, {
       title: 'Device Unassigned',
       message: `Your device ${id} has been unassigned.`,
@@ -699,16 +944,16 @@ router.post('/devices/:id/reassign', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing userId' });
     }
 
-    const deviceRef = doc(db, 'devices', id);
-    const deviceSnap = await getDoc(deviceRef);
+    const deviceRef = db.collection('devices').doc(id);
+    const deviceSnap = await deviceRef.get();
     
     if (!deviceSnap.exists()) {
       return res.status(404).json({ success: false, error: 'Device not found' });
     }
 
     // Get user information
-    const userRef = doc(db, 'users', userId);
-    const userSnap = await getDoc(userRef);
+    const userRef = db.collection('users').doc(userId);
+    const userSnap = await userRef.get();
     
     if (!userSnap.exists()) {
       return res.status(404).json({ success: false, error: 'User not found' });
@@ -731,7 +976,7 @@ router.post('/devices/:id/reassign', async (req, res) => {
     });
 
     // Create notification for new user
-    const notificationRef = doc(collection(db, 'notifications', userId, 'items'));
+    const notificationRef = db.collection('notifications').doc(userId).collection('items').doc();
     batch.set(notificationRef, {
       title: 'Device Assigned',
       message: `Device ${id} has been assigned to you.`,
@@ -743,7 +988,7 @@ router.post('/devices/:id/reassign', async (req, res) => {
 
     // Notify old user if exists
     if (deviceData.assignedTo && deviceData.assignedTo !== userId) {
-      const oldNotificationRef = doc(collection(db, 'notifications', deviceData.assignedTo, 'items'));
+      const oldNotificationRef = db.collection('notifications').doc(deviceData.assignedTo).collection('items').doc();
       batch.set(oldNotificationRef, {
         title: 'Device Reassigned',
         message: `Device ${id} has been reassigned to another user.`,
@@ -779,8 +1024,8 @@ router.post('/devices/:id/status', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing status' });
     }
 
-    const deviceRef = doc(db, 'devices', id);
-    const deviceSnap = await getDoc(deviceRef);
+    const deviceRef = db.collection('devices').doc(id);
+    const deviceSnap = await deviceRef.get();
     
     if (!deviceSnap.exists()) {
       return res.status(404).json({ success: false, error: 'Device not found' });
@@ -811,7 +1056,7 @@ router.put('/profile', async (req, res) => {
   try {
     const { fullName, phone, profilePicture } = req.body;
 
-    const userRef = doc(db, 'users', req.adminUid);
+    const userRef = db.collection('users').doc(req.adminUid);
     await updateDoc(userRef, {
       displayName: fullName,
       fullName: fullName,

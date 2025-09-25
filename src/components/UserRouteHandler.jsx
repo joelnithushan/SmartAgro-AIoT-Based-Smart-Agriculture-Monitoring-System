@@ -49,6 +49,9 @@ const UserRouteHandler = ({ children, routeType = 'dashboard' }) => {
         } else if (routeType === 'alerts') {
           // Alerts page is accessible to all authenticated users
           // No special redirect logic needed
+        } else if (routeType === 'crop-fertilizer') {
+          // Crop & Fertilizer Management page is accessible to all authenticated users
+          // No special redirect logic needed
         }
 
         setIsChecking(false);

@@ -20,6 +20,7 @@ import WaitingPage from './pages/WaitingPage';
 import UserDashboardNew from './pages/UserDashboardNew';
 import AIChatbot from './pages/AIChatbot';
 import CropFertilizer from './pages/user/CropFertilizer';
+import CropFertilizerManagement from './pages/user/CropFertilizerManagement';
 import UserOrders from './pages/UserOrders';
 import UserProfile from './pages/UserProfile';
 import ShareDevice from './pages/ShareDevice';
@@ -142,6 +143,16 @@ function App() {
                 <RoleGuard requiredRole="user">
                   <UserRouteHandler routeType="crops">
                     <CropFertilizer />
+                  </UserRouteHandler>
+                </RoleGuard>
+              } 
+            />
+            <Route 
+              path="/user/crop-fertilizer" 
+              element={
+                <RoleGuard requiredRole="user">
+                  <UserRouteHandler routeType="crop-fertilizer">
+                    <CropFertilizerManagement />
                   </UserRouteHandler>
                 </RoleGuard>
               } 
