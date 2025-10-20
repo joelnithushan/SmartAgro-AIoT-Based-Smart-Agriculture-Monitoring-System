@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import Table from '../../components/common/Table';
-import ViewModal from '../../components/admin/ViewModal';
+import Table from '../../components/common/ui/Table';
+import OrderDetailsModal from '../../components/OrderDetailsModal';
 import toast from 'react-hot-toast';
 
 const OrderManagement = () => {
@@ -19,7 +19,15 @@ const OrderManagement = () => {
           id: doc.id,
           ...doc.data()
         }));
-        setOrders(ordersData);
+        
+        // Sort orders by creation date in descending order (latest first)
+        const sortedOrders = ordersData.sort((a, b) => {
+          const dateA = a.createdAt?.seconds ? new Date(a.createdAt.seconds * 1000) : new Date(0);
+          const dateB = b.createdAt?.seconds ? new Date(b.createdAt.seconds * 1000) : new Date(0);
+          return dateB - dateA; // Descending order (latest first)
+        });
+        
+        setOrders(sortedOrders);
         setLoading(false);
       },
       (error) => {
@@ -54,8 +62,12 @@ const OrderManagement = () => {
         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
           order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
           order.status === 'accepted' ? 'bg-green-100 text-green-800' :
+          order.status === 'cost-estimated' ? 'bg-blue-100 text-blue-800' :
+          order.status === 'user-accepted' ? 'bg-emerald-100 text-emerald-800' :
+          order.status === 'user-rejected' ? 'bg-orange-100 text-orange-800' :
           order.status === 'rejected' ? 'bg-red-100 text-red-800' :
-          order.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+          order.status === 'completed' ? 'bg-purple-100 text-purple-800' :
+          order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
           'bg-gray-100 text-gray-800'
         }`}>
           {order.status || 'Unknown'}
@@ -65,7 +77,13 @@ const OrderManagement = () => {
         {order.costEstimate?.totalCost ? `$${order.costEstimate.totalCost}` : 'N/A'}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {order.assignedDeviceId || 'N/A'}
+        {order.assignedDeviceId ? (
+          <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium">
+            {order.assignedDeviceId}
+          </span>
+        ) : (
+          'Not assigned'
+        )}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         {order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}
@@ -73,7 +91,7 @@ const OrderManagement = () => {
       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
         <button
           onClick={() => handleViewOrder(order)}
-          className="bg-green-50 border border-green-200 text-green-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+          className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500"
         >
           View
         </button>
@@ -86,7 +104,7 @@ const OrderManagement = () => {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Order Management</h1>
-        <p className="mt-1 text-sm text-gray-600">
+        <p className="mt-1 text-sm text-white">
           View device requests and orders
         </p>
       </div>
@@ -100,13 +118,14 @@ const OrderManagement = () => {
         emptyMessage="No orders found"
       />
 
-      {/* View Modal */}
-      <ViewModal
+      {/* Order Details Modal */}
+      <OrderDetailsModal
         isOpen={showViewModal}
-        onClose={() => setShowViewModal(false)}
-        title="Order Details"
-        data={selectedOrder}
-        type="order"
+        onClose={() => {
+          setShowViewModal(false);
+          setSelectedOrder(null);
+        }}
+        requestId={selectedOrder?.id}
       />
     </div>
   );

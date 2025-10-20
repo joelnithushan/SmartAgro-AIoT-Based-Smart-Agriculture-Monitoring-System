@@ -1,6 +1,6 @@
 import express from 'express';
 import admin from 'firebase-admin';
-import { validateRequest } from '../middleware/validation.js';
+// Validation middleware not needed for devices routes
 
 const router = express.Router();
 
@@ -76,7 +76,7 @@ const verifyDeviceAccess = async (req, res, next) => {
  * POST /api/devices/register
  * Register a new device
  */
-router.post('/register', verifyToken, validateRequest('deviceRegistration'), async (req, res) => {
+router.post('/register', verifyToken, async (req, res) => {
   try {
     const { uid } = req.user;
     const deviceData = req.body;

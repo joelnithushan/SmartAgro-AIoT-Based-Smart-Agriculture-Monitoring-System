@@ -9,9 +9,37 @@ import {
   Bars3Icon,
   XMarkIcon
 } from '@heroicons/react/24/outline';
+import { auth } from '../../config/firebase';
+import { signOut } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import ConfirmModal from '../common/ConfirmModal';
 
 const ModernAdminLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const navigate = useNavigate();
+
+  const handleLogoutClick = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const handleLogoutConfirm = async () => {
+    try {
+      await signOut(auth);
+      toast.success('Logged out successfully');
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Failed to logout');
+    } finally {
+      setShowLogoutConfirm(false);
+    }
+  };
+
+  const handleLogoutCancel = () => {
+    setShowLogoutConfirm(false);
+  };
 
   const navigation = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: HomeIcon, current: true },
@@ -22,7 +50,13 @@ const ModernAdminLayout = ({ children }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div 
+      className="min-h-screen bg-cover bg-center bg-fixed bg-no-repeat"
+      style={{ 
+        backgroundImage: 'url(/images/admin-bg.jpg)',
+        backgroundColor: '#f9fafb' // Fallback color
+      }}
+    >
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
@@ -83,8 +117,11 @@ const ModernAdminLayout = ({ children }) => {
 
           {/* Logout Button */}
           <div className="mt-8 pt-6 border-t border-gray-200">
-            <button className="group flex items-center w-full px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200">
-              <ArrowRightOnRectangleIcon className="mr-3 h-5 w-5 text-red-400 group-hover:text-red-600" />
+            <button 
+              onClick={handleLogoutClick}
+              className="group flex items-center w-full px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              <ArrowRightOnRectangleIcon className="mr-3 h-5 w-5 text-red-100 group-hover:text-white" />
               Logout
             </button>
           </div>
@@ -100,7 +137,7 @@ const ModernAdminLayout = ({ children }) => {
               <div className="flex items-center">
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className="lg:hidden text-gray-500 hover:text-gray-700"
+                  className="lg:hidden p-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 hover:text-gray-800 transition-all duration-200"
                 >
                   <Bars3Icon className="h-6 w-6" />
                 </button>
@@ -113,7 +150,7 @@ const ModernAdminLayout = ({ children }) => {
               
               <div className="flex items-center space-x-4">
                 {/* Notifications */}
-                <button className="p-2 text-gray-400 hover:text-gray-600 relative">
+                <button className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 rounded-lg transition-all duration-200 relative">
                   <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -140,6 +177,19 @@ const ModernAdminLayout = ({ children }) => {
           {children}
         </main>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={handleLogoutCancel}
+        onConfirm={handleLogoutConfirm}
+        title="Confirm Logout"
+        message="Are you sure you want to logout from the admin dashboard?"
+        confirmText="Yes, Logout"
+        cancelText="Cancel"
+        type="warning"
+        confirmClass="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 focus:ring-red-500 shadow-lg hover:shadow-red-500/25"
+      />
     </div>
   );
 };

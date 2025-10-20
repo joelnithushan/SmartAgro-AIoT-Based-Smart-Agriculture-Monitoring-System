@@ -48,13 +48,13 @@ const Devices = () => {
         {device.deviceType || 'Unknown'}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {device.assignedTo || 'N/A'}
+        {device.userId || device.assignedTo || 'N/A'}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {device.assignedToEmail || 'N/A'}
+        {device.userEmail || device.assignedToEmail || 'N/A'}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {device.assignedToName || 'N/A'}
+        {device.userName || device.assignedToName || 'N/A'}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         {device.location || 'N/A'}
@@ -94,7 +94,7 @@ const Devices = () => {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Assigned Devices</h1>
-        <p className="mt-1 text-sm text-gray-600">
+        <p className="mt-1 text-sm text-white">
           View all devices assigned to users with owner information
         </p>
       </div>
@@ -134,15 +134,15 @@ const Devices = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Owner ID</label>
-                <p className="mt-1 text-sm text-gray-900">{selectedDevice.assignedTo || 'N/A'}</p>
+                <p className="mt-1 text-sm text-gray-900">{selectedDevice.userId || selectedDevice.assignedTo || 'N/A'}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Owner Email</label>
-                <p className="mt-1 text-sm text-gray-900">{selectedDevice.assignedToEmail || 'N/A'}</p>
+                <p className="mt-1 text-sm text-gray-900">{selectedDevice.userEmail || selectedDevice.assignedToEmail || 'N/A'}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Owner Name</label>
-                <p className="mt-1 text-sm text-gray-900">{selectedDevice.assignedToName || 'N/A'}</p>
+                <p className="mt-1 text-sm text-gray-900">{selectedDevice.userName || selectedDevice.assignedToName || 'N/A'}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Assigned Date</label>

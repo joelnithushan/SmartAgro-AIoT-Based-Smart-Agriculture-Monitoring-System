@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { collection, onSnapshot, query, orderBy, getDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { ref, onValue, off } from 'firebase/database';
-import { db, database } from '../config/firebase';
+import { db, database } from '../services/firebase/firebase';
 import toast from 'react-hot-toast';
 
 const AdminDeviceManagement = () => {

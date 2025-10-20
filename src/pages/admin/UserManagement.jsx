@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import { useAuth } from '../../contexts/AuthContext';
-import Table from '../../components/common/Table';
-import UserActions from '../../components/admin/UserActions';
-import UserDetailsModal from '../../components/admin/UserDetailsModal';
+import { useAuth } from '../../context/AuthContext';
+import Table from '../../components/common/ui/Table';
+import UserActions from '../../components/admin/userManagement/UserActions';
+import UserDetailsModal from '../../components/admin/userManagement/UserDetailsModal';
 import toast from 'react-hot-toast';
 
 const UserManagement = () => {
@@ -59,7 +59,46 @@ const UserManagement = () => {
   }, []);
 
   const handleUserUpdated = () => {
-    // User data will be automatically updated via the onSnapshot listener
+    // Refresh user data after update
+    const fetchUsersWithDetails = async () => {
+      try {
+        // Fetch users from Firestore
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        const usersData = [];
+        
+        for (const userDoc of usersSnapshot.docs) {
+          const userData = { id: userDoc.id, ...userDoc.data() };
+          
+          // Fetch device request data for this user
+          try {
+            const deviceRequestsQuery = query(
+              collection(db, 'deviceRequests'),
+              where('userId', '==', userDoc.id),
+              orderBy('createdAt', 'desc'),
+              limit(1)
+            );
+            const deviceRequestsSnapshot = await getDocs(deviceRequestsQuery);
+            
+            if (!deviceRequestsSnapshot.empty) {
+              const latestRequest = deviceRequestsSnapshot.docs[0].data();
+              // Merge device request data with priority
+              userData.deviceRequestData = latestRequest;
+            }
+          } catch (error) {
+            console.warn('Error fetching device request data for user:', userDoc.id, error);
+          }
+          
+          usersData.push(userData);
+        }
+        
+        setUsers(usersData);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        toast.error('Failed to refresh user data');
+      }
+    };
+
+    fetchUsersWithDetails();
     toast.success('User updated successfully');
   };
 
@@ -183,7 +222,7 @@ const UserManagement = () => {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-        <p className="mt-1 text-sm text-gray-600">
+        <p className="mt-1 text-sm text-white">
           Manage user accounts, roles, and permissions
         </p>
       </div>

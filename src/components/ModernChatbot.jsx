@@ -1,15 +1,18 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { useFormValidation } from '../hooks/useFormValidation';
-import { validationSchemas } from '../utils/validationSchemas';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
+import { useFormValidation } from './common/hooks/useFormValidation';
+import { validationSchemas } from './common/validations/validationSchemas';
+import ReactMarkdown from 'react-markdown';
 
 const ModernChatbot = () => {
+  const { t } = useTranslation();
   const { currentUser } = useAuth();
   const [messages, setMessages] = useState([
     {
       id: 1,
       type: 'bot',
-      content: "Hello! I'm your SmartAgro farming assistant. Ask me about Sri Lankan agriculture, crop management, soil health, irrigation, or any farming questions!",
+      content: t('chatbot.welcomeMessage'),
       timestamp: new Date()
     }
   ]);
@@ -27,13 +30,8 @@ const ModernChatbot = () => {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
 
-  // Load chat history on component mount
-  useEffect(() => {
-    loadChatHistory();
-  }, [currentUser]);
-
-  // Load chat history from Firestore
-  const loadChatHistory = async () => {
+  // Load chat history function
+  const loadChatHistory = useCallback(async () => {
     if (!currentUser) {
       console.log('No current user, skipping chat history load');
       return;
@@ -67,7 +65,12 @@ const ModernChatbot = () => {
     } catch (error) {
       console.error('Error loading chat history:', error);
     }
-  };
+  }, [currentUser]);
+
+  // Load chat history on component mount
+  useEffect(() => {
+    loadChatHistory();
+  }, [currentUser, loadChatHistory]);
 
   // Load messages for a specific chat
   const loadChatMessages = async (chatId) => {
@@ -553,7 +556,24 @@ const ModernChatbot = () => {
                   </div>
                 ) : (
                   <>
-                    <div className="whitespace-pre-wrap text-sm">{message.content}</div>
+                    <div className="prose prose-sm max-w-none text-sm">
+                      <ReactMarkdown
+                        components={{
+                          h1: ({ children }) => <h1 className="text-lg font-bold mb-2 text-gray-900">{children}</h1>,
+                          h2: ({ children }) => <h2 className="text-base font-semibold mb-2 text-gray-800">{children}</h2>,
+                          h3: ({ children }) => <h3 className="text-sm font-semibold mb-1 text-gray-700">{children}</h3>,
+                          p: ({ children }) => <p className="mb-2 text-gray-700">{children}</p>,
+                          ul: ({ children }) => <ul className="list-disc list-inside mb-2 text-gray-700">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal list-inside mb-2 text-gray-700">{children}</ol>,
+                          li: ({ children }) => <li className="mb-1">{children}</li>,
+                          strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+                          code: ({ children }) => <code className="bg-gray-200 px-1 py-0.5 rounded text-sm font-mono">{children}</code>,
+                          pre: ({ children }) => <pre className="bg-gray-200 p-2 rounded text-sm font-mono overflow-x-auto mb-2">{children}</pre>,
+                        }}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
                     <div className={`flex items-center justify-between text-xs mt-1 ${
                       message.type === 'user' ? 'text-green-100' : 'text-gray-500'
                     }`}>

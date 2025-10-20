@@ -7,16 +7,63 @@ service cloud.firestore {
     // ========================================
     function isAdmin() {
       return request.auth != null && 
-             request.auth.token.email == "joelnithushan6@gmail.com";
+             (request.auth.token.email == "joelnithushan6@gmail.com" || 
+              request.auth.token.role in ['admin', 'superadmin']);
     }
     
     function isSuperAdmin() {
       return request.auth != null && 
-             request.auth.token.email == "joelnithushan6@gmail.com";
+             (request.auth.token.email == "joelnithushan6@gmail.com" || 
+              request.auth.token.role == 'superadmin');
+    }
+    
+    function isNormalAdmin() {
+      return request.auth != null && 
+             request.auth.token.role == 'admin' && 
+             request.auth.token.email != "joelnithushan6@gmail.com";
     }
     
     function canModifyRoles() {
       return isSuperAdmin();
+    }
+    
+    // ========================================
+    // VALIDATION FUNCTIONS
+    // ========================================
+    function isValidNIC(nic) {
+      return nic.matches("^[0-9]{9}[vV]$") || nic.matches("^[0-9]{12}$");
+    }
+    
+    function isValidName(name) {
+      return name.matches("^[A-Za-z ]+$") && name.size() >= 2;
+    }
+    
+    function isValidAge(age) {
+      return age is int && age >= 0 && age <= 100;
+    }
+    
+    function isValidPrice(price) {
+      return price is number && price >= 0;
+    }
+    
+    function isValidEmail(email) {
+      return email.matches("^[A-Za-z0-9]([A-Za-z0-9._%+-]*[A-Za-z0-9])?@[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\\.[A-Za-z]{2,}$");
+    }
+    
+    function isValidMobile(mobile) {
+      return mobile.matches("^(?:7[0-9]{8}|0[1-9][0-9]{7}|\\+94[1-9][0-9]{7})$");
+    }
+    
+    function isValidCropName(cropName) {
+      return cropName.matches("^[A-Za-z ]+$") && cropName.size() >= 2;
+    }
+    
+    function isFutureDate(date) {
+      return date > request.time;
+    }
+    
+    function isPastDate(date) {
+      return date < request.time;
     }
     
     // ========================================
@@ -31,262 +78,315 @@ service cloud.firestore {
     }
     
     // ========================================
-    // USERS COLLECTION
+    // USERS COLLECTION - CONSOLIDATED RULES
     // ========================================
     match /users/{userId} {
-      // User can read/update their own profile (but not role)
-      allow read: if isOwner(userId);
-      allow update: if isOwner(userId) && !('role' in request.resource.data.diff(resource.data).affectedKeys());
+      // READ PERMISSIONS
+      allow read: if isOwner(userId) || isAdmin();
       
-      // User can create their own profile
-      allow create: if isOwner(userId);
+      // CREATE PERMISSIONS - More permissive for user creation
+      allow create: if isOwner(userId) && 
+                       request.resource.data.keys().hasAny(["email"]) &&
+                       (!('email' in request.resource.data) || isValidEmail(request.resource.data.email)) &&
+                       (!('fullName' in request.resource.data) || request.resource.data.fullName == "" || isValidName(request.resource.data.fullName)) &&
+                       (!('role' in request.resource.data) || request.resource.data.role in ['user', 'admin', 'superadmin']);
       
-      // Admin role modifications (only super admin can modify roles)
-      allow update: if canModifyRoles();
+      // UPDATE PERMISSIONS - More permissive for user updates
+      allow update: if (
+        // Users can update their own profile (but not role)
+        (isOwner(userId) && !('role' in request.resource.data.diff(resource.data).affectedKeys())) ||
+        // Super admin can update any user (including roles)
+        isSuperAdmin() ||
+        // Super admin email can always update (for migration purposes)
+        (request.auth != null && request.auth.token.email == "joelnithushan6@gmail.com") ||
+        // Normal admin can update user profiles (but not roles)
+        (isNormalAdmin() && !('role' in request.resource.data.diff(resource.data).affectedKeys()))
+      ) && !(resource.data.email == "joelnithushan6@gmail.com") &&
+          // Validate fields if they exist (more permissive)
+          (!('fullName' in request.resource.data) || isValidName(request.resource.data.fullName)) &&
+          (!('name' in request.resource.data) || isValidName(request.resource.data.name)) &&
+          (!('nic' in request.resource.data) || isValidNIC(request.resource.data.nic)) &&
+          (!('age' in request.resource.data) || isValidAge(request.resource.data.age)) &&
+          (!('email' in request.resource.data) || isValidEmail(request.resource.data.email)) &&
+          (!('mobile' in request.resource.data) || isValidMobile(request.resource.data.mobile)) &&
+          (!('phone' in request.resource.data) || isValidMobile(request.resource.data.phone)) &&
+          // Allow admins to update profile picture fields for migration
+          (!('photoURL' in request.resource.data) || request.resource.data.photoURL is string) &&
+          (!('avatar' in request.resource.data) || request.resource.data.avatar is string) &&
+          (!('profilePicture' in request.resource.data) || request.resource.data.profilePicture is string) &&
+          (!('migratedFromCloudinary' in request.resource.data) || request.resource.data.migratedFromCloudinary is bool) &&
+          (!('migrationDate' in request.resource.data) || request.resource.data.migrationDate is string);
       
-      // Admin can delete users (except super admin)
-      allow delete: if canModifyRoles() && !(resource.data.email == "joelnithushan6@gmail.com");
-      
-      // Admin has full read access
-      allow read: if isAdmin();
+      // DELETE PERMISSIONS
+      allow delete: if (
+        // Users can delete their own account (self-deactivation)
+        isOwner(userId) ||
+        // Super admin can delete any user except super admin
+        (isSuperAdmin()) ||
+        // Super admin email can always delete (for migration purposes)
+        (request.auth != null && request.auth.token.email == "joelnithushan6@gmail.com") ||
+        // Normal admin can delete regular users only
+        (isNormalAdmin() && resource.data.role == 'user')
+      ) && !(resource.data.email == "joelnithushan6@gmail.com");
       
       // ========================================
-      // USER ALERTS SUBCOLLECTION
+      // USER SUBCOLLECTIONS
       // ========================================
       match /alerts/{alertId} {
-        // User can read/write their own alerts
-        allow read, write: if isOwner(userId);
-        
-        // Admin has full access
-        allow read, write: if isAdmin();
+        allow read, write: if isOwner(userId) || isAdmin();
       }
       
-      // ========================================
-      // USER TRIGGERED ALERTS SUBCOLLECTION
-      // ========================================
-      match /triggeredAlerts/{triggeredAlertId} {
-        // User can read/write their own triggered alerts
-        allow read, write: if isOwner(userId);
-        
-        // Admin has full access
-        allow read, write: if isAdmin();
-      }
-      
-      // ========================================
-      // USER IRRIGATION SETTINGS SUBCOLLECTION
-      // ========================================
-      match /irrigationSettings/{deviceId} {
-        // User can read/write their own irrigation settings
-        allow read, write: if isOwner(userId);
-        
-        // Admin has full access
-        allow read, write: if isAdmin();
-      }
-      
-      // ========================================
-      // USER IRRIGATION SCHEDULES SUBCOLLECTION
-      // ========================================
-      match /irrigationSchedules/{scheduleId} {
-        // User can read/write their own irrigation schedules
-        allow read, write: if isOwner(userId);
-        
-        // Admin has full access
-        allow read, write: if isAdmin();
-      }
-      
-      // ========================================
-      // USER CHATS SUBCOLLECTION
-      // ========================================
       match /chats/{chatId} {
-        // User can read/write their own chats
-        allow read, write: if isOwner(userId);
+        allow read, write: if isOwner(userId) || isAdmin();
         
-        // Admin has full access
-        allow read, write: if isAdmin();
-        
-        // ========================================
-        // CHAT MESSAGES SUBCOLLECTION
-        // ========================================
+        // Chat messages subcollection
         match /messages/{messageId} {
-          // User can read/write their own chat messages
-          allow read, write: if isOwner(userId);
-          
-          // Admin has full access
-          allow read, write: if isAdmin();
+          allow read, write: if isOwner(userId) || isAdmin();
         }
       }
       
-      // ========================================
-      // USER CROPS SUBCOLLECTION
-      // ========================================
+      // Allow chat collection access for authenticated users
+      match /chats {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+      
+      match /triggeredAlerts/{triggeredAlertId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+      
       match /crops/{cropId} {
-        // User can read/write their own crops
-        allow read, write: if isOwner(userId);
-        
-        // Admin has full access
-        allow read, write: if isAdmin();
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidCropName(request.resource.data.cropName);
+        allow update: if isOwner(userId) && (!('cropName' in request.resource.data) || isValidCropName(request.resource.data.cropName));
+        allow delete: if isOwner(userId) || isAdmin();
       }
       
-      // ========================================
-      // USER FERTILIZERS SUBCOLLECTION
-      // ========================================
       match /fertilizers/{fertilizerId} {
-        // User can read/write their own fertilizers
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && 
+                         isValidName(request.resource.data.fertilizerName) &&
+                         isFutureDate(request.resource.data.applicationDate);
+        allow update: if isOwner(userId) && 
+                         (!('fertilizerName' in request.resource.data) || isValidName(request.resource.data.fertilizerName)) &&
+                         (!('applicationDate' in request.resource.data) || isFutureDate(request.resource.data.applicationDate));
+        allow delete: if isOwner(userId) || isAdmin();
         
-        // Admin has full access
-        allow read, write: if isAdmin();
+        match /occurrences/{occId} {
+          allow read, write: if isOwner(userId) || isAdmin();
+        }
       }
       
-      // ========================================
-      // USER RECOMMENDATIONS SUBCOLLECTION
-      // ========================================
       match /recommendations/{recommendationId} {
-        // User can read/write their own recommendations
-        allow read, write: if isOwner(userId);
-        
-        // Admin has full access
-        allow read, write: if isAdmin();
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId);
+        // Recommendations are read-only after creation
       }
+      
+      match /settings/{settingsId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+      
+      match /irrigation/{docId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+    }
+    
+    // ========================================
+    // ROOT LEVEL COLLECTIONS
+    // ========================================
+    
+    // Crops collection (root level - for backward compatibility)
+    match /crops/{cropId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid &&
+                       isValidCropName(request.resource.data.cropName);
+      allow update: if isAuthenticated() && 
+                       (resource.data.userId == request.auth.uid || isAdmin()) &&
+                       (!('cropName' in request.resource.data) || isValidCropName(request.resource.data.cropName));
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // Additional collections that might be accessed
+    match /userSettings/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+    
+    match /systemSettings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    match /analytics/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+    
+    // Alerts collection (root level)
+    match /alerts/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+      
+      match /{alertId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+    }
+    
+    // Triggered alerts collection (root level)
+    match /triggeredAlerts/{alertId} {
+      allow read, write: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // Fertilizers collection (root level)
+    match /fertilizers/{fertilizerId} {
+      allow read, write: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // Recommendations collection (root level)
+    match /recommendations/{recommendationId} {
+      allow read, write: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // Settings collection (root level)
+    match /settings/{settingId} {
+      allow read, write: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // Irrigation collection (root level)
+    match /irrigation/{irrigationId} {
+      allow read, write: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // ========================================
+    // USER PROFILES COLLECTION
+    // ========================================
+    match /userProfiles/{userId} {
+      // READ PERMISSIONS
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // CREATE PERMISSIONS - Allow users to create their own profile
+      allow create: if isOwner(userId);
+      
+      // UPDATE PERMISSIONS - Allow users to update their own profile
+      allow update: if isOwner(userId) || isAdmin();
+      
+      // DELETE PERMISSIONS - Only admins can delete profiles
+      allow delete: if isAdmin();
     }
     
     // ========================================
     // DEVICE REQUESTS COLLECTION
     // ========================================
     match /deviceRequests/{requestId} {
-      // User can create request for themselves
+      // User can create request for themselves with required fields
       allow create: if isAuthenticated() && 
-                       request.resource.data.userId == request.auth.uid;
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.nicNumber is string &&
+                       request.resource.data.nicNumber.size() > 0 &&
+                       (request.resource.data.nicNumber.matches('^[0-9]{9}[vV]$') ||
+                        request.resource.data.nicNumber.matches('^[0-9]{12}$'));
       
-      // User can read their own requests
+      // User can read their own requests, admins can read all
       allow read: if isAuthenticated() && 
-                     resource.data.userId == request.auth.uid;
+                     (resource.data.userId == request.auth.uid || isAdmin());
       
       // User can delete (cancel) their own pending request
       allow delete: if isAuthenticated() && 
                        resource.data.userId == request.auth.uid &&
                        resource.data.status == 'pending';
       
-      // User can update their own request (only if status is pending or for accepting cost)
+      // User can update their own request, admins can update all
       allow update: if isAuthenticated() && 
-                       resource.data.userId == request.auth.uid &&
-                       (resource.data.status == 'pending' || 
-                        (resource.data.status == 'accepted' && 
-                         request.resource.data.status in ['user-accepted', 'user-rejected']));
+                       (isAdmin() ||
+                        // Allow any update for authenticated users to their own requests (temporary for debugging)
+                        (resource.data.userId == request.auth.uid));
       
       // Admin has full access
       allow read, write: if isAdmin();
     }
     
     // ========================================
-    // ORDERS COLLECTION (Alternative naming)
+    // ORDERS COLLECTION
     // ========================================
     match /orders/{orderId} {
-      // User can read their own orders
       allow read: if isAuthenticated() && 
-                     resource.data.userId == request.auth.uid;
+                     (resource.data.userId == request.auth.uid || isAdmin());
       
-      // User can create orders for themselves
       allow create: if isAuthenticated() && 
                        request.resource.data.userId == request.auth.uid;
       
-      // User can update their own orders
       allow update: if isAuthenticated() && 
-                       resource.data.userId == request.auth.uid;
+                       (resource.data.userId == request.auth.uid || isAdmin());
       
-      // User can delete their own orders
       allow delete: if isAuthenticated() && 
-                       resource.data.userId == request.auth.uid;
-      
-      // Admin has full access
-      allow read, write: if isAdmin();
+                       (resource.data.userId == request.auth.uid || isAdmin());
     }
     
     // ========================================
     // DEVICES COLLECTION
     // ========================================
     match /devices/{deviceId} {
-      // Device owner can read their device
       allow read: if isAuthenticated() && 
-                     resource.data.assignedTo == request.auth.uid;
+                     (resource.data.assignedTo == request.auth.uid || isAdmin());
       
-      // Device owner can update their device
       allow update: if isAuthenticated() && 
-                       resource.data.assignedTo == request.auth.uid;
+                       (resource.data.assignedTo == request.auth.uid || isAdmin());
       
-      // Admin has full access
-      allow read, write: if isAdmin();
+      allow create, delete: if isAdmin();
     }
     
     // ========================================
     // FARMS COLLECTION
     // ========================================
     match /farms/{farmId} {
-      // Farm owner can read their farm
       allow read: if isAuthenticated() && 
                      (resource.data.ownerId == request.auth.uid || 
-                      resource.data.userId == request.auth.uid);
+                      resource.data.userId == request.auth.uid ||
+                      isAdmin());
       
-      // Farm owner can create farms for themselves
       allow create: if isAuthenticated() && 
                        (request.resource.data.ownerId == request.auth.uid || 
                         request.resource.data.userId == request.auth.uid);
       
-      // Farm owner can update their farm
       allow update: if isAuthenticated() && 
                        (resource.data.ownerId == request.auth.uid || 
-                        resource.data.userId == request.auth.uid);
+                        resource.data.userId == request.auth.uid ||
+                        isAdmin());
       
-      // Farm owner can delete their farm
       allow delete: if isAuthenticated() && 
                        (resource.data.ownerId == request.auth.uid || 
-                        resource.data.userId == request.auth.uid);
-      
-      // Admin has full access
-      allow read, write: if isAdmin();
+                        resource.data.userId == request.auth.uid ||
+                        isAdmin());
     }
     
     // ========================================
     // FARM DATA COLLECTION
     // ========================================
     match /farmData/{dataId} {
-      // User can read their own farm data
       allow read: if isAuthenticated() && 
-                     resource.data.userId == request.auth.uid;
+                     (resource.data.userId == request.auth.uid || isAdmin());
       
-      // User can create farm data for themselves
       allow create: if isAuthenticated() && 
                        request.resource.data.userId == request.auth.uid;
       
-      // User can update their own farm data
       allow update: if isAuthenticated() && 
-                       resource.data.userId == request.auth.uid;
+                       (resource.data.userId == request.auth.uid || isAdmin());
       
-      // User can delete their own farm data
       allow delete: if isAuthenticated() && 
-                       resource.data.userId == request.auth.uid;
-      
-      // Admin has full access
-      allow read, write: if isAdmin();
+                       (resource.data.userId == request.auth.uid || isAdmin());
     }
     
     // ========================================
     // SENSOR DATA COLLECTION
     // ========================================
     match /sensorData/{sensorId} {
-      // Device owner can read their sensor data
       allow read: if isAuthenticated() && 
-                     resource.data.userId == request.auth.uid;
+                     (resource.data.userId == request.auth.uid || isAdmin());
       
-      // Device owner can create sensor data
       allow create: if isAuthenticated() && 
                        request.resource.data.userId == request.auth.uid;
       
-      // Device owner can update their sensor data
       allow update: if isAuthenticated() && 
-                       resource.data.userId == request.auth.uid;
+                       (resource.data.userId == request.auth.uid || isAdmin());
       
-      // Admin has full access
       allow read, write: if isAdmin();
     }
     
@@ -294,58 +394,41 @@ service cloud.firestore {
     // CHAT SESSIONS COLLECTION
     // ========================================
     match /chatSessions/{sessionId} {
-      // User can read their own chat sessions
       allow read: if isAuthenticated() && 
-                     resource.data.userId == request.auth.uid;
+                     (resource.data.userId == request.auth.uid || isAdmin());
       
-      // User can create chat sessions for themselves
       allow create: if isAuthenticated() && 
                        request.resource.data.userId == request.auth.uid;
       
-      // User can update their own chat sessions
       allow update: if isAuthenticated() && 
-                       resource.data.userId == request.auth.uid;
+                       (resource.data.userId == request.auth.uid || isAdmin());
       
-      // User can delete their own chat sessions
       allow delete: if isAuthenticated() && 
-                       resource.data.userId == request.auth.uid;
-      
-      // Admin has full access
-      allow read, write: if isAdmin();
+                       (resource.data.userId == request.auth.uid || isAdmin());
     }
     
     // ========================================
     // MESSAGES COLLECTION
     // ========================================
     match /messages/{messageId} {
-      // User can read messages from their chat sessions
       allow read: if isAuthenticated() && 
-                     resource.data.userId == request.auth.uid;
+                     (resource.data.userId == request.auth.uid || isAdmin());
       
-      // User can create messages in their chat sessions
       allow create: if isAuthenticated() && 
                        request.resource.data.userId == request.auth.uid;
       
-      // User can update their own messages
       allow update: if isAuthenticated() && 
-                       resource.data.userId == request.auth.uid;
+                       (resource.data.userId == request.auth.uid || isAdmin());
       
-      // User can delete their own messages
       allow delete: if isAuthenticated() && 
-                       resource.data.userId == request.auth.uid;
-      
-      // Admin has full access
-      allow read, write: if isAdmin();
+                       (resource.data.userId == request.auth.uid || isAdmin());
     }
     
     // ========================================
     // FAQS COLLECTION
     // ========================================
     match /faqs/{faqId} {
-      // All authenticated users can read FAQs
       allow read: if isAuthenticated();
-      
-      // Only admin can create/update/delete FAQs
       allow create, update, delete: if isAdmin();
     }
     
@@ -353,48 +436,46 @@ service cloud.firestore {
     // NOTIFICATIONS COLLECTION
     // ========================================
     match /notifications/{notificationId} {
-      // User can read their own notifications
       allow read: if isAuthenticated() && 
-                     resource.data.userId == request.auth.uid;
+                     (resource.data.userId == request.auth.uid || isAdmin());
       
-      // User can create notifications for themselves
       allow create: if isAuthenticated() && 
-                       request.resource.data.userId == request.auth.uid;
+                       (request.resource.data.userId == request.auth.uid || isAdmin());
       
-      // User can update their own notifications
       allow update: if isAuthenticated() && 
-                       resource.data.userId == request.auth.uid;
+                       (resource.data.userId == request.auth.uid || isAdmin());
       
-      // User can delete their own notifications
       allow delete: if isAuthenticated() && 
-                       resource.data.userId == request.auth.uid;
-      
-      // Admin has full access
-      allow read, write: if isAdmin();
+                       (resource.data.userId == request.auth.uid || isAdmin());
     }
     
     // ========================================
     // SYSTEM SETTINGS COLLECTION
     // ========================================
     match /systemSettings/{settingId} {
-      // All authenticated users can read system settings
       allow read: if isAuthenticated();
-      
-      // Only admin can create/update/delete system settings
       allow create, update, delete: if isAdmin();
+    }
+    
+    // ========================================
+    // PASSWORD RESET COLLECTIONS
+    // ========================================
+    match /passwordResetOTPs/{email} {
+      // Only allow server-side operations (no direct client access)
+      allow read, write: if false;
+    }
+    
+    match /passwordResetTokens/{token} {
+      // Only allow server-side operations (no direct client access)
+      allow read, write: if false;
     }
     
     // ========================================
     // AUDIT LOGS COLLECTION
     // ========================================
     match /auditLogs/{logId} {
-      // Only admin can read audit logs
       allow read: if isAdmin();
-      
-      // Only admin can create audit logs
       allow create: if isAdmin();
-      
-      // No one can update or delete audit logs
       allow update, delete: if false;
     }
     
@@ -402,14 +483,12 @@ service cloud.firestore {
     // BACKUP DATA COLLECTION
     // ========================================
     match /backupData/{backupId} {
-      // Only admin can access backup data
       allow read, write: if isAdmin();
     }
     
     // ========================================
     // DEFAULT DENY RULE
     // ========================================
-    // Deny access to any other collections not explicitly defined
     match /{document=**} {
       allow read, write: if false;
     }

@@ -5,6 +5,10 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 
+// Set environment variable for Firebase project ID
+process.env.GOOGLE_APPLICATION_CREDENTIALS = './config/serviceAccountKey.json';
+process.env.GCLOUD_PROJECT = 'smartagro-solution';
+
 // Initialize Firebase Admin SDK (for server-side operations)
 if (!admin.apps.length) {
   try {
@@ -13,23 +17,28 @@ if (!admin.apps.length) {
     
     // Check if it's a real service account or mock
     if (serviceAccount.private_key && !serviceAccount.private_key.includes('MOCK')) {
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        databaseURL: 'https://smartagro-solution-default-rtdb.asia-southeast1.firebasedatabase.app'
-      });
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      projectId: serviceAccount.project_id,
+      databaseURL: 'https://smartagro-solution-default-rtdb.asia-southeast1.firebasedatabase.app'
+    });
+    console.log('🔗 Realtime Database URL: https://smartagro-solution-default-rtdb.asia-southeast1.firebasedatabase.app');
       console.log('✅ Firebase Admin SDK initialized with real service account');
+      console.log('🔧 Project ID:', serviceAccount.project_id);
+      console.log('🔧 Client Email:', serviceAccount.client_email);
     } else {
       throw new Error('Mock service account detected');
     }
   } catch (error) {
-    console.log('⚠️  Service account key not found or invalid. Using REST API for development.');
-    console.log('   To use real Firebase Admin SDK, add a valid serviceAccountKey.json to the config directory');
+    console.log('⚠️  Service account key not found or invalid. Error:', error.message);
     
     // Initialize without credentials for REST API usage
     admin.initializeApp({
       projectId: 'smartagro-solution',
       databaseURL: 'https://smartagro-solution-default-rtdb.asia-southeast1.firebasedatabase.app'
     });
+    console.log('🔗 Realtime Database URL: https://smartagro-solution-default-rtdb.asia-southeast1.firebasedatabase.app');
+    console.log('⚠️  Firebase Admin SDK initialized without credentials (demo mode)');
   }
 }
 

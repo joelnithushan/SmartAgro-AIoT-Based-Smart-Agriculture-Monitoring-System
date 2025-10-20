@@ -1,0 +1,100 @@
+# SmartAgro Project - API Keys Backup
+# Created: $(Get-Date)
+# IMPORTANT: Keep this file secure and do not share publicly
+
+# ============================================================================
+# OPENROUTER API KEY (DeepSeek & GPT-4o)
+# ============================================================================
+DEEPSEEK_API_KEY=REDACTED_DEEPSEEK_API_KEY
+DEEPSEEK_MODEL=deepseek/deepseek-r1-0528-qwen3-8b:free
+
+# Alternative models available through OpenRouter:
+# - openai/gpt-4o
+# - openai/gpt-4o-mini
+# - deepseek/deepseek-r1-0528-qwen3-8b:free
+# - deepseek/deepseek-coder:6.7b-instruct
+
+# ============================================================================
+# FIREBASE CONFIGURATION
+# ============================================================================
+# Service Account Key Location: backend/config/serviceAccountKey.json
+# Database URL: https://smartagro-solution-default-rtdb.asia-southeast1.firebasedatabase.app
+
+# ============================================================================
+# ENVIRONMENT VARIABLES NEEDED
+# ============================================================================
+# Copy these to your .env file:
+
+# Firebase Configuration
+FIREBASE_SERVICE_ACCOUNT={"type":"service_account","project_id":"smartagro-solution","private_key_id":"your-private-key-id","private_key":"-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY\n-----END PRIVATE KEY-----\n","client_email":"your-client-email@smartagro-solution.iam.gserviceaccount.com","client_id":"your-client-id","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"https://www.googleapis.com/robot/v1/metadata/x509/your-client-email%40smartagro-solution.iam.gserviceaccount.com"}
+FIREBASE_DATABASE_URL=https://smartagro-solution-default-rtdb.asia-southeast1.firebasedatabase.app/
+
+# AI Configuration
+DEEPSEEK_API_KEY=REDACTED_DEEPSEEK_API_KEY
+DEEPSEEK_MODEL=deepseek/deepseek-r1-0528-qwen3-8b:free
+
+# SendGrid Email Configuration (Optional)
+SENDGRID_API_KEY=SG.your-sendgrid-api-key-here
+SENDGRID_FROM_EMAIL=alerts@smartagro.com
+
+# Twilio SMS Configuration (Optional)
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your-twilio-auth-token-here
+TWILIO_PHONE_NUMBER=+1234567890
+
+# Server Configuration
+PORT=5000
+NODE_ENV=development
+
+# ============================================================================
+# API TESTING COMMANDS
+# ============================================================================
+
+# Test DeepSeek API:
+# curl -X POST "https://openrouter.ai/api/v1/chat/completions" \
+#   -H "Authorization: Bearer REDACTED_DEEPSEEK_API_KEY" \
+#   -H "Content-Type: application/json" \
+#   -H "HTTP-Referer: https://smartagro.com" \
+#   -H "X-Title: SmartAgro" \
+#   -d '{
+#     "model": "deepseek/deepseek-r1-0528-qwen3-8b:free",
+#     "messages": [{"role": "user", "content": "Hello!"}]
+#   }'
+
+# ============================================================================
+# PROJECT STRUCTURE
+# ============================================================================
+# Frontend: React app in /src directory
+# Backend: Node.js server in /backend directory  
+# ESP32: Arduino code in ESP32_SmartAgro_Fixed.ino
+# Firebase Rules: 
+#   - firebase-realtime-db-rules-production.json
+#   - firestore-security-rules-production.rules
+#   - storage.rules
+
+# ============================================================================
+# SECURITY NOTES
+# ============================================================================
+# 1. Never commit .env files to version control
+# 2. Keep serviceAccountKey.json secure
+# 3. Rotate API keys periodically
+# 4. Use environment variables in production
+# 5. This backup file should be stored securely
+
+# ============================================================================
+# DEPLOYMENT CHECKLIST
+# ============================================================================
+# 1. Create .env file with above variables
+# 2. Ensure serviceAccountKey.json is in place
+# 3. Test API connections
+# 4. Verify Firebase rules are deployed
+# 5. Test ESP32 connectivity
+# 6. Run full system tests
+
+# ============================================================================
+# SUPPORT CONTACTS
+# ============================================================================
+# OpenRouter: https://openrouter.ai
+# Firebase: https://console.firebase.google.com
+# ESP32: Arduino IDE + Firebase libraries
+

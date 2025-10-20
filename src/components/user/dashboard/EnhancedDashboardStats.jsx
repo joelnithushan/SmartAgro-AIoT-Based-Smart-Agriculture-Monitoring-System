@@ -1,0 +1,216 @@
+import React from 'react';
+import { 
+  UsersIcon, 
+  ClipboardDocumentListIcon, 
+  CheckCircleIcon, 
+  CpuChipIcon,
+  ExclamationTriangleIcon,
+  ClockIcon,
+  ArrowPathIcon
+} from '@heroicons/react/24/outline';
+import { useDashboardStats, useRecentActivity } from '../../common/hooks/useDashboardStats';
+const EnhancedDashboardStats = () => {
+  const { stats, loading, error, lastUpdated, refreshStats } = useDashboardStats();
+  const { recentActivity, loading: activityLoading } = useRecentActivity(5);
+  const StatCard = ({ title, value, icon, color, borderColor, subtitle }) => (
+    <div className={`bg-white rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 border-l-4 ${borderColor} p-6 group`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <div className={`p-3 rounded-lg ${color} group-hover:scale-110 transition-transform duration-200`}>
+            {icon}
+          </div>
+          <div className="ml-4">
+            <p className="text-sm font-medium text-gray-600">{title}</p>
+            <p className="text-3xl font-bold text-gray-900">
+              {loading ? (
+                <div className="animate-pulse bg-gray-200 h-8 w-16 rounded"></div>
+              ) : (
+                value.toLocaleString()
+              )}
+            </p>
+            {subtitle && (
+              <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
+            )}
+          </div>
+        </div>
+        {!loading && (
+          <div className="text-right">
+            <div className="text-xs text-gray-400">
+              {lastUpdated && `Updated ${lastUpdated.toLocaleTimeString()}`}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+  const ActivityItem = ({ activity }) => {
+    const getStatusColor = (status) => {
+      switch (status) {
+        case 'pending': return 'text-yellow-600 bg-yellow-100';
+        case 'approved': return 'text-green-600 bg-green-100';
+        case 'rejected': return 'text-red-600 bg-red-100';
+        case 'assigned': return 'text-blue-600 bg-blue-100';
+        default: return 'text-gray-600 bg-gray-100';
+      }
+    };
+    const getStatusIcon = (status) => {
+      switch (status) {
+        case 'pending': return <ClockIcon className="w-4 h-4" />;
+        case 'approved': 
+        case 'assigned': return <CheckCircleIcon className="w-4 h-4" />;
+        case 'rejected': return <ExclamationTriangleIcon className="w-4 h-4" />;
+        default: return <ClockIcon className="w-4 h-4" />;
+      }
+    };
+    return (
+      <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+        <div className="flex items-center space-x-3">
+          <div className={`p-2 rounded-full ${getStatusColor(activity.status)}`}>
+            {getStatusIcon(activity.status)}
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">
+              {activity.fullName || activity.email || 'Unknown User'}
+            </p>
+            <p className="text-xs text-gray-500">
+              {activity.farmName || 'Device Request'}
+            </p>
+          </div>
+        </div>
+        <div className="text-right">
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(activity.status)}`}>
+            {activity.status}
+          </span>
+          <p className="text-xs text-gray-400 mt-1">
+            {activity.timestamp && activity.timestamp.toLocaleDateString()}
+          </p>
+        </div>
+      </div>
+    );
+  };
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
+            </div>
+            <div className="ml-3 flex-1">
+              <h3 className="text-sm font-medium text-red-800">Error Loading Dashboard</h3>
+              <p className="mt-1 text-sm text-red-700">{error}</p>
+              <div className="mt-3">
+                <button
+                  onClick={refreshStats}
+                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  <ArrowPathIcon className="w-4 h-4 mr-2" />
+                  Try Again
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-6">
+      {}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
+          <p className="mt-1 text-sm text-gray-600">
+            Real-time statistics for your SmartAgro platform
+          </p>
+        </div>
+        <button
+          onClick={refreshStats}
+          disabled={loading}
+          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+        >
+          <ArrowPathIcon className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
+      </div>
+      {}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard
+          title="Total Users"
+          value={stats.totalUsers}
+          icon={<UsersIcon className="h-6 w-6 text-blue-600" />}
+          color="bg-blue-100"
+          borderColor="border-blue-500"
+          subtitle="Registered users"
+        />
+        <StatCard
+          title="Pending Requests"
+          value={stats.pendingRequests}
+          icon={<ClipboardDocumentListIcon className="h-6 w-6 text-yellow-600" />}
+          color="bg-yellow-100"
+          borderColor="border-yellow-500"
+          subtitle="Awaiting review"
+        />
+        <StatCard
+          title="Approved Requests"
+          value={stats.approvedRequests}
+          icon={<CheckCircleIcon className="h-6 w-6 text-green-600" />}
+          color="bg-green-100"
+          borderColor="border-green-500"
+          subtitle="Ready for assignment"
+        />
+        <StatCard
+          title="Rejected Requests"
+          value={stats.rejectedRequests}
+          icon={<ExclamationTriangleIcon className="h-6 w-6 text-red-600" />}
+          color="bg-red-100"
+          borderColor="border-red-500"
+          subtitle="Not approved"
+        />
+      </div>
+      {}
+      <div className="bg-white rounded-2xl shadow-md p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
+          <span className="text-sm text-gray-500">
+            {activityLoading ? 'Loading...' : `${recentActivity.length} recent requests`}
+          </span>
+        </div>
+        {activityLoading ? (
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="animate-pulse flex items-center space-x-3">
+                <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                </div>
+                <div className="w-16 h-6 bg-gray-200 rounded"></div>
+              </div>
+            ))}
+          </div>
+        ) : recentActivity.length > 0 ? (
+          <div className="space-y-0">
+            {recentActivity.map((activity) => (
+              <ActivityItem key={activity.id} activity={activity} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <ClipboardDocumentListIcon className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No recent activity</h3>
+            <p className="mt-1 text-sm text-gray-500">No device requests have been made recently.</p>
+          </div>
+        )}
+      </div>
+      {}
+      {loading && (
+        <div className="flex items-center justify-center py-4">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+          <span className="ml-2 text-sm text-gray-600">Loading statistics...</span>
+        </div>
+      )}
+    </div>
+  );
+};
+export default EnhancedDashboardStats;

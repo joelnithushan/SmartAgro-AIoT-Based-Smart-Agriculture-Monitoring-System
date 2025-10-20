@@ -7,46 +7,113 @@
         
         "sensors": {
           ".read": "auth != null",
-          ".write": true,
+          ".write": "auth != null",
           
           "latest": {
             ".read": "auth != null",
-            ".write": true
-          },
-          
-          "history": {
-            ".read": "auth != null",
-            ".write": true,
-            
-            "$timestamp": {
-              ".read": "auth != null",
-              ".write": true
-            }
-          }
-        },
-        
-        "control": {
-          ".read": "auth != null",
-          ".write": "auth != null",
-          
-          "relay": {
-            ".read": "auth != null",
             ".write": "auth != null",
             
-            "status": {
-              ".read": true,
+            "soilMoistureRaw": {
+              ".read": "auth != null",
+              ".write": "auth != null"
+            },
+            "soilMoisturePct": {
+              ".read": "auth != null",
+              ".write": "auth != null"
+            },
+            "airTemperature": {
+              ".read": "auth != null",
+              ".write": "auth != null"
+            },
+            "airHumidity": {
+              ".read": "auth != null",
+              ".write": "auth != null"
+            },
+            "soilTemperature": {
+              ".read": "auth != null",
+              ".write": "auth != null"
+            },
+            "airQualityIndex": {
+              ".read": "auth != null",
+              ".write": "auth != null"
+            },
+            "gases": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              
+              "co2": {
+                ".read": "auth != null",
+                ".write": "auth != null"
+              },
+              "nh3": {
+                ".read": "auth != null",
+                ".write": "auth != null"
+              }
+            },
+            "lightDetected": {
+              ".read": "auth != null",
+              ".write": "auth != null"
+            },
+            "rainLevelRaw": {
+              ".read": "auth != null",
+              ".write": "auth != null"
+            },
+            "rainStatus": {
+              ".read": "auth != null",
+              ".write": "auth != null"
+            },
+            "relayStatus": {
+              ".read": "auth != null",
+              ".write": "auth != null"
+            },
+            "timestamp": {
+              ".read": "auth != null",
               ".write": "auth != null"
             }
           },
           
-          "irrigation": {
+          "history": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            
+            "$timestamp": {
+              ".read": "auth != null",
+              ".write": "auth != null"
+            }
+          }
+        },
+        
+        "controls": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          
+          "relayCommand": {
+            ".read": "auth != null",
+            ".write": "auth != null"
+          },
+          
+          "relayStatus": {
+            ".read": "auth != null",
+            ".write": "auth != null"
+          },
+          
+          "irrigationMode": {
             ".read": "auth != null",
             ".write": "auth != null"
           },
           
           "thresholds": {
             ".read": "auth != null",
-            ".write": "auth != null"
+            ".write": "auth != null",
+            
+            "soilMoistureLow": {
+              ".read": "auth != null",
+              ".write": "auth != null"
+            },
+            "soilMoistureHigh": {
+              ".read": "auth != null",
+              ".write": "auth != null"
+            }
           }
         },
         
@@ -62,31 +129,31 @@
         
         "meta": {
           ".read": "auth != null",
-          ".write": true,
+          ".write": "auth != null",
           
           "lastSeen": {
             ".read": "auth != null",
-            ".write": true
+            ".write": "auth != null"
           },
           
           "ownerId": {
             ".read": "auth != null",
-            ".write": true
+            ".write": "auth != null"
           },
           
           "status": {
             ".read": "auth != null",
-            ".write": true
+            ".write": "auth != null"
           },
           
           "relayActiveLow": {
             ".read": "auth != null",
-            ".write": true
+            ".write": "auth != null"
           },
           
           "irrigationMode": {
             ".read": "auth != null",
-            ".write": true
+            ".write": "auth != null"
           }
         },
         
@@ -125,14 +192,34 @@
         "devices": {
           ".read": "auth != null && auth.uid == $uid",
           ".write": "auth != null && auth.uid == $uid"
+        },
+        
+        "chats": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.uid == $uid",
+          
+          "$chatId": {
+            ".read": "auth != null && auth.uid == $uid",
+            ".write": "auth != null && auth.uid == $uid"
+          }
+        },
+        
+        "settings": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.uid == $uid",
+          
+          "$settingsId": {
+            ".read": "auth != null && auth.uid == $uid",
+            ".write": "auth != null && auth.uid == $uid"
+          }
         }
       }
     },
     
     "deviceRequests": {
       "$requestId": {
-        ".read": "auth != null && (data.child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
-        ".write": "auth != null && (data.child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')"
+        ".read": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+        ".write": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')"
       }
     },
     
@@ -144,6 +231,50 @@
         "$notificationId": {
           ".read": "auth != null && auth.uid == $uid",
           ".write": "auth != null && auth.uid == $uid"
+        }
+      }
+    },
+    
+    "alerts": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid",
+        
+        "$alertId": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.uid == $uid"
+        }
+      }
+    },
+    
+    "irrigation": {
+      "$deviceId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        
+        "autoMode": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        
+        "pumpStatus": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        
+        "lastWatered": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        
+        "schedules": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          
+          "$scheduleId": {
+            ".read": "auth != null",
+            ".write": "auth != null"
+          }
         }
       }
     },

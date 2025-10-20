@@ -1,0 +1,115 @@
+export const validationTests = {
+  testFullName: (name) => {
+    const isValid = /^[a-zA-Z\s]+$/.test(name.trim());
+    return {
+      isValid,
+      message: isValid ? 'Valid name' : 'Name should contain only letters and spaces'
+    };
+  },
+  testAge: (age) => {
+    const numAge = parseInt(age);
+    const isValid = !isNaN(numAge) && numAge >= 0 && numAge <= 100;
+    return {
+      isValid,
+      message: isValid ? 'Valid age' : 'Age must be between 0 and 100'
+    };
+  },
+  testEmail: (email) => {
+    const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && email.includes('@');
+    return {
+      isValid,
+      message: isValid ? 'Valid email' : 'Please enter a valid email address'
+    };
+  },
+  testMobileNumber: (mobile) => {
+    const cleanMobile = mobile.replace(/\s/g, '');
+    const isValid = /^(\+94|0)[0-9]{9}$/.test(cleanMobile);
+    return {
+      isValid,
+      message: isValid ? 'Valid mobile number' : 'Please enter a valid Sri Lankan mobile number (+94 or 0 format)'
+    };
+  },
+  testFarmSize: (size) => {
+    const numSize = parseFloat(size);
+    const isValid = !isNaN(numSize) && numSize > 0;
+    return {
+      isValid,
+      message: isValid ? 'Valid farm size' : 'Farm size must be a valid positive number'
+    };
+  },
+  testParameterSelection: (parameters) => {
+    const isValid = Array.isArray(parameters) && parameters.length > 0;
+    return {
+      isValid,
+      message: isValid ? 'Valid parameter selection' : 'Please select at least one device parameter'
+    };
+  }
+};
+export const testData = {
+  validPersonalDetails: {
+    fullName: 'John Doe',
+    age: '30',
+    email: 'john@example.com',
+    mobileNumber: '+94771234567',
+    address: '123 Main Street, Colombo'
+  },
+  invalidPersonalDetails: {
+    fullName: 'John123', 
+    age: '150', 
+    email: 'invalid-email', 
+    mobileNumber: '123456', 
+    address: '' 
+  },
+  validFarmDetails: {
+    farmName: 'Green Valley Farm',
+    farmSize: '5.5',
+    farmLocation: 'Kandy District'
+  },
+  invalidFarmDetails: {
+    farmName: '', 
+    farmSize: '-5', 
+    farmLocation: '' 
+  },
+  validDeviceConfig: {
+    selectedParameters: ['soilMoisture', 'airTemperature']
+  },
+  invalidDeviceConfig: {
+    selectedParameters: [] 
+  }
+};
+export const runAllTests = () => {
+  console.log('🧪 Running Multi-Step Form Validation Tests');
+  console.log('==========================================');
+  console.log('\n✅ Testing Valid Data:');
+  Object.entries(testData.validPersonalDetails).forEach(([field, value]) => {
+    if (validationTests[`test${field.charAt(0).toUpperCase() + field.slice(1)}`]) {
+      const result = validationTests[`test${field.charAt(0).toUpperCase() + field.slice(1)}`](value);
+      console.log(`  ${field}: ${result.message}`);
+    }
+  });
+  console.log('\n❌ Testing Invalid Data:');
+  Object.entries(testData.invalidPersonalDetails).forEach(([field, value]) => {
+    if (validationTests[`test${field.charAt(0).toUpperCase() + field.slice(1)}`]) {
+      const result = validationTests[`test${field.charAt(0).toUpperCase() + field.slice(1)}`](value);
+      console.log(`  ${field}: ${result.message}`);
+    }
+  });
+  console.log('\n🏡 Testing Farm Details:');
+  Object.entries(testData.validFarmDetails).forEach(([field, value]) => {
+    if (validationTests[`test${field.charAt(0).toUpperCase() + field.slice(1)}`]) {
+      const result = validationTests[`test${field.charAt(0).toUpperCase() + field.slice(1)}`](value);
+      console.log(`  ${field}: ${result.message}`);
+    }
+  });
+  console.log('\n📱 Testing Device Configuration:');
+  const paramResult = validationTests.testParameterSelection(testData.validDeviceConfig.selectedParameters);
+  console.log(`  selectedParameters: ${paramResult.message}`);
+  console.log('\n🎉 All validation tests completed!');
+};
+if (typeof window !== 'undefined') {
+  window.multiStepFormValidation = {
+    validationTests,
+    testData,
+    runAllTests
+  };
+}

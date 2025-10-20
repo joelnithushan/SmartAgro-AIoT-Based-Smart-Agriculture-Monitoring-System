@@ -1,25 +1,103 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow authenticated users to upload avatars
-    match /avatars/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
     }
     
-    // Allow authenticated users to upload general files
-    match /uploads/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
     }
     
-    // Admin has full access to everything
+    function isSuperAdmin() {
+      return request.auth != null && 
+             request.auth.token.email == "joelnithushan6@gmail.com";
+    }
+    
+    function isAdmin() {
+      return request.auth != null && 
+             (request.auth.token.email == "joelnithushan6@gmail.com" ||
+              request.auth.token.role == "admin");
+    }
+    
+    function isValidImageFile() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    function isValidFileSize() {
+      return request.resource.size <= 5 * 1024 * 1024; // 5MB limit
+    }
+    
+    function isValidAvatarName() {
+      return request.resource.name.matches('avatar_.*') || 
+             request.resource.name.matches('migrated_avatar_.*');
+    }
+    
+    // Avatar storage rules - users can manage their own avatars
+    match /avatars/{userId}/{fileName} {
+      // Allow users to read their own avatars (public read for profile display)
+      allow read: if true; // Allow public read for profile pictures
+      
+      // Allow users to write (upload/update) their own avatars with validation
+      allow write: if isOwner(userId) && 
+                      isValidImageFile() && 
+                      isValidFileSize() &&
+                      isValidAvatarName();
+      
+      // Allow users to delete their own avatars
+      allow delete: if isOwner(userId);
+      
+      // Admin access
+      allow read, write, delete: if isAdmin();
+    }
+    
+    // General user uploads (documents, etc.)
+    match /uploads/{userId}/{fileName} {
+      allow read, write, delete: if isOwner(userId);
+      allow read, write, delete: if isAdmin();
+    }
+    
+    // Device data uploads (sensor data, logs, etc.)
+    match /device-data/{userId}/{fileName} {
+      allow read, write: if isOwner(userId);
+      allow read, write, delete: if isAdmin();
+    }
+    
+    // Farm data uploads (crop images, field photos, etc.)
+    match /farm-data/{userId}/{fileName} {
+      allow read, write: if isOwner(userId);
+      allow read, write, delete: if isAdmin();
+    }
+    
+    // System-wide admin uploads (templates, system files, etc.)
+    match /admin/{fileName} {
+      allow read, write, delete: if isAdmin();
+    }
+    
+    // Public assets (read-only for all authenticated users)
+    match /public/{fileName} {
+      allow read: if isAuthenticated();
+      allow write, delete: if isAdmin();
+    }
+    
+    // Temporary uploads (for processing)
+    match /temp/{userId}/{fileName} {
+      allow read, write, delete: if isOwner(userId);
+      allow read, write, delete: if isAdmin();
+      
+      // Auto-delete temp files after 24 hours (handled by cloud functions)
+    }
+    
+    // Super admin has full access to everything
     match /{allPaths=**} {
-      allow read, write: if request.auth != null && 
-                           request.auth.token.email == "joelnithushan6@gmail.com";
+      allow read, write, delete: if isSuperAdmin();
     }
     
     // Deny all other access
     match /{allPaths=**} {
-      allow read, write: if false;
+      allow read, write, delete: if false;
     }
   }
 }

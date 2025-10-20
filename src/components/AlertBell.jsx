@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
-import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { formatAlertTime } from '../utils/timeUtils';
 
@@ -8,7 +8,6 @@ const AlertBell = () => {
   const { user } = useAuth();
   const [triggeredAlerts, setTriggeredAlerts] = useState([]);
   const [showAlerts, setShowAlerts] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   // Load triggered alerts from Firestore
   useEffect(() => {

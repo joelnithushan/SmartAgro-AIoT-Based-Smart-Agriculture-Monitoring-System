@@ -9,9 +9,12 @@ import adminRouter from "./routes/admin.js";
 import chatRouter from "./routes/chat.js";
 import usersRouter from "./routes/users.js";
 import devicesRouter from "./routes/devices.js";
-import recommendationsRouter from "./routes/recommendations.js";
-import analyzeRouter from "./routes/analyze.js";
-import validationTestRouter from "./routes/validation-test.js";
+import irrigationRouter from "./routes/irrigation.js";
+import alertsRouter from "./routes/alerts.js";
+import fixAlertsRouter from "./routes/fix-alerts.js";
+import cropsRouter from "./routes/crops.js";
+import agricultureChatRouter from "./routes/agricultureChat.js";
+import { getAIResponse } from "./services/aiService.js";
 
 dotenv.config();
 
@@ -46,6 +49,14 @@ const initializeFirebase = async () => {
         console.log('✅ Firebase Admin SDK initialized with service account key');
         console.log('📋 Project ID:', serviceAccount.project_id);
         console.log('📊 Admin apps after initialization:', admin.apps.length);
+        
+        // Test Firestore connection
+        try {
+          const testDb = admin.firestore();
+          console.log('✅ Firestore instance created successfully');
+        } catch (firestoreError) {
+          console.log('⚠️  Firestore test failed:', firestoreError.message);
+        }
       } else {
         console.log('⚠️  Firebase service account not configured - using demo mode');
       }
@@ -67,11 +78,14 @@ app.use('/api/admin', adminRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/devices', devicesRouter);
-app.use('/api/recommendations', recommendationsRouter);
-app.use('/api/v1', analyzeRouter);
-app.use('/api/validation', validationTestRouter);
+app.use('/api/irrigation', irrigationRouter);
+app.use('/api/alerts', alertsRouter);
+app.use('/api/fix', fixAlertsRouter);
+app.use('/api/v1', cropsRouter);
+app.use('/api/agriculture-chat', agricultureChatRouter);
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+// Gemini removed - using DeepSeek only
 const db = admin.apps.length > 0 ? admin.firestore() : null;
 
 // System prompt for agriculture specialization with structured responses
@@ -149,50 +163,22 @@ app.post('/api/chat', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    if (!GEMINI_API_KEY) {
-      return res.status(500).json({ error: 'Gemini API key not configured' });
-    }
-
     console.log(`🤖 Legacy API: Processing message from ${userId}: ${message.substring(0, 50)}...`);
 
-    // Call Gemini API
+    // Use the new AI service
     const systemPrompt = getSystemPrompt();
-    const fullPrompt = `${systemPrompt}\n\nUser question: ${message}`;
-
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: fullPrompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 2048,
-          }
-        })
-      }
-    );
-
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error('Gemini API error:', errorText);
+    let reply;
+    
+    try {
+      reply = await getAIResponse(message, systemPrompt);
+      console.log('✅ AI service response received');
+    } catch (aiError) {
+      console.error('❌ AI service failed:', aiError.message);
       return res.status(500).json({ 
-        error: 'Gemini API call failed', 
-        details: `${geminiResponse.status} - ${errorText}` 
+        error: 'AI service call failed', 
+        details: aiError.message 
       });
     }
-
-    const geminiData = await geminiResponse.json();
-    
-    if (!geminiData.candidates || !geminiData.candidates[0] || !geminiData.candidates[0].content) {
-      console.error('Invalid Gemini response:', geminiData);
-      return res.status(500).json({ error: 'Invalid response from Gemini API' });
-    }
-
-    const reply = geminiData.candidates[0].content.parts[0].text;
 
     res.json({
       success: true,
@@ -262,50 +248,22 @@ app.post('/chat', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    if (!GEMINI_API_KEY) {
-      return res.status(500).json({ error: 'Gemini API key not configured' });
-    }
-
     console.log(`🤖 Processing message from ${userId}: ${message.substring(0, 50)}...`);
 
-    // Call Gemini API
+    // Use the new AI service
     const systemPrompt = getSystemPrompt();
-    const fullPrompt = `${systemPrompt}\n\nUser question: ${message}`;
-
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: fullPrompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 2048,
-          }
-        })
-      }
-    );
-
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error('Gemini API error:', errorText);
+    let reply;
+    
+    try {
+      reply = await getAIResponse(message, systemPrompt);
+      console.log('✅ AI service response received');
+    } catch (aiError) {
+      console.error('❌ AI service failed:', aiError.message);
       return res.status(500).json({ 
-        error: 'Gemini API call failed', 
-        details: `${geminiResponse.status} - ${errorText}` 
+        error: 'AI service call failed', 
+        details: aiError.message 
       });
     }
-
-    const geminiData = await geminiResponse.json();
-    
-    if (!geminiData.candidates || !geminiData.candidates[0] || !geminiData.candidates[0].content) {
-      console.error('Invalid Gemini response:', geminiData);
-      return res.status(500).json({ error: 'Invalid response from Gemini API' });
-    }
-
-    const reply = geminiData.candidates[0].content.parts[0].text;
 
     // Save to Firestore if available
     let savedChatId = chatId;
@@ -542,7 +500,7 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    geminiConfigured: !!GEMINI_API_KEY,
+    geminiConfigured: false,
     firebaseConfigured: admin.apps.length > 0
   });
 });
@@ -577,7 +535,7 @@ const startServer = async () => {
   
 app.listen(PORT, () => {
     console.log(`🚀 AI Chatbot Server running on port ${PORT}`);
-    console.log(`📡 Gemini API configured: ${!!GEMINI_API_KEY}`);
+    console.log(`📡 Gemini API configured: false (removed)`);
     console.log(`🔥 Firebase configured: ${admin.apps.length > 0}`);
     console.log(`🕐 Server started at: ${getSLTimeForLogging()} (${getSLTimezoneOffset()})`);
     console.log(`🌍 Timezone: Asia/Colombo (Sri Lanka)`);

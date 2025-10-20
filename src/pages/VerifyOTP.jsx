@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { ADMIN_EMAIL } from '../config/config';
+import { useAuth } from '../context/AuthContext';
+import { ADMIN_EMAIL } from '../services/config';
 import toast from 'react-hot-toast';
 
 const VerifyOTP = () => {
@@ -12,7 +12,7 @@ const VerifyOTP = () => {
   const [userEmail, setUserEmail] = useState('');
   const [devOTP, setDevOTP] = useState('');
 
-  const { sendEmailVerification, sendEmailOTPVerification, verifyEmailOTPCode, currentUser } = useAuth();
+  const { sendEmailOTPVerification, verifyEmailOTPCode, currentUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -115,8 +115,19 @@ const VerifyOTP = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-green-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Agriculture Background Image with Overlay */}
+      <div className="absolute inset-0 z-0">
+        <img
+          src="https://images.unsplash.com/photo-1464226184884-fa280b87c399?auto=format&fit=crop&w=1920&q=80"
+          alt="Smart Agriculture"
+          className="w-full h-full object-cover blur-sm"
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#E8F5E9]/20 via-[#F1F8E9]/15 to-[#E8F5E9]/20" />
+      </div>
+
+      {/* OTP Verification Container */}
+      <div className="relative z-10 max-w-md w-full space-y-6">
         {/* Header */}
         <div className="text-center">
           <h1 className="text-4xl font-black mb-2 text-green-600 tracking-wide drop-shadow-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -130,8 +141,8 @@ const VerifyOTP = () => {
           </p>
         </div>
 
-        {/* Verification Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
+        {/* Glassy Verification Card */}
+        <div className="bg-white/40 backdrop-blur-md rounded-2xl border border-white/50 shadow-2xl p-8">
           <div className="text-center mb-6">
             <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
               <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,7 +1,8 @@
 import React from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
-import ModernChatbot from '../components/ModernChatbot';
+// Switch to your AgricultureChatbot implementation
+import AgricultureChatbot from '../components/AgricultureChatbot';
 
 const AIChatbot = () => {
   const { currentUser } = useAuth();
@@ -10,7 +11,7 @@ const AIChatbot = () => {
     return <Navigate to="/login" replace />;
   }
 
-  return <ModernChatbot />;
+  return <AgricultureChatbot />;
 };
 
 export default AIChatbot;

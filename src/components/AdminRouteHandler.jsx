@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import AdminSidebar from './admin/AdminSidebar';
 import AdminDashboard from '../pages/admin/AdminDashboard';
@@ -32,17 +32,32 @@ const AdminRouteHandler = () => {
       setRoleLoading(true);
       console.log('Checking if user is admin:', user.email);
       
-      // Strict admin check - only joelnithushan6@gmail.com is admin
-      if (user.email !== 'joelnithushan6@gmail.com') {
-        console.log('Access denied: User is not admin');
-        toast.error('Access denied. Admin access required.');
-        navigate('/user/dashboard');
+      // Check if user is super admin (joelnithushan6@gmail.com)
+      if (user.email === 'joelnithushan6@gmail.com') {
+        console.log('User is super admin');
+        setUserRole('admin');
         return;
       }
 
-      // User is admin, set role and allow access
-      console.log('User is admin, setting role');
-      setUserRole('admin');
+      // Check user role from Firestore
+      const { db } = await import('../config/firebase');
+      const userDoc = await db.collection('users').doc(user.uid).get();
+      
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        console.log('User data from Firestore:', userData);
+        
+        if (userData.role === 'admin' || userData.role === 'superadmin') {
+          console.log('User is admin, setting role');
+          setUserRole('admin');
+          return;
+        }
+      }
+      
+      // User is not admin
+      console.log('Access denied: User is not admin');
+      toast.error('Access denied. Admin access required.');
+      navigate('/user/dashboard');
       
     } catch (error) {
       console.error('Error checking user role:', error);

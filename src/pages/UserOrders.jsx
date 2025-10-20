@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { collection, onSnapshot, query, where, orderBy, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { useAuth } from '../context/AuthContext';
+import { collection, onSnapshot, query, where, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import MultiStepDeviceRequest from '../components/MultiStepDeviceRequest';
 import UpdateRequestModal from '../components/UpdateRequestModal';
+import CostEstimationPDFOnly from '../components/CostEstimationPDFOnly';
+import CostEstimationQRViewer from '../components/common/ui/CostEstimationQRViewer';
 // Removed MultiStepFormDataTest import - component deleted
 import toast from 'react-hot-toast';
 
@@ -16,6 +18,10 @@ const UserOrders = () => {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [updatingRequest, setUpdatingRequest] = useState(null);
   const [cancellingRequest, setCancellingRequest] = useState(null);
+  const [showPDFViewer, setShowPDFViewer] = useState(false);
+  const [showQRViewer, setShowQRViewer] = useState(false);
+  const [selectedOrderForPDF, setSelectedOrderForPDF] = useState(null);
+  const [selectedOrderForQR, setSelectedOrderForQR] = useState(null);
 
   // Fetch device requests in real-time
   useEffect(() => {
@@ -167,6 +173,38 @@ const UserOrders = () => {
     setSelectedRequest(null);
   };
 
+  // Handle accept cost estimation
+  const handleAcceptCost = async (requestId) => {
+    try {
+      const requestRef = doc(db, 'deviceRequests', requestId);
+      await updateDoc(requestRef, {
+        status: 'user-accepted',
+        acceptedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast.success('Cost estimation accepted! Admin will assign your device soon.');
+    } catch (error) {
+      console.error('Error accepting cost estimation:', error);
+      toast.error('Failed to accept cost estimation');
+    }
+  };
+
+  // Handle reject cost estimation
+  const handleRejectCost = async (requestId) => {
+    try {
+      const requestRef = doc(db, 'deviceRequests', requestId);
+      await updateDoc(requestRef, {
+        status: 'user-rejected',
+        rejectedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast.success('Cost estimation rejected. You can request a new device.');
+    } catch (error) {
+      console.error('Error rejecting cost estimation:', error);
+      toast.error('Failed to reject cost estimation');
+    }
+  };
+
   // Get status badge styling
   const getStatusBadge = (status) => {
     const statusConfig = {
@@ -205,17 +243,22 @@ const UserOrders = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">My Device Orders</h1>
-          <p className="mt-2 text-gray-600">Manage your IoT device requests and track their status</p>
-        </div>
+    <div 
+      className="min-h-screen bg-cover bg-center bg-fixed"
+      style={{
+        backgroundImage: 'url(/images/leaves-bg.jpg)'
+      }}
+    >
+      <div className="min-h-screen bg-black bg-opacity-20 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-white">My Device Orders</h1>
+            <p className="mt-2 text-gray-200">Manage your IoT device requests and track their status</p>
+          </div>
 
-
-        {/* Request Form Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+          {/* Request Form Section */}
+          <div className="bg-white bg-opacity-95 rounded-lg shadow-lg backdrop-blur-sm border border-gray-200 p-6 mb-8">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Request New Device</h2>
@@ -246,8 +289,8 @@ const UserOrders = () => {
           </div>
         </div>
 
-        {/* Orders List */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          {/* Orders List */}
+          <div className="bg-white bg-opacity-95 rounded-lg shadow-lg backdrop-blur-sm border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-xl font-semibold text-gray-900">My Orders</h2>
           </div>
@@ -386,6 +429,7 @@ const UserOrders = () => {
                         )}
                       </div>
 
+
                       <div className="mt-3 text-sm text-gray-500">
                         <span className="font-medium">Created:</span> {formatDate(request.createdAt)}
                         {request.updatedAt && (
@@ -404,7 +448,7 @@ const UserOrders = () => {
                           <button
                             onClick={() => handleUpdateRequest(request.id)}
                             disabled={updatingRequest === request.id}
-                            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center space-x-2"
+                            className="bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center space-x-2"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -423,7 +467,159 @@ const UserOrders = () => {
                           </button>
                         </>
                       )}
-                      {request.status !== 'pending' && (
+                      
+                      {/* PDF & QR Viewing for user-accepted status */}
+                      {request.status === 'user-accepted' && (request.costDetails || request.costEstimate) && (
+                        <div className="flex flex-col space-y-3">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => {
+                                setSelectedOrderForPDF(request);
+                                setShowPDFViewer(true);
+                              }}
+                              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <span>PDF</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedOrderForQR(request);
+                                setShowQRViewer(true);
+                              }}
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v.01M12 8v.01M12 12v.01M12 16v.01M12 20v.01M16 12h.01M20 12h.01M4 12h.01M8 12h.01" />
+                              </svg>
+                              <span>QR Code</span>
+                            </button>
+                          </div>
+                          <div className="text-sm text-green-600 font-medium">
+                            ✅ Cost accepted - Device assignment in progress
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Cost Estimation Actions */}
+                      {request.status === 'cost-estimated' && (request.costDetails || request.costEstimate) && (
+                        <div className="flex flex-col space-y-3">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => {
+                                setSelectedOrderForPDF(request);
+                                setShowPDFViewer(true);
+                              }}
+                              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <span>PDF</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedOrderForQR(request);
+                                setShowQRViewer(true);
+                              }}
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v.01M12 8v.01M12 12v.01M12 16v.01M12 20v.01M16 12h.01M20 12h.01M4 12h.01M8 12h.01" />
+                              </svg>
+                              <span>QR Code</span>
+                            </button>
+                          </div>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleAcceptCost(request.id)}
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                            >
+                              Accept Cost Estimation
+                            </button>
+                            <button
+                              onClick={() => handleRejectCost(request.id)}
+                              className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                            >
+                              Reject Cost Estimation
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* PDF & QR Viewing for user-rejected status */}
+                      {request.status === 'user-rejected' && (request.costDetails || request.costEstimate) && (
+                        <div className="flex flex-col space-y-3">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => {
+                                setSelectedOrderForPDF(request);
+                                setShowPDFViewer(true);
+                              }}
+                              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <span>PDF</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedOrderForQR(request);
+                                setShowQRViewer(true);
+                              }}
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v.01M12 8v.01M12 12v.01M12 16v.01M12 20v.01M16 12h.01M20 12h.01M4 12h.01M8 12h.01" />
+                              </svg>
+                              <span>QR Code</span>
+                            </button>
+                          </div>
+                          <div className="text-sm text-orange-600 font-medium">
+                            ❌ Cost estimation rejected
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* PDF & QR Viewing for completed status */}
+                      {request.status === 'completed' && (request.costDetails || request.costEstimate) && (
+                        <div className="flex flex-col space-y-3">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => {
+                                setSelectedOrderForPDF(request);
+                                setShowPDFViewer(true);
+                              }}
+                              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <span>PDF</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedOrderForQR(request);
+                                setShowQRViewer(true);
+                              }}
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v.01M12 8v.01M12 12v.01M12 16v.01M12 20v.01M16 12h.01M20 12h.01M4 12h.01M8 12h.01" />
+                              </svg>
+                              <span>QR Code</span>
+                            </button>
+                          </div>
+                          <div className="text-sm text-green-600 font-medium">
+                            🎉 Request completed successfully!
+                          </div>
+                        </div>
+                      )}
+                      
+                      {request.status !== 'pending' && request.status !== 'cost-estimated' && request.status !== 'user-accepted' && request.status !== 'user-rejected' && request.status !== 'completed' && (
                         <div className="flex items-center space-x-2">
                           {request.status === 'cancelled' && (
                             <div className="flex items-center space-x-1 text-red-600">
@@ -431,14 +627,6 @@ const UserOrders = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                               </svg>
                               <span className="text-sm font-medium">Request cancelled</span>
-                            </div>
-                          )}
-                          {request.status === 'completed' && (
-                            <div className="flex items-center space-x-1 text-green-600">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              <span className="text-sm font-medium">Request completed</span>
                             </div>
                           )}
                           {['accepted', 'device-assigned', 'rejected'].includes(request.status) && (
@@ -457,6 +645,7 @@ const UserOrders = () => {
               ))}
             </div>
           )}
+          </div>
         </div>
       </div>
 
@@ -482,6 +671,30 @@ const UserOrders = () => {
             setSelectedRequest(null);
           }}
           onSuccess={handleUpdateSuccess}
+        />
+      )}
+
+      {/* Cost Estimation PDF Viewer Modal */}
+      {showPDFViewer && selectedOrderForPDF && (
+        <CostEstimationPDFOnly
+          request={selectedOrderForPDF}
+          isOpen={showPDFViewer}
+          onClose={() => {
+            setShowPDFViewer(false);
+            setSelectedOrderForPDF(null);
+          }}
+        />
+      )}
+
+      {/* Cost Estimation QR Viewer Modal */}
+      {showQRViewer && selectedOrderForQR && (
+        <CostEstimationQRViewer
+          request={selectedOrderForQR}
+          isOpen={showQRViewer}
+          onClose={() => {
+            setShowQRViewer(false);
+            setSelectedOrderForQR(null);
+          }}
         />
       )}
     </div>

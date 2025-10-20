@@ -3,13 +3,51 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { auth } from '../../config/firebase';
 import { signOut } from 'firebase/auth';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
+import { usersService } from '../../services/firebase/firestoreService';
+import ConfirmModal from '../common/ConfirmModal';
 
 const AdminSidebar = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [userProfileData, setUserProfileData] = useState(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const userMenuRef = useRef(null);
+  const { currentUser } = useAuth();
+
+  // Load user profile data from Firestore
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (currentUser) {
+        try {
+          const result = await usersService.getUser(currentUser.uid);
+          if (result.success) {
+            setUserProfileData(result.user);
+            console.log('AdminSidebar - User Profile Data from Firestore:', result.user);
+          }
+        } catch (error) {
+          console.error('Error loading user profile:', error);
+        }
+      }
+    };
+
+    loadUserProfile();
+  }, [currentUser]);
+
+  // Debug logging for user data
+  useEffect(() => {
+    if (currentUser) {
+      console.log('AdminSidebar - Current User Data:', {
+        uid: currentUser.uid,
+        email: currentUser.email,
+        displayName: currentUser.displayName,
+        photoURL: currentUser.photoURL,
+        emailVerified: currentUser.emailVerified
+      });
+    }
+  }, [currentUser]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -25,7 +63,11 @@ const AdminSidebar = ({ children }) => {
     };
   }, []);
 
-  const handleLogout = async () => {
+  const handleLogoutClick = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const handleLogoutConfirm = async () => {
     try {
       await signOut(auth);
       toast.success('Logged out successfully');
@@ -33,99 +75,111 @@ const AdminSidebar = ({ children }) => {
     } catch (error) {
       console.error('Logout error:', error);
       toast.error('Failed to logout');
+    } finally {
+      setShowLogoutConfirm(false);
     }
   };
 
+  const handleLogoutCancel = () => {
+    setShowLogoutConfirm(false);
+  };
+
   const navigationItems = [
-    { name: 'Dashboard', path: '/admin/dashboard', icon: '📊' },
-    { name: 'Users', path: '/admin/users', icon: '👥' },
-    { name: 'Orders', path: '/admin/orders', icon: '📋' },
-    { name: 'Devices', path: '/admin/devices', icon: '🔧' },
-    { name: 'Farms', path: '/admin/farms', icon: '🚜' },
+    { name: 'Dashboard', path: '/admin/dashboard' },
+    { name: 'Users', path: '/admin/users' },
+    { name: 'Orders', path: '/admin/orders' },
+    { name: 'Devices', path: '/admin/devices' },
+    { name: 'Farms', path: '/admin/farms' },
   ];
 
   const isActive = (path) => location.pathname === path;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div 
+      className="min-h-screen bg-cover bg-center bg-fixed bg-no-repeat"
+      style={{ 
+        backgroundImage: 'url(/images/admin-bg.jpg)',
+        backgroundColor: '#C9FFD4' // Fallback color
+      }}
+    >
       {/* Top Navigation Bar */}
       <nav className="bg-white shadow-lg border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-            {/* Left side - Logo and Navigation */}
+            {/* Left side - Logo */}
             <div className="flex items-center">
-              {/* Logo */}
               <div className="flex-shrink-0 flex items-center">
                 <Link to="/admin/dashboard" className="text-2xl font-black text-green-600" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                  🍃 SmartAgro Admin
+                  SmartAgro Admin
                 </Link>
               </div>
+            </div>
 
-              {/* Desktop Navigation */}
-              <div className="hidden md:ml-8 md:flex md:space-x-8">
-                {navigationItems.map((item) => (
-                  <Link
-                    key={item.name}
-                    to={item.path}
-                    className={`inline-flex items-center px-3 py-2 text-sm font-medium transition-colors duration-200 ${
-                      isActive(item.path)
-                        ? 'text-green-600 border-b-2 border-green-600'
-                        : 'text-gray-600 hover:text-green-600 hover:border-b-2 hover:border-green-300'
+            {/* Center - Navigation */}
+            <div className="hidden md:flex md:items-center md:space-x-8">
+              {navigationItems.map((item) => (
+                <Link
+                  key={item.name}
+                  to={item.path}
+                  className={`inline-flex items-center px-3 py-2 text-sm font-medium transition-colors duration-200 ${
+                    isActive(item.path)
+                      ? 'text-green-600 border-b-2 border-green-600'
+                      : 'text-gray-600 hover:text-green-600 hover:border-b-2 hover:border-green-300'
                     }`}
                   >
-                    <span className="mr-2">{item.icon}</span>
                     {item.name}
                   </Link>
                 ))}
               </div>
-            </div>
 
-            {/* Right side - User menu and mobile button */}
+            {/* Right side - Profile picture and logout */}
             <div className="flex items-center space-x-4">
-              {/* Desktop User Menu */}
-              <div className="hidden md:flex md:items-center md:space-x-4">
-                <Link
-                  to="/admin/profile"
-                  className={`px-3 py-2 text-sm font-medium transition-colors duration-200 ${
-                    isActive('/admin/profile')
-                      ? 'text-green-600 border-b-2 border-green-600'
-                      : 'text-gray-600 hover:text-green-600 hover:border-b-2 hover:border-green-300'
-                  }`}
+              {/* Profile Picture */}
+              <div className="hidden md:flex md:items-center">
+                <button
+                  onClick={() => navigate('/admin/profile')}
+                  className="flex items-center space-x-2 text-sm font-medium bg-green-50 hover:bg-green-100 text-green-700 hover:text-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 rounded-lg px-3 py-2 transition-all duration-200"
                 >
-                  👤 Profile
-                </Link>
-                
-                <div className="relative" ref={userMenuRef}>
-                  <button
-                    onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 rounded-md px-3 py-2"
+                  {(currentUser?.photoURL || userProfileData?.photoURL) ? (
+                    <img 
+                      src={currentUser?.photoURL || userProfileData?.photoURL} 
+                      alt="Admin Profile" 
+                      className="w-8 h-8 rounded-full object-cover"
+                      onError={(e) => {
+                        console.log('Profile image failed to load:', currentUser?.photoURL || userProfileData?.photoURL);
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div 
+                    className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white font-semibold"
+                    style={{ display: (currentUser?.photoURL || userProfileData?.photoURL) ? 'none' : 'flex' }}
                   >
-                    <span className="mr-2">⚙️</span>
-                    Admin
-                    <svg className="ml-1 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </button>
+                    {(userProfileData?.displayName || currentUser?.displayName) ? 
+                      (userProfileData?.displayName || currentUser?.displayName).charAt(0).toUpperCase() : 
+                      (userProfileData?.email || currentUser?.email) ? 
+                        (userProfileData?.email || currentUser?.email).charAt(0).toUpperCase() : 'A'}
+                  </div>
+                  <span>Admin</span>
+                </button>
+              </div>
 
-                  {/* Dropdown Menu */}
-                  {userMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
-                      <button
-                        onClick={handleLogout}
-                        className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors duration-200"
-                      >
-                        Logout
-                      </button>
-                    </div>
-                  )}
-                </div>
+              {/* Logout Button */}
+              <div className="hidden md:flex md:items-center">
+                <button
+                  onClick={handleLogoutClick}
+                  className="flex items-center text-sm font-medium bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded-lg px-4 py-2 transition-all duration-200 shadow-md hover:shadow-lg"
+                >
+                  Logout
+                </button>
               </div>
 
               {/* Mobile menu button */}
               <div className="md:hidden">
                 <button
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-500"
+                  className="inline-flex items-center justify-center p-2 rounded-lg text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-500 transition-all duration-200"
                 >
                   <span className="sr-only">Open main menu</span>
                   {mobileMenuOpen ? (
@@ -158,32 +212,17 @@ const AdminSidebar = ({ children }) => {
                   }`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <span className="mr-2">{item.icon}</span>
                   {item.name}
                 </Link>
               ))}
               
-              <Link
-                to="/admin/profile"
-                className={`block px-3 py-2 text-base font-medium transition-colors duration-200 ${
-                  isActive('/admin/profile')
-                    ? 'text-green-600 bg-green-50 border-l-4 border-green-600'
-                    : 'text-gray-600 hover:text-green-600 hover:bg-gray-50'
-                }`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <span className="mr-2">👤</span>
-                Profile
-              </Link>
-              
               <button
                 onClick={() => {
-                  handleLogout();
+                  handleLogoutClick();
                   setMobileMenuOpen(false);
                 }}
                 className="block w-full text-left px-3 py-2 text-base font-medium text-red-600 hover:bg-red-50 transition-colors duration-200"
               >
-                <span className="mr-2">🚪</span>
                 Logout
               </button>
             </div>
@@ -192,9 +231,24 @@ const AdminSidebar = ({ children }) => {
       </nav>
 
       {/* Main content */}
-      <main className="p-6">
-        {children}
+      <main className="p-6 relative">
+        <div className="relative z-10">
+          {children}
+        </div>
       </main>
+
+      {/* Logout Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={handleLogoutCancel}
+        onConfirm={handleLogoutConfirm}
+        title="Confirm Logout"
+        message="Are you sure you want to logout from the admin dashboard?"
+        confirmText="Yes, Logout"
+        cancelText="Cancel"
+        type="warning"
+        confirmClass="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 focus:ring-red-500 shadow-lg hover:shadow-red-500/25"
+      />
     </div>
   );
 };

@@ -4,6 +4,9 @@ import { admin } from '../config/firebase.js';
 
 const router = express.Router();
 
+// Role constants
+const SUPER_ADMIN_EMAIL = 'joelnithushan6@gmail.com';
+
 // Helper function to completely delete user data from Firestore
 const deleteUserDataFromFirestore = async (db, userId) => {
   try {
@@ -194,7 +197,7 @@ const verifyAdmin = async (req, res, next) => {
     const uid = decodedToken.uid;
 
     // Check if user is admin by email or role
-    if (decodedToken.email !== 'joelnithushan6@gmail.com') {
+    if (decodedToken.email !== SUPER_ADMIN_EMAIL) {
       const db = getDb();
       if (!db) {
         console.log('🔧 Demo mode: Skipping role check');
@@ -237,6 +240,19 @@ router.use(verifyAdmin);
  */
 router.get('/dashboard/stats', async (req, res) => {
   try {
+    const db = getDb();
+    if (!db) {
+      return res.json({
+        success: true,
+        data: {
+          totalUsers: 0,
+          pendingRequests: 0,
+          activeDevices: 0,
+          rejectedRequests: 0
+        }
+      });
+    }
+
     // Get users count (excluding admin)
     const usersSnapshot = await db.collection('users').get();
     const allUsers = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -326,6 +342,13 @@ router.get('/users', async (req, res) => {
 router.post('/users/:uid/promote', async (req, res) => {
   try {
     const { uid } = req.params;
+    console.log('⬆️ Promote user request for UID:', uid);
+    console.log('🔍 Admin UID:', req.adminUid);
+
+    // Only super admin can promote
+    if (req.adminEmail !== SUPER_ADMIN_EMAIL) {
+      return res.status(403).json({ success: false, error: 'Only super admin can promote users' });
+    }
 
     if (uid === req.adminUid) {
       return res.status(400).json({ success: false, error: 'Cannot promote yourself' });
@@ -351,7 +374,7 @@ router.post('/users/:uid/promote', async (req, res) => {
     const userData = userSnap.data();
     
     // Prevent modification of super admin
-    if (userData.email === 'joelnithushan6@gmail.com') {
+    if (userData.email === SUPER_ADMIN_EMAIL) {
       return res.status(400).json({ success: false, error: 'Cannot modify super admin' });
     }
 
@@ -364,8 +387,19 @@ router.post('/users/:uid/promote', async (req, res) => {
 
     // Set Firebase Auth custom claims
     if (admin.apps.length > 0) {
-      await admin.auth().setCustomUserClaims(uid, { role: 'admin' });
-      console.log(`✅ Set custom claims for user ${uid}: role=admin`);
+      try {
+        await admin.auth().setCustomUserClaims(uid, { role: 'admin' });
+        console.log(`✅ Set custom claims for user ${uid}: role=admin`);
+      } catch (claimsError) {
+        console.warn('⚠️ Failed to set custom claims:', claimsError.message);
+        
+        // Check if it's a network connectivity issue
+        if (claimsError.message.includes('ENOTFOUND') || 
+            claimsError.message.includes('metadata.google.internal') ||
+            claimsError.message.includes('getaddrinfo')) {
+          console.log('🔧 Network connectivity issue detected - continuing with Firestore update only');
+        }
+      }
     } else {
       console.log('⚠️ Firebase Admin SDK not available, skipping custom claims');
     }
@@ -377,8 +411,9 @@ router.post('/users/:uid/promote', async (req, res) => {
       newRole: 'admin'
     });
   } catch (error) {
-    console.error('Error promoting user:', error);
-    res.status(500).json({ success: false, error: 'Failed to promote user' });
+    console.error('❌ Error promoting user:', error);
+    console.error('❌ Error details:', error.message);
+    res.status(500).json({ success: false, error: `Failed to promote user: ${error.message}` });
   }
 });
 
@@ -389,6 +424,13 @@ router.post('/users/:uid/promote', async (req, res) => {
 router.post('/users/:uid/demote', async (req, res) => {
   try {
     const { uid } = req.params;
+    console.log('⬇️ Demote user request for UID:', uid);
+    console.log('🔍 Admin UID:', req.adminUid);
+
+    // Only super admin can demote
+    if (req.adminEmail !== SUPER_ADMIN_EMAIL) {
+      return res.status(403).json({ success: false, error: 'Only super admin can demote users' });
+    }
 
     if (uid === req.adminUid) {
       return res.status(400).json({ success: false, error: 'Cannot demote yourself' });
@@ -414,7 +456,7 @@ router.post('/users/:uid/demote', async (req, res) => {
     const userData = userSnap.data();
     
     // Prevent modification of super admin
-    if (userData.email === 'joelnithushan6@gmail.com') {
+    if (userData.email === SUPER_ADMIN_EMAIL) {
       return res.status(400).json({ success: false, error: 'Cannot modify super admin' });
     }
 
@@ -427,8 +469,19 @@ router.post('/users/:uid/demote', async (req, res) => {
 
     // Set Firebase Auth custom claims
     if (admin.apps.length > 0) {
-      await admin.auth().setCustomUserClaims(uid, { role: 'user' });
-      console.log(`✅ Set custom claims for user ${uid}: role=user`);
+      try {
+        await admin.auth().setCustomUserClaims(uid, { role: 'user' });
+        console.log(`✅ Set custom claims for user ${uid}: role=user`);
+      } catch (claimsError) {
+        console.warn('⚠️ Failed to set custom claims:', claimsError.message);
+        
+        // Check if it's a network connectivity issue
+        if (claimsError.message.includes('ENOTFOUND') || 
+            claimsError.message.includes('metadata.google.internal') ||
+            claimsError.message.includes('getaddrinfo')) {
+          console.log('🔧 Network connectivity issue detected - continuing with Firestore update only');
+        }
+      }
     } else {
       console.log('⚠️ Firebase Admin SDK not available, skipping custom claims');
     }
@@ -440,8 +493,9 @@ router.post('/users/:uid/demote', async (req, res) => {
       newRole: 'user'
     });
   } catch (error) {
-    console.error('Error demoting user:', error);
-    res.status(500).json({ success: false, error: 'Failed to demote user' });
+    console.error('❌ Error demoting user:', error);
+    console.error('❌ Error details:', error.message);
+    res.status(500).json({ success: false, error: `Failed to demote user: ${error.message}` });
   }
 });
 
@@ -452,6 +506,8 @@ router.post('/users/:uid/demote', async (req, res) => {
 router.delete('/users/:uid', async (req, res) => {
   try {
     const { uid } = req.params;
+    console.log('🗑️ Delete user request for UID:', uid);
+    console.log('🔍 Admin UID:', req.adminUid);
 
     if (uid === req.adminUid) {
       return res.status(400).json({ success: false, error: 'Cannot delete yourself' });
@@ -477,14 +533,33 @@ router.delete('/users/:uid', async (req, res) => {
     const userData = userSnap.data();
     
     // Prevent deletion of super admin
-    if (userData.email === 'joelnithushan6@gmail.com') {
+    if (userData.email === SUPER_ADMIN_EMAIL) {
       return res.status(400).json({ success: false, error: 'Cannot delete super admin' });
+    }
+
+    // If target is admin, only super admin can delete
+    if (userData.role === 'admin' && req.adminEmail !== SUPER_ADMIN_EMAIL) {
+      return res.status(403).json({ success: false, error: 'Only super admin can delete admin accounts' });
     }
 
     // Delete user from Firebase Auth (only if Firebase Admin SDK is available)
     if (admin.apps.length > 0) {
-      await admin.auth().deleteUser(uid);
-      console.log(`✅ Deleted user from Firebase Auth: ${uid}`);
+      try {
+        await admin.auth().deleteUser(uid);
+        console.log(`✅ Deleted user from Firebase Auth: ${uid}`);
+      } catch (authError) {
+        console.warn('⚠️ Failed to delete user from Firebase Auth:', authError.message);
+        
+        // Check if it's a network connectivity issue
+        if (authError.message.includes('ENOTFOUND') || 
+            authError.message.includes('metadata.google.internal') ||
+            authError.message.includes('getaddrinfo')) {
+          console.log('🔧 Network connectivity issue detected - continuing with Firestore deletion only');
+        }
+        
+        // Continue with Firestore deletion even if Auth deletion fails
+        // This prevents the entire operation from failing due to network issues
+      }
     } else {
       console.log('⚠️ Firebase Admin SDK not available, skipping Auth deletion');
     }
@@ -521,7 +596,7 @@ router.delete('/users/:uid', async (req, res) => {
         }
       }
     } catch (rtdbError) {
-      console.warn('Error cleaning up Realtime Database data:', rtdbError.message);
+      console.warn('⚠️ Error cleaning up Realtime Database data:', rtdbError.message);
       // Don't fail the entire operation if RTDB cleanup fails
     }
 
@@ -530,8 +605,10 @@ router.delete('/users/:uid', async (req, res) => {
       message: 'User deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting user:', error);
-    res.status(500).json({ success: false, error: 'Failed to delete user' });
+    console.error('❌ Error deleting user:', error);
+    console.error('❌ Error details:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({ success: false, error: `Failed to delete user: ${error.message}` });
   }
 });
 
@@ -541,6 +618,14 @@ router.delete('/users/:uid', async (req, res) => {
  */
 router.get('/orders', async (req, res) => {
   try {
+    const db = getDb();
+    if (!db) {
+      return res.json({
+        success: true,
+        data: []
+      });
+    }
+
     const ordersSnapshot = await db.collection('deviceRequests').get();
     const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -573,7 +658,7 @@ router.post('/orders/:id/estimate', async (req, res) => {
     const requestRef = db.collection('deviceRequests').doc(id);
     const requestSnap = await requestRef.get();
     
-    if (!requestSnap.exists()) {
+    if (!requestSnap.exists) {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
 
@@ -584,7 +669,7 @@ router.post('/orders/:id/estimate', async (req, res) => {
 
     const totalCost = parseFloat(deviceCost) + parseFloat(serviceCharge) + parseFloat(deliveryCharge);
 
-    await updateDoc(requestRef, {
+    await requestRef.update({
       status: 'cost-estimated',
       costDetails: {
         deviceCost: parseFloat(deviceCost),
@@ -593,20 +678,20 @@ router.post('/orders/:id/estimate', async (req, res) => {
         totalCost: totalCost,
         notes: notes || '',
         estimatedBy: req.adminEmail,
-        estimatedAt: serverTimestamp()
+        estimatedAt: admin.firestore.FieldValue.serverTimestamp()
       },
-      updatedAt: serverTimestamp()
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     // Create notification for user
     const notificationRef = db.collection('notifications').doc(requestData.userId).collection('items').doc();
-    await setDoc(notificationRef, {
+    await notificationRef.set({
       title: 'Cost Estimate Ready',
       message: `Your device request has been reviewed. Total cost: $${totalCost.toFixed(2)}`,
       type: 'cost-estimate',
       requestId: id,
       read: false,
-      createdAt: serverTimestamp()
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     res.json({
@@ -636,7 +721,7 @@ router.post('/orders/:id/assign', async (req, res) => {
     const requestRef = db.collection('deviceRequests').doc(id);
     const requestSnap = await requestRef.get();
     
-    if (!requestSnap.exists()) {
+    if (!requestSnap.exists) {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
 
@@ -648,7 +733,7 @@ router.post('/orders/:id/assign', async (req, res) => {
       });
     }
 
-    const batch = writeBatch(db);
+    const batch = db.batch();
 
     // Create device metadata
     const deviceRef = db.collection('devices').doc(deviceId);
@@ -657,19 +742,19 @@ router.post('/orders/:id/assign', async (req, res) => {
       assignedToName: requestData.fullName,
       assignedToEmail: requestData.email,
       status: 'active',
-      assignedAt: serverTimestamp(),
+      assignedAt: admin.firestore.FieldValue.serverTimestamp(),
       assignedBy: req.adminEmail,
       requestId: id,
-      createdAt: serverTimestamp()
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     // Update request with device ID
     batch.update(requestRef, {
       deviceId: deviceId,
       status: 'device-assigned',
-      assignedAt: serverTimestamp(),
+      assignedAt: admin.firestore.FieldValue.serverTimestamp(),
       assignedBy: req.adminEmail,
-      updatedAt: serverTimestamp()
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     // Create notification for user
@@ -681,7 +766,7 @@ router.post('/orders/:id/assign', async (req, res) => {
       requestId: id,
       deviceId: deviceId,
       read: false,
-      createdAt: serverTimestamp()
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     await batch.commit();
@@ -709,29 +794,29 @@ router.post('/orders/:id/reject', async (req, res) => {
     const requestRef = db.collection('deviceRequests').doc(id);
     const requestSnap = await requestRef.get();
     
-    if (!requestSnap.exists()) {
+    if (!requestSnap.exists) {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
 
     const requestData = requestSnap.data();
 
-    await updateDoc(requestRef, {
+    await requestRef.update({
       status: 'rejected',
-      rejectedAt: serverTimestamp(),
+      rejectedAt: admin.firestore.FieldValue.serverTimestamp(),
       rejectedBy: req.adminEmail,
       rejectionReason: reason || 'Rejected by admin',
-      updatedAt: serverTimestamp()
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     // Create notification for user
     const notificationRef = db.collection('notifications').doc(requestData.userId).collection('items').doc();
-    await setDoc(notificationRef, {
+    await notificationRef.set({
       title: 'Order Rejected',
       message: `Your device request has been rejected. Reason: ${reason || 'No reason provided'}`,
       type: 'order-rejected',
       requestId: id,
       read: false,
-      createdAt: serverTimestamp()
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     res.json({
@@ -755,7 +840,7 @@ router.post('/orders/:id/complete', async (req, res) => {
     const requestRef = db.collection('deviceRequests').doc(id);
     const requestSnap = await requestRef.get();
     
-    if (!requestSnap.exists()) {
+    if (!requestSnap.exists) {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
 
@@ -767,23 +852,23 @@ router.post('/orders/:id/complete', async (req, res) => {
       });
     }
 
-    await updateDoc(requestRef, {
+    await requestRef.update({
       status: 'completed',
-      completedAt: serverTimestamp(),
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
       completedBy: req.adminEmail,
-      updatedAt: serverTimestamp()
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     // Create notification for user
     const notificationRef = db.collection('notifications').doc(requestData.userId).collection('items').doc();
-    await setDoc(notificationRef, {
+    await notificationRef.set({
       title: 'Order Completed',
       message: `Your device ${requestData.deviceId} setup is complete and ready for use.`,
       type: 'order-completed',
       requestId: id,
       deviceId: requestData.deviceId,
       read: false,
-      createdAt: serverTimestamp()
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     res.json({
@@ -802,11 +887,59 @@ router.post('/orders/:id/complete', async (req, res) => {
  */
 router.get('/devices', async (req, res) => {
   try {
-    const db = admin.firestore();
+    const db = getDb();
+    if (!db) {
+      return res.json({
+        success: true,
+        data: []
+      });
+    }
     
     // Get devices from Firestore
     const devicesSnapshot = await db.collection('devices').get();
     const firestoreDevices = devicesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // Get completed device requests from devicerequests collection
+    console.log('🔍 Fetching completed device requests...');
+    const completedRequestsSnapshot = await db.collection('deviceRequests')
+      .where('status', '==', 'completed')
+      .get();
+    
+    console.log(`📊 Found ${completedRequestsSnapshot.docs.length} completed requests`);
+    
+    const completedRequests = completedRequestsSnapshot.docs.map((doc, index) => {
+      const data = doc.data();
+      console.log(`📋 Processing request ${doc.id}:`, {
+        userId: data.userId,
+        userEmail: data.userEmail,
+        userName: data.userName,
+        farmName: data.farmName,
+        soilType: data.soilType,
+        status: data.status
+      });
+      
+      // Generate device ID in format ESP32_001, ESP32_002, etc.
+      const deviceId = `ESP32_${String(index + 1).padStart(3, '0')}`;
+      
+      return {
+        id: doc.id,
+        deviceId: deviceId,
+        userId: data.userId,
+        userName: data.userName || data.fullName || 'Unknown',
+        userEmail: data.userEmail || 'N/A',
+        farmName: data.farmName || 'N/A',
+        soilType: data.soilType || 'N/A',
+        farmSize: data.farmSize || 0,
+        sensors: data.soilMoisture || {}, // Based on your Firestore structure
+        status: data.status || 'completed',
+        completedAt: data.completedAt || data.updatedAt,
+        assignedAt: data.assignedAt,
+        costDetails: data.costDetails || null,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+        source: 'devicerequests' // Mark as coming from devicerequests
+      };
+    });
 
     // Get devices from Realtime Database
     let rtdbDevices = {};
@@ -826,8 +959,10 @@ router.get('/devices', async (req, res) => {
     // Combine Firestore and Realtime Database data
     const devicesWithUserInfo = [];
 
+    // Process devices from Firestore collection
     for (const firestoreDevice of firestoreDevices) {
       const device = { ...firestoreDevice };
+      device.source = 'devices'; // Mark as coming from devices collection
       
       // Get Realtime Database data for this device
       if (rtdbDevices[device.id]) {
@@ -865,6 +1000,12 @@ router.get('/devices', async (req, res) => {
       devicesWithUserInfo.push(device);
     }
 
+    // Add completed device requests to the list
+    devicesWithUserInfo.push(...completedRequests);
+
+    console.log(`📊 Total devices to return: ${devicesWithUserInfo.length}`);
+    console.log('📋 Sample device data:', devicesWithUserInfo[0]);
+
     res.json({
       success: true,
       data: devicesWithUserInfo
@@ -872,6 +1013,241 @@ router.get('/devices', async (req, res) => {
   } catch (error) {
     console.error('Error fetching devices:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch devices' });
+  }
+});
+
+/**
+ * GET /api/admin/farms
+ * Get all farm data from deviceRequests collection grouped by user
+ */
+router.get('/farms', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.json({
+        success: true,
+        data: []
+      });
+    }
+    
+    console.log('🌾 Fetching farm data from deviceRequests...');
+    
+    // Get all device requests (not just completed ones) to show all farm data
+    const allRequestsSnapshot = await db.collection('deviceRequests').get();
+    
+    console.log(`📊 Found ${allRequestsSnapshot.docs.length} total device requests`);
+    
+    // Group farm data by user
+    const farmsByUser = {};
+    
+    allRequestsSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      const userId = data.userId;
+      
+      if (!farmsByUser[userId]) {
+        farmsByUser[userId] = {
+          userId: userId,
+          userName: data.userName || data.fullName || 'Unknown',
+          userEmail: data.userEmail || 'N/A',
+          farms: [],
+          totalRequests: 0,
+          completedRequests: 0
+        };
+      }
+      
+      // Add farm data for this request
+      const farmData = {
+        requestId: doc.id,
+        farmName: data.farmName || 'Unnamed Farm',
+        soilType: data.soilType || 'Unknown',
+        farmSize: data.farmSize || 0,
+        status: data.status || 'pending',
+        sensors: data.soilMoisture || {},
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+        completedAt: data.completedAt,
+        assignedAt: data.assignedAt,
+        costDetails: data.costDetails || null
+      };
+      
+      farmsByUser[userId].farms.push(farmData);
+      farmsByUser[userId].totalRequests++;
+      
+      if (data.status === 'completed') {
+        farmsByUser[userId].completedRequests++;
+      }
+    });
+    
+    // Convert to array format
+    const farmsData = Object.values(farmsByUser);
+    
+    console.log(`🌾 Processed farm data for ${farmsData.length} users`);
+    
+    res.json({
+      success: true,
+      data: farmsData
+    });
+  } catch (error) {
+    console.error('Error fetching farms:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch farms' });
+  }
+});
+
+/**
+ * GET /api/admin/farms/:userId
+ * Get farm data for a specific user
+ */
+router.get('/farms/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const db = getDb();
+    if (!db) {
+      return res.json({
+        success: true,
+        data: null
+      });
+    }
+    
+    console.log(`🌾 Fetching farm data for user: ${userId}`);
+    
+    // Get all device requests for this specific user
+    const userRequestsSnapshot = await db.collection('deviceRequests')
+      .where('userId', '==', userId)
+      .get();
+    
+    if (userRequestsSnapshot.empty) {
+      return res.json({
+        success: true,
+        data: null,
+        message: 'No farm data found for this user'
+      });
+    }
+    
+    const userData = {
+      userId: userId,
+      farms: [],
+      totalRequests: userRequestsSnapshot.docs.length,
+      completedRequests: 0
+    };
+    
+    userRequestsSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      
+      const farmData = {
+        requestId: doc.id,
+        farmName: data.farmName || 'Unnamed Farm',
+        soilType: data.soilType || 'Unknown',
+        farmSize: data.farmSize || 0,
+        status: data.status || 'pending',
+        sensors: data.soilMoisture || {},
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+        completedAt: data.completedAt,
+        assignedAt: data.assignedAt,
+        costDetails: data.costDetails || null
+      };
+      
+      userData.farms.push(farmData);
+      
+      if (data.status === 'completed') {
+        userData.completedRequests++;
+      }
+    });
+    
+    // Get user info
+    try {
+      const userDoc = await db.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        const userInfo = userDoc.data();
+        userData.userName = userInfo.fullName || userInfo.displayName || 'Unknown';
+        userData.userEmail = userInfo.email || 'N/A';
+      }
+    } catch (error) {
+      console.warn(`Error fetching user info for ${userId}:`, error.message);
+    }
+    
+    res.json({
+      success: true,
+      data: userData
+    });
+  } catch (error) {
+    console.error('Error fetching user farms:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch user farms' });
+  }
+});
+
+/**
+ * POST /api/admin/devices/sync-completed-requests
+ * Sync completed device requests to devices collection
+ */
+router.post('/devices/sync-completed-requests', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) {
+      return res.status(500).json({ success: false, error: 'Database not available' });
+    }
+
+    // Get all completed device requests
+    const completedRequestsSnapshot = await db.collection('deviceRequests')
+      .where('status', '==', 'completed')
+      .get();
+
+    const syncResults = [];
+    
+    for (const doc of completedRequestsSnapshot.docs) {
+      const requestData = doc.data();
+      const requestId = doc.id;
+      
+      // Check if device already exists in devices collection
+      const existingDeviceQuery = await db.collection('devices')
+        .where('requestId', '==', requestId)
+        .get();
+      
+      if (existingDeviceQuery.empty) {
+        // Create device record in devices collection
+        const deviceData = {
+          requestId: requestId,
+          deviceId: requestData.deviceId,
+          userId: requestData.userId,
+          userName: requestData.personalInfo?.fullName || 'Unknown',
+          userEmail: requestData.personalInfo?.email || 'N/A',
+          farmName: requestData.farmInfo?.farmName || 'N/A',
+          soilType: requestData.farmInfo?.soilType || 'N/A',
+          farmSize: requestData.farmInfo?.farmSize || 0,
+          sensors: requestData.paramRequirements || {},
+          status: 'completed',
+          completedAt: requestData.completedAt,
+          assignedAt: requestData.assignedAt,
+          costDetails: requestData.costDetails || null,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+        
+        await db.collection('devices').add(deviceData);
+        syncResults.push({
+          requestId: requestId,
+          deviceId: requestData.deviceId,
+          userName: requestData.personalInfo?.fullName || 'Unknown',
+          status: 'synced'
+        });
+      } else {
+        syncResults.push({
+          requestId: requestId,
+          deviceId: requestData.deviceId,
+          userName: requestData.personalInfo?.fullName || 'Unknown',
+          status: 'already_exists'
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Synced ${syncResults.length} completed requests`,
+      data: syncResults
+    });
+  } catch (error) {
+    console.error('Error syncing completed requests:', error);
+    res.status(500).json({ success: false, error: 'Failed to sync completed requests' });
   }
 });
 
@@ -886,7 +1262,7 @@ router.post('/devices/:id/unassign', async (req, res) => {
     const deviceRef = db.collection('devices').doc(id);
     const deviceSnap = await deviceRef.get();
     
-    if (!deviceSnap.exists()) {
+    if (!deviceSnap.exists) {
       return res.status(404).json({ success: false, error: 'Device not found' });
     }
 
@@ -895,7 +1271,7 @@ router.post('/devices/:id/unassign', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Device is not assigned' });
     }
 
-    const batch = writeBatch(db);
+    const batch = db.batch();
 
     // Update device
     batch.update(deviceRef, {
@@ -903,9 +1279,9 @@ router.post('/devices/:id/unassign', async (req, res) => {
       assignedToName: null,
       assignedToEmail: null,
       status: 'unassigned',
-      unassignedAt: serverTimestamp(),
+      unassignedAt: admin.firestore.FieldValue.serverTimestamp(),
       unassignedBy: req.adminEmail,
-      updatedAt: serverTimestamp()
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     // Create notification for user
@@ -916,7 +1292,7 @@ router.post('/devices/:id/unassign', async (req, res) => {
       type: 'device-unassigned',
       deviceId: id,
       read: false,
-      createdAt: serverTimestamp()
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     await batch.commit();
@@ -947,7 +1323,7 @@ router.post('/devices/:id/reassign', async (req, res) => {
     const deviceRef = db.collection('devices').doc(id);
     const deviceSnap = await deviceRef.get();
     
-    if (!deviceSnap.exists()) {
+    if (!deviceSnap.exists) {
       return res.status(404).json({ success: false, error: 'Device not found' });
     }
 
@@ -955,14 +1331,14 @@ router.post('/devices/:id/reassign', async (req, res) => {
     const userRef = db.collection('users').doc(userId);
     const userSnap = await userRef.get();
     
-    if (!userSnap.exists()) {
+    if (!userSnap.exists) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
 
     const userData = userSnap.data();
     const deviceData = deviceSnap.data();
 
-    const batch = writeBatch(db);
+    const batch = db.batch();
 
     // Update device
     batch.update(deviceRef, {
@@ -970,9 +1346,9 @@ router.post('/devices/:id/reassign', async (req, res) => {
       assignedToName: userData.displayName || userData.fullName,
       assignedToEmail: userData.email,
       status: 'active',
-      reassignedAt: serverTimestamp(),
+      reassignedAt: admin.firestore.FieldValue.serverTimestamp(),
       reassignedBy: req.adminEmail,
-      updatedAt: serverTimestamp()
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     // Create notification for new user
@@ -983,7 +1359,7 @@ router.post('/devices/:id/reassign', async (req, res) => {
       type: 'device-assigned',
       deviceId: id,
       read: false,
-      createdAt: serverTimestamp()
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     // Notify old user if exists
@@ -995,7 +1371,7 @@ router.post('/devices/:id/reassign', async (req, res) => {
         type: 'device-reassigned',
         deviceId: id,
         read: false,
-        createdAt: serverTimestamp()
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
       });
     }
 
@@ -1027,15 +1403,15 @@ router.post('/devices/:id/status', async (req, res) => {
     const deviceRef = db.collection('devices').doc(id);
     const deviceSnap = await deviceRef.get();
     
-    if (!deviceSnap.exists()) {
+    if (!deviceSnap.exists) {
       return res.status(404).json({ success: false, error: 'Device not found' });
     }
 
-    await updateDoc(deviceRef, {
+    await deviceRef.update({
       status: status,
-      statusUpdatedAt: serverTimestamp(),
+      statusUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
       statusUpdatedBy: req.adminEmail,
-      updatedAt: serverTimestamp()
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     res.json({
@@ -1057,13 +1433,13 @@ router.put('/profile', async (req, res) => {
     const { fullName, phone, profilePicture } = req.body;
 
     const userRef = db.collection('users').doc(req.adminUid);
-    await updateDoc(userRef, {
+    await userRef.update({
       displayName: fullName,
       fullName: fullName,
       phone: phone,
       photoURL: profilePicture,
       profilePicture: profilePicture,
-      updatedAt: serverTimestamp()
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     res.json({

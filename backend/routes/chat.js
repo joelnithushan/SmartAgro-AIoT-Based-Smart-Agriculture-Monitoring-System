@@ -1,6 +1,7 @@
 import express from 'express';
 import { db, admin } from '../config/firebase.js';
 import { collection, doc, getDoc, setDoc, updateDoc, addDoc, serverTimestamp, query, where, orderBy, getDocs, deleteDoc } from 'firebase/firestore';
+import { getAIResponse, testAllAIServices } from '../services/aiService.js';
 const router = express.Router();
 
 // Helper function to get message count
@@ -15,49 +16,11 @@ const getMessageCount = async (userId, chatId) => {
   }
 };
 
-// Gemini API configuration
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyCcTiJlPxvcvX_Cyfj-RGZ9hr6Hs8nxz7Q'; // Working Gemini API key
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
-
-// Test Gemini API availability on startup
-const testGeminiAPI = async () => {
-  if (!GEMINI_API_KEY) {
-    console.log('⚠️  Gemini API key not provided');
-    return false;
-  }
-  
-  try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: 'test'
-          }]
-        }]
-      })
-    });
-    
-    if (response.ok) {
-      console.log('✅ Gemini API is available and working');
-      return true;
-    } else {
-      console.log('❌ Gemini API not available:', response.status);
-      return false;
-    }
-  } catch (error) {
-    console.log('❌ Gemini API test failed:', error.message);
-    return false;
-  }
-};
-
-// Test Gemini API on startup
-let GEMINI_API_AVAILABLE = false;
-testGeminiAPI().then(available => {
-  GEMINI_API_AVAILABLE = available;
+// Test AI services on startup
+let AI_SERVICES_AVAILABLE = { deepseek: false };
+testAllAIServices().then(services => {
+  AI_SERVICES_AVAILABLE = services;
+  console.log('🤖 AI Services Status:', services);
 });
 
 // Middleware to verify Firebase ID token
@@ -119,57 +82,6 @@ Be friendly, informative, and always helpful. Keep responses clear and well-stru
 };
 
 
-// Function to call Gemini API (fallback)
-const callGeminiAPI = async (message, systemPrompt) => {
-  if (!GEMINI_API_KEY) {
-    console.error('GEMINI_API_KEY not found in environment variables');
-    return 'I apologize, but the AI service is not properly configured. Please check the server configuration.';
-  }
-
-  try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: `${systemPrompt}\n\nUser question: ${message}`
-              }
-            ]
-          }
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1024,
-          topP: 0.8,
-          topK: 10
-        }
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Gemini API error:', response.status, errorData);
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-      return data.candidates[0].content.parts[0].text;
-    } else {
-      console.error('Unexpected Gemini response format:', data);
-      return 'I apologize, but I received an unexpected response format. Please try again.';
-    }
-  } catch (error) {
-    console.error('Gemini API error:', error);
-    return 'I apologize, but I\'m having trouble connecting to the AI service right now. Please try again later.';
-  }
-};
 
 // Function to get intelligent responses for common questions
 const getCannedResponse = (message) => {
@@ -305,24 +217,20 @@ router.post('/', async (req, res) => {
     // Get system prompt with context
     const systemPrompt = getSystemPrompt(sensorData, cropData);
     
-    // Get AI response - try Gemini API first, then canned responses
+    // Get AI response using the new AI service
     let aiResponse;
     
-    // Try Gemini API first
-    if (GEMINI_API_AVAILABLE) {
-      try {
-        console.log('🤖 Using Gemini API for AI response...');
-        aiResponse = await callGeminiAPI(message, systemPrompt);
-        console.log('✅ Gemini API successful - got real AI response');
-      } catch (geminiError) {
-        console.error('❌ Gemini API failed:', geminiError.message);
-        console.error('❌ Gemini API error details:', geminiError);
-        GEMINI_API_AVAILABLE = false; // Mark as unavailable for future requests
-        // Fall through to canned response
-      }
+    try {
+      console.log('🤖 Using AI service for response...');
+      aiResponse = await getAIResponse(message, systemPrompt);
+      console.log('✅ AI service successful - got real AI response');
+    } catch (aiError) {
+      console.error('❌ AI service failed:', aiError.message);
+      console.error('❌ AI service error details:', aiError);
+      // Fall through to canned response
     }
     
-    // If all APIs failed, use canned response
+    // If AI service failed, use canned response
     if (!aiResponse) {
       console.log('🤖 Using canned response...');
       aiResponse = getCannedResponse(message);
@@ -564,27 +472,27 @@ router.post('/test', async (req, res) => {
 
     console.log('Test chat request:', message);
 
-    // Try to use Gemini API first
+    // Try to use AI service first
     let aiResponse;
-    if (GEMINI_API_AVAILABLE) {
-      try {
-        console.log('🤖 Using Gemini API for test endpoint...');
-        const systemPrompt = `You are AgroBot, a smart AI assistant specialized in agriculture, particularly Sri Lankan agriculture. Provide helpful, detailed, and practical advice about farming, crops, soil, irrigation, and agricultural practices. Be conversational and friendly.`;
-        aiResponse = await callGeminiAPI(message, systemPrompt);
-        console.log('✅ Gemini API successful for test endpoint');
-      } catch (geminiError) {
-        console.error('❌ Gemini API failed for test endpoint:', geminiError.message);
-        aiResponse = getCannedResponse(message);
-      }
-    } else {
-      console.log('🤖 Gemini API not available, using canned response...');
+    try {
+      console.log('🤖 Using AI service for test endpoint...');
+      const systemPrompt = `You are AgroBot, a smart AI assistant specialized in agriculture, particularly Sri Lankan agriculture. Provide helpful, detailed, and practical advice about farming, crops, soil, irrigation, and agricultural practices. Be conversational and friendly.`;
+      aiResponse = await getAIResponse(message, systemPrompt);
+      console.log('✅ AI service successful for test endpoint');
+    } catch (aiError) {
+      console.error('❌ AI service failed for test endpoint:', aiError.message);
+      console.log('🤖 AI service not available, using canned response...');
       aiResponse = getCannedResponse(message);
     }
 
+    // Generate a test chat ID for testing purposes
+    const testChatId = `test-chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
     res.json({ 
       success: true, 
       reply: aiResponse,
-      source: GEMINI_API_AVAILABLE ? 'gemini-ai' : 'canned-response',
+      source: aiResponse ? 'ai-service' : 'canned-response',
+      chatId: testChatId,
       timestamp: new Date().toISOString()
     });
 

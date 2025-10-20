@@ -1,1 +1,0 @@
-export const ADMIN_EMAIL = "joelnithushan6@gmail.com";export const APP_NAME = "SmartAgro";export const APP_VERSION = "1.0.0";

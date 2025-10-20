@@ -1,312 +1,216 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { useDeviceRealtime } from '../../hooks/useDeviceRealtime';
-import { useUserDevices } from '../../hooks/useUserDevices';
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  onSnapshot, 
-  query, 
-  orderBy,
-  where,
-  getDocs
-} from 'firebase/firestore';
-import { db } from '../../config/firebase';
-import EnhancedCropSelector from '../../components/EnhancedCropSelector';
-import ParameterCard from '../../components/ParameterCard';
-import CropEditorModal from '../../components/CropEditorModal';
-import FertilizerCalendar from '../../components/FertilizerCalendar';
-import RecommendationsPanel from '../../components/RecommendationsPanel';
-import WeatherWidget from '../../components/WeatherWidget';
+import { useAuth } from '../../context/AuthContext';
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { db } from '../../services/firebase/firebase';
+import { useRealtimeSensorData } from '../../hooks/useRealtimeSensorData';
+import { validateCropData } from '../../components/common/validations/validation';
 import toast from 'react-hot-toast';
+import CropSelector from '../../components/user/cropFertilizer/CropSelector';
+import CropDetails from '../../components/user/cropFertilizer/CropDetails';
+import FertilizerSchedule from '../../components/user/cropFertilizer/FertilizerSchedule';
+import RealtimeParameters from '../../components/user/cropFertilizer/RealtimeParameters';
+import CropModal from '../../components/user/cropFertilizer/CropModal';
+import AnalysisResults from '../../components/user/cropFertilizer/AnalysisResults';
+
+// Predefined Sri Lankan crops
+const PREDEFINED_CROPS = [
+  {
+    cropName: 'Rice',
+    variety: 'Bg 352',
+    recommendedRanges: {
+      soilMoisturePct: { min: 80, max: 100 },
+      airTemperature: { min: 25, max: 32 },
+      airHumidity: { min: 70, max: 85 },
+      soilTemperature: { min: 22, max: 28 },
+      airQualityIndex: { min: 0, max: 50 }
+    },
+    notes: 'Suitable for wet season cultivation in Northern Province',
+    source: 'predefined'
+  },
+  {
+    cropName: 'Tomato',
+    variety: 'Cherry',
+    recommendedRanges: {
+      soilMoisturePct: { min: 60, max: 80 },
+      airTemperature: { min: 20, max: 30 },
+      airHumidity: { min: 60, max: 75 },
+      soilTemperature: { min: 18, max: 25 },
+      airQualityIndex: { min: 0, max: 40 }
+    },
+    notes: 'High yield variety suitable for greenhouse cultivation',
+    source: 'predefined'
+  },
+  {
+    cropName: 'Chili',
+    variety: 'MI-2',
+    recommendedRanges: {
+      soilMoisturePct: { min: 50, max: 70 },
+      airTemperature: { min: 22, max: 35 },
+      airHumidity: { min: 50, max: 70 },
+      soilTemperature: { min: 20, max: 30 },
+      airQualityIndex: { min: 0, max: 45 }
+    },
+    notes: 'Disease resistant variety for commercial cultivation',
+    source: 'predefined'
+  },
+  {
+    cropName: 'Onion',
+    variety: 'Red Creole',
+    recommendedRanges: {
+      soilMoisturePct: { min: 40, max: 60 },
+      airTemperature: { min: 15, max: 25 },
+      airHumidity: { min: 40, max: 60 },
+      soilTemperature: { min: 12, max: 22 },
+      airQualityIndex: { min: 0, max: 35 }
+    },
+    notes: 'Good storage variety for Northern Province conditions',
+    source: 'predefined'
+  },
+  {
+    cropName: 'Cabbage',
+    variety: 'Copenhagen Market',
+    recommendedRanges: {
+      soilMoisturePct: { min: 65, max: 85 },
+      airTemperature: { min: 15, max: 22 },
+      airHumidity: { min: 60, max: 80 },
+      soilTemperature: { min: 12, max: 20 },
+      airQualityIndex: { min: 0, max: 30 }
+    },
+    notes: 'Cool season crop suitable for highland areas',
+    source: 'predefined'
+  },
+  {
+    cropName: 'Eggplant',
+    variety: 'Long Purple',
+    recommendedRanges: {
+      soilMoisturePct: { min: 55, max: 75 },
+      airTemperature: { min: 24, max: 32 },
+      airHumidity: { min: 65, max: 80 },
+      soilTemperature: { min: 20, max: 28 },
+      airQualityIndex: { min: 0, max: 40 }
+    },
+    notes: 'Heat tolerant variety for tropical conditions',
+    source: 'predefined'
+  }
+];
 
 const CropFertilizer = () => {
-  const { currentUser } = useAuth();
-  const [selectedCrop, setSelectedCrop] = useState(null);
+  const { user } = useAuth();
   const [crops, setCrops] = useState([]);
-  const [fertilizers, setFertilizers] = useState([]);
-  const [recommendations, setRecommendations] = useState([]);
-  const [showCropEditor, setShowCropEditor] = useState(false);
+  const [selectedCrop, setSelectedCrop] = useState(null);
+  const [showCropModal, setShowCropModal] = useState(false);
   const [editingCrop, setEditingCrop] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('crops'); // 'crops' or 'fertilizer'
-  
-  // Use the existing useUserDevices hook to get assigned devices
-  const { assignedDevices, activeDeviceId, loading: devicesLoading, error: devicesError } = useUserDevices();
-  
-  // Fallback device ID for testing
-  const [fallbackDeviceId, setFallbackDeviceId] = useState(null);
-  
-  // Use real-time sensor data hook with the active device or fallback
-  const deviceIdToUse = activeDeviceId || fallbackDeviceId;
-  const { sensorData, isOnline, loading: sensorLoading } = useDeviceRealtime(deviceIdToUse);
-  
-  // Use the hook's isOnline status directly (it already has proper offline detection)
-  const isActuallyOnline = isOnline;
-  
-  // Fallback device check - Enhanced with multiple detection methods
+  const [analysisResults, setAnalysisResults] = useState(null);
+  const [analyzingDevice, setAnalyzingDevice] = useState(false);
+
+  // Get current device ID from user's assigned devices
+  const [currentDeviceId, setCurrentDeviceId] = useState(null);
+  const { sensorData, isOnline, loading: sensorLoading } = useRealtimeSensorData(currentDeviceId);
+
+  // Load user's device ID
   useEffect(() => {
-    if (!currentUser || activeDeviceId) return; // Skip if user not loaded or device already found
-    
-    const checkDevicesDirectly = async () => {
-      try {
-        console.log('🔍 Checking devices directly for user:', currentUser.uid);
-        
-        // Method 1: Check deviceRequests collection
-        const requestsQuery = query(
-          collection(db, 'deviceRequests'),
-          where('userId', '==', currentUser.uid),
-          where('status', 'in', ['assigned', 'device-assigned'])
-        );
-        
-        const snapshot = await getDocs(requestsQuery);
-        const devices = [];
-        
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          console.log('📄 Document data:', {
-            id: doc.id,
-            userId: data.userId,
-            deviceId: data.deviceId,
-            status: data.status,
-            assignedAt: data.assignedAt
-          });
-          if (data.deviceId) {
-            devices.push({
-              id: data.deviceId,
-              requestId: doc.id,
-              status: data.status
-            });
-          }
-        });
-        
-        // Method 2: Check devices collection directly
-        const devicesQuery = query(
-          collection(db, 'devices'),
-          where('ownerId', '==', currentUser.uid)
-        );
-        
-        const devicesSnapshot = await getDocs(devicesQuery);
-        devicesSnapshot.forEach((doc) => {
-          const data = doc.data();
-          console.log('📄 Device document:', {
-            id: doc.id,
-            ownerId: data.ownerId,
-            deviceId: data.deviceId || doc.id
-          });
-          if (!devices.find(d => d.id === (data.deviceId || doc.id))) {
-            devices.push({
-              id: data.deviceId || doc.id,
-              requestId: doc.id,
-              status: 'assigned'
-            });
-          }
-        });
+    if (!user?.uid) return;
 
-        // Method 3: Search by email in deviceRequests (fallback)
-        if (devices.length === 0 && currentUser.email) {
-          console.log('🔍 Searching by email:', currentUser.email);
-          const emailQuery = query(
-            collection(db, 'deviceRequests'),
-            where('email', '==', currentUser.email)
-          );
-          
-          const emailSnapshot = await getDocs(emailQuery);
-          emailSnapshot.forEach((doc) => {
-            const data = doc.data();
-            console.log('📄 Email document:', {
-              id: doc.id,
-              email: data.email,
-              deviceId: data.deviceId,
-              status: data.status
-            });
-            if (data.deviceId && !devices.find(d => d.id === data.deviceId)) {
-              devices.push({
-                id: data.deviceId,
-                requestId: doc.id,
-                status: data.status || 'assigned'
-              });
-            }
-          });
-        }
+    const requestsQuery = query(
+      collection(db, 'deviceRequests'),
+      orderBy('createdAt', 'desc')
+    );
 
-        // Method 4: Direct search for known device IDs (ESP32_001)
-        if (devices.length === 0) {
-          console.log('🔍 Searching for known device IDs...');
-          const knownDeviceIds = ['ESP32_001', 'ESP32_002', 'ESP32_003'];
-          
-          for (const deviceId of knownDeviceIds) {
-            const deviceQuery = query(
-              collection(db, 'deviceRequests'),
-              where('deviceId', '==', deviceId)
-            );
-            
-            const deviceSnapshot = await getDocs(deviceQuery);
-            deviceSnapshot.forEach((doc) => {
-              const data = doc.data();
-              console.log('📄 Known device document:', {
-                id: doc.id,
-                deviceId: data.deviceId,
-                email: data.email,
-                status: data.status
-              });
-              if (data.deviceId && !devices.find(d => d.id === data.deviceId)) {
-                devices.push({
-                  id: data.deviceId,
-                  requestId: doc.id,
-                  status: data.status || 'assigned'
-                });
-              }
-            });
-          }
-        }
-        
-        console.log('🔍 Direct device check found:', devices.length, 'devices');
-        console.log('🔍 Direct device check devices:', devices);
-        if (devices.length > 0) {
-          setFallbackDeviceId(devices[0].id);
-          console.log('✅ Set fallback device ID:', devices[0].id);
-        } else {
-          console.log('❌ No devices found in direct check');
-        }
-      } catch (error) {
-        console.error('❌ Error checking devices directly:', error);
+    const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
+      const requests = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      const userRequests = requests.filter(req => req.userId === user.uid);
+      const assignedRequest = userRequests.find(req => req.status === 'assigned' || req.status === 'completed');
+      
+      if (assignedRequest && assignedRequest.deviceId) {
+        setCurrentDeviceId(assignedRequest.deviceId);
       }
-    };
-    
-    checkDevicesDirectly();
-  }, [currentUser, activeDeviceId]);
+    });
 
-  // Debug logging
-  useEffect(() => {
-    console.log('=== CropFertilizer Debug Info ===');
-    console.log('CropFertilizer - currentUser:', currentUser?.uid, currentUser?.email);
-    console.log('CropFertilizer - assignedDevices:', assignedDevices);
-    console.log('CropFertilizer - activeDeviceId:', activeDeviceId);
-    console.log('CropFertilizer - fallbackDeviceId:', fallbackDeviceId);
-    console.log('CropFertilizer - deviceIdToUse:', deviceIdToUse);
-    console.log('CropFertilizer - devicesLoading:', devicesLoading);
-    console.log('CropFertilizer - devicesError:', devicesError);
-    console.log('CropFertilizer - sensorData:', sensorData);
-    console.log('CropFertilizer - isOnline:', isOnline);
-    console.log('CropFertilizer - sensorLoading:', sensorLoading);
-    console.log('CropFertilizer - hasDevice:', !!deviceIdToUse);
-    console.log('CropFertilizer - shouldShowNoDevice:', !deviceIdToUse && !devicesLoading);
-    console.log('CropFertilizer - sensorData.timestamp:', sensorData.timestamp);
-    console.log('CropFertilizer - sensorData.deviceOnline:', sensorData.deviceOnline);
-    console.log('CropFertilizer - isActuallyOnline:', isActuallyOnline);
-    console.log('CropFertilizer - deviceIdToUse:', deviceIdToUse);
-    console.log('================================');
-  }, [assignedDevices, activeDeviceId, fallbackDeviceId, deviceIdToUse, devicesLoading, devicesError, currentUser, sensorData, isOnline, sensorLoading]);
-
+    return () => unsubscribe();
+  }, [user?.uid]);
 
   // Load user's crops
   useEffect(() => {
-    if (!currentUser) return;
+    if (!user?.uid) return;
 
-    const cropsRef = collection(db, 'users', currentUser.uid, 'crops');
+    const cropsRef = collection(db, 'users', user.uid, 'crops');
     const q = query(cropsRef, orderBy('addedAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const cropsData = snapshot.docs.map(doc => ({
+      const userCrops = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
-      setCrops(cropsData);
-      
-      // Auto-select first crop if none selected
-      if (cropsData.length > 0 && !selectedCrop) {
-        setSelectedCrop(cropsData[0]);
-      }
-      
-      setLoading(false);
-    }, (error) => {
-      console.error('Error loading crops:', error);
-      toast.error('Failed to load crops');
+      setCrops(userCrops);
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [currentUser, selectedCrop]);
+  }, [user?.uid]);
 
-  // Load user's fertilizers
-  useEffect(() => {
-    if (!currentUser) return;
+  const handleAddCrop = async (cropData) => {
+    if (!user?.uid) return;
 
-    const fertilizersRef = collection(db, 'users', currentUser.uid, 'fertilizers');
-    const q = query(fertilizersRef, orderBy('applicationDate', 'desc'));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fertilizersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setFertilizers(fertilizersData);
-    }, (error) => {
-      console.error('Error loading fertilizers:', error);
-      toast.error('Failed to load fertilizers');
-    });
-
-    return () => unsubscribe();
-  }, [currentUser]);
-
-  // Load user's recommendations
-  useEffect(() => {
-    if (!currentUser) return;
-
-    const recommendationsRef = collection(db, 'users', currentUser.uid, 'recommendations');
-    const q = query(recommendationsRef, orderBy('createdAt', 'desc'));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const recommendationsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setRecommendations(recommendationsData);
-    }, (error) => {
-      console.error('Error loading recommendations:', error);
-    });
-
-    return () => unsubscribe();
-  }, [currentUser]);
-
-  const handleCropSelect = (crop) => {
-    console.log('Crop selected:', crop);
-    setSelectedCrop(crop);
-  };
-
-  const handleEditCrop = (crop) => {
-    console.log('Edit crop clicked:', crop);
-    setEditingCrop(crop);
-    setShowCropEditor(true);
-  };
-
-  const handleAddCrop = (predefinedCropData = null) => {
-    console.log('Add Crop button clicked', predefinedCropData);
-    if (predefinedCropData) {
-      // Handle predefined crop data
-      setEditingCrop(predefinedCropData);
-    } else {
-      // Handle custom crop
-      setEditingCrop(null);
+    // Validate crop data
+    const validation = validateCropData(cropData);
+    if (!validation.isValid) {
+      toast.error('Please fix validation errors: ' + Object.values(validation.errors).join(', '));
+      return;
     }
-    setShowCropEditor(true);
+
+    try {
+      const cropToAdd = {
+        ...cropData,
+        addedAt: new Date(),
+        userId: user.uid
+      };
+
+      await addDoc(collection(db, 'users', user.uid, 'crops'), cropToAdd);
+      toast.success('Crop added successfully!');
+      setShowCropModal(false);
+    } catch (error) {
+      console.error('Error adding crop:', error);
+      toast.error('Failed to add crop');
+    }
+  };
+
+  const handleUpdateCrop = async (cropId, cropData) => {
+    if (!user?.uid) return;
+
+    // Validate crop data
+    const validation = validateCropData(cropData);
+    if (!validation.isValid) {
+      toast.error('Please fix validation errors: ' + Object.values(validation.errors).join(', '));
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'users', user.uid, 'crops', cropId), {
+        ...cropData,
+        updatedAt: new Date()
+      });
+      toast.success('Crop updated successfully!');
+      setEditingCrop(null);
+      setShowCropModal(false);
+    } catch (error) {
+      console.error('Error updating crop:', error);
+      toast.error('Failed to update crop');
+    }
   };
 
   const handleDeleteCrop = async (cropId) => {
-    console.log('Delete crop clicked:', cropId);
-    if (!window.confirm('Are you sure you want to delete this crop?')) return;
-    
+    if (!user?.uid || !window.confirm('Are you sure you want to delete this crop?')) return;
+
     try {
-      await deleteDoc(doc(db, 'users', currentUser.uid, 'crops', cropId));
-      toast.success('Crop deleted successfully');
-      
-      // Clear selection if deleted crop was selected
-      if (selectedCrop && selectedCrop.id === cropId) {
-        setSelectedCrop(crops.length > 1 ? crops.find(c => c.id !== cropId) : null);
+      await deleteDoc(doc(db, 'users', user.uid, 'crops', cropId));
+      toast.success('Crop deleted successfully!');
+      if (selectedCrop?.id === cropId) {
+        setSelectedCrop(null);
       }
     } catch (error) {
       console.error('Error deleting crop:', error);
@@ -314,315 +218,190 @@ const CropFertilizer = () => {
     }
   };
 
-  const handleAnalyzeNow = async () => {
-    console.log('Analyze Now button clicked');
-    if (!deviceIdToUse) {
-      console.log('No device ID found (activeDeviceId:', activeDeviceId, ', fallbackDeviceId:', fallbackDeviceId, ')');
-      toast.error('No device assigned. Please assign a device first.');
+  const handleAnalyzeDevice = async () => {
+    if (!currentDeviceId || !isOnline) {
+      toast.error('Device is offline — cannot analyze');
       return;
     }
 
+    if (!user?.uid) {
+      toast.error('Authentication required');
+      return;
+    }
+
+    setAnalyzingDevice(true);
     try {
-      const response = await fetch('/api/recommendations/analyze-now', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/v1/analyze-device`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await currentUser.getIdToken()}`
+          'Authorization': `Bearer ${await user.getIdToken()}`
         },
         body: JSON.stringify({
-          deviceId: deviceIdToUse,
-          userId: currentUser.uid
+          deviceId: currentDeviceId,
+          uid: user.uid,
+          aggregates: {
+            soilMoisture_avg: sensorData.soilMoisturePct,
+            soilTemperature_avg: sensorData.soilTemperature,
+            airTemp_avg: sensorData.airTemperature,
+            airHumidity_avg: sensorData.airHumidity,
+            aqi_avg: sensorData.airQualityIndex
+          }
         })
       });
 
-      if (response.ok) {
-        toast.success('Analysis completed! Check recommendations below.');
-      } else {
+      if (!response.ok) {
         throw new Error('Analysis failed');
       }
+
+      const result = await response.json();
+      setAnalysisResults(result);
+      toast.success('Analysis completed!');
     } catch (error) {
-      console.error('Error running analysis:', error);
-      toast.error('Failed to run analysis. Please try again.');
+      console.error('Error analyzing device:', error);
+      toast.error('Failed to analyze device data');
+    } finally {
+      setAnalyzingDevice(false);
     }
   };
 
-  if (loading || devicesLoading) {
+  const handleAddRecommendedCrop = async (recommendedCrop) => {
+    const cropData = {
+      cropName: recommendedCrop.name,
+      variety: '',
+      recommendedRanges: {
+        soilMoisturePct: { min: 40, max: 80 },
+        airTemperature: { min: 20, max: 35 },
+        airHumidity: { min: 50, max: 80 },
+        soilTemperature: { min: 15, max: 30 },
+        airQualityIndex: { min: 0, max: 50 }
+      },
+      notes: recommendedCrop.reason + ' - ' + recommendedCrop.recommendation,
+      source: 'ai-recommended'
+    };
+
+    await handleAddCrop(cropData);
+  };
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading crop and fertilizer data...</p>
-        </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Crop & Fertilizer Management</h1>
-              <p className="mt-2 text-gray-600">Monitor your crops and manage fertilizer schedules</p>
-            </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={handleAddCrop}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
-              >
-                <span>🌱</span>
-                <span>Add Crop</span>
-              </button>
-              <button
-                onClick={handleAnalyzeNow}
-                disabled={!deviceIdToUse}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-              >
-                <span>🤖</span>
-                <span>Analyze Now</span>
-              </button>
-            </div>
+    <div 
+      className="min-h-screen bg-cover bg-center bg-fixed"
+      style={{
+        backgroundImage: 'url(/images/leaves-bg.jpg)'
+      }}
+    >
+      <div className="min-h-screen bg-black bg-opacity-20 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-white">Crop & Fertilizer Management</h1>
+            <p className="mt-2 text-gray-200">Monitor real-time conditions and manage your crops</p>
           </div>
-        </div>
 
-        {/* Device Assignment Check */}
-        {!deviceIdToUse && !devicesLoading && (
-          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <span className="text-yellow-600 text-xl mr-3">⚠️</span>
-              <div>
-                <h3 className="text-yellow-800 font-medium">No Device Assigned</h3>
-                <p className="text-yellow-700 text-sm mt-1">
-                  Assign a device to see real-time parameter comparisons and AI recommendations.
+          {/* Combined Content - Both Sections on One Page */}
+          <div className="space-y-8">
+            {/* Crops Section */}
+            <div className="bg-white bg-opacity-95 rounded-lg shadow-lg backdrop-blur-sm">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="text-lg font-medium text-gray-900 flex items-center">
+                  <span className="mr-2">🌱</span>
+                  Crop Management
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Monitor real-time conditions and manage your crops
                 </p>
-                <div className="mt-2 text-xs text-yellow-600">
-                  Debug: assignedDevices={assignedDevices.length}, activeDeviceId={activeDeviceId}, fallbackDeviceId={fallbackDeviceId}
+              </div>
+              
+              <div className="p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                  {/* Left Column - Real-time Parameters (35%) */}
+                  <div className="lg:col-span-4">
+                    <RealtimeParameters 
+                      sensorData={sensorData}
+                      isOnline={isOnline}
+                      loading={sensorLoading}
+                      selectedCrop={selectedCrop}
+                      onAnalyze={handleAnalyzeDevice}
+                      analyzing={analyzingDevice}
+                    />
+                  </div>
+
+                  {/* Right Column - Crop Management (65%) */}
+                  <div className="lg:col-span-8 space-y-6">
+                    <CropSelector
+                      crops={crops}
+                      predefinedCrops={PREDEFINED_CROPS}
+                      selectedCrop={selectedCrop}
+                      onSelectCrop={setSelectedCrop}
+                      onAddCrop={() => setShowCropModal(true)}
+                      onAddPredefinedCrop={handleAddCrop}
+                    />
+
+                    {selectedCrop && (
+                      <CropDetails
+                        crop={selectedCrop}
+                        sensorData={sensorData}
+                        onEdit={(crop) => {
+                          setEditingCrop(crop);
+                          setShowCropModal(true);
+                        }}
+                        onDelete={handleDeleteCrop}
+                      />
+                    )}
+
+                    {analysisResults && (
+                      <AnalysisResults
+                        results={analysisResults}
+                        onAddRecommendedCrop={handleAddRecommendedCrop}
+                        onClose={() => setAnalysisResults(null)}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Device Loading State */}
-        {devicesLoading && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
-              <div>
-                <h3 className="text-blue-800 font-medium">Loading Device Information</h3>
-                <p className="text-blue-700 text-sm mt-1">
-                  Checking for assigned devices...
+            {/* Fertilizer Section */}
+            <div className="bg-white bg-opacity-95 rounded-lg shadow-lg backdrop-blur-sm">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="text-lg font-medium text-gray-900 flex items-center">
+                  <span className="mr-2">🌿</span>
+                  Fertilizer Schedule
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Manage fertilizer schedules and nutrient requirements for your crops
                 </p>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Device Status Display */}
-        {deviceIdToUse ? (
-          <div className={`mb-6 rounded-lg p-4 border ${
-            isActuallyOnline 
-              ? 'bg-green-50 border-green-200' 
-              : 'bg-red-50 border-red-200'
-          }`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <span className={`text-xl mr-3 ${
-                  isActuallyOnline ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {isActuallyOnline ? '✅' : '❌'}
-                </span>
-                <div>
-                  <h3 className={`font-medium ${
-                    isActuallyOnline ? 'text-green-800' : 'text-red-800'
-                  }`}>
-                    Device {isActuallyOnline ? 'Connected' : 'Disconnected'}
-                  </h3>
-                  <p className={`text-sm mt-1 ${
-                    isActuallyOnline ? 'text-green-700' : 'text-red-700'
-                  }`}>
-                    Device ID: {deviceIdToUse} | Status: {isActuallyOnline ? 'Online' : 'Offline'}
-                  </p>
-                </div>
-              </div>
-              <div className={`text-right text-xs ${
-                isActuallyOnline ? 'text-green-600' : 'text-red-600'
-              }`}>
-                <div>Last Update: {sensorData.timestamp ? new Date(sensorData.timestamp).toLocaleTimeString() : 'Never'}</div>
-                <div>Sensor Data: {Object.keys(sensorData).length} fields</div>
-                {!isActuallyOnline && sensorData.timestamp && (
-                  <div className="text-red-500 font-medium">
-                    Data is {Math.round((Date.now() - new Date(sensorData.timestamp).getTime()) / 1000)}s old
-                  </div>
-                )}
+              
+              <div className="p-6">
+                <FertilizerSchedule crops={crops} />
               </div>
             </div>
           </div>
-        ) : (
-          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <span className="text-yellow-600 text-xl mr-3">⚠️</span>
-              <div>
-                <h3 className="text-yellow-800 font-medium">No Device Assigned</h3>
-                <p className="text-yellow-700 text-sm mt-1">
-                  Please assign a device to view real-time data
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Tab Navigation */}
-        <div className="mb-6">
-          <nav className="flex space-x-8">
-            <button
-              onClick={() => setActiveTab('crops')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'crops'
-                  ? 'border-green-500 text-green-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              🌱 Crops & Monitoring
-            </button>
-            <button
-              onClick={() => setActiveTab('fertilizer')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'fertilizer'
-                  ? 'border-green-500 text-green-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              🌿 Fertilizer Schedule
-            </button>
-          </nav>
-        </div>
-
-        {/* Main Content */}
-        {activeTab === 'crops' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column - Real-time Parameters (35%) */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Real-time Parameters</h2>
-                {deviceIdToUse ? (
-                  <div className="space-y-4">
-                    <ParameterCard
-                      label="🌱 Soil Moisture"
-                      value={sensorData.soilMoisturePct}
-                      unit="%"
-                      recommendedRange={selectedCrop?.recommendedRanges?.soilMoisturePct}
-                      isOnline={isActuallyOnline}
-                    />
-                    <ParameterCard
-                      label="🌡️ Air Temperature"
-                      value={sensorData.airTemperature}
-                      unit="°C"
-                      recommendedRange={selectedCrop?.recommendedRanges?.airTemperature}
-                      isOnline={isActuallyOnline}
-                    />
-                    <ParameterCard
-                      label="💧 Air Humidity"
-                      value={sensorData.airHumidity}
-                      unit="%"
-                      recommendedRange={selectedCrop?.recommendedRanges?.airHumidity}
-                      isOnline={isActuallyOnline}
-                    />
-                    <ParameterCard
-                      label="🌡️ Soil Temperature"
-                      value={sensorData.soilTemperature}
-                      unit="°C"
-                      recommendedRange={selectedCrop?.recommendedRanges?.soilTemperature}
-                      isOnline={isActuallyOnline}
-                    />
-                    <ParameterCard
-                      label="🌬️ Air Quality"
-                      value={sensorData.airQualityIndex}
-                      unit="ppm"
-                      recommendedRange={selectedCrop?.recommendedRanges?.airQualityIndex}
-                      isOnline={isActuallyOnline}
-                    />
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <span className="text-4xl mb-4 block">📱</span>
-                    <p>No device assigned</p>
-                    <p className="text-sm">Assign a device to see real-time data</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Right Column - Crop Details & Recommendations (65%) */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Enhanced Crop Selector */}
-              <EnhancedCropSelector
-                crops={crops}
-                selectedCrop={selectedCrop}
-                onCropSelect={handleCropSelect}
-                onEditCrop={handleEditCrop}
-                onDeleteCrop={handleDeleteCrop}
-                onAddCrop={handleAddCrop}
-              />
-
-              {/* Recommendations Panel */}
-              <RecommendationsPanel
-                recommendations={recommendations}
-                crops={crops}
-                onAddCrop={handleAddCrop}
-              />
-            </div>
-          </div>
-        ) : (
-          /* Fertilizer Tab */
-          <FertilizerCalendar
-            fertilizers={fertilizers}
-            crops={crops}
-            userId={currentUser?.uid}
-          />
-        )}
-
-        {/* Crop Editor Modal */}
-        <CropEditorModal
-          isOpen={showCropEditor}
-          crop={editingCrop}
-          onClose={() => {
-            setShowCropEditor(false);
-            setEditingCrop(null);
-          }}
-          onSave={async (cropData) => {
-            try {
-              if (editingCrop) {
-                // Update existing crop
-                await updateDoc(doc(db, 'users', currentUser.uid, 'crops', editingCrop.id), {
-                  ...cropData,
-                  updatedAt: new Date()
-                });
-                toast.success('Crop updated successfully');
-              } else {
-                // Add new crop
-                await addDoc(collection(db, 'users', currentUser.uid, 'crops'), {
-                  ...cropData,
-                  addedAt: new Date(),
-                  userId: currentUser.uid
-                });
-                toast.success('Crop added successfully');
+          {/* Crop Modal */}
+          {showCropModal && (
+            <CropModal
+              crop={editingCrop}
+              predefinedCrops={PREDEFINED_CROPS}
+              onSave={editingCrop ? 
+                (cropData) => handleUpdateCrop(editingCrop.id, cropData) : 
+                handleAddCrop
               }
-              setShowCropEditor(false);
-              setEditingCrop(null);
-            } catch (error) {
-              console.error('Error saving crop:', error);
-              toast.error('Failed to save crop');
-            }
-          }}
-          userId={currentUser?.uid}
-        />
-
-        {/* Weather Widget - Top of Footer */}
-        <div className="mt-8">
-          <WeatherWidget />
+              onClose={() => {
+                setShowCropModal(false);
+                setEditingCrop(null);
+              }}
+            />
+          )}
         </div>
       </div>
     </div>

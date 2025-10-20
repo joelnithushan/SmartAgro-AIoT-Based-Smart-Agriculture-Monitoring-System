@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ref, onValue, off, update } from 'firebase/database';
+import { ref, onValue, update } from 'firebase/database';
 import { database, auth } from '../config/firebase';
 import toast from 'react-hot-toast';
 
@@ -32,7 +32,7 @@ export const useRealtimeSensorData = (deviceId) => {
 
   useEffect(() => {
     if (!deviceId) {
-      console.log('❌ No deviceId provided to useRealtimeSensorData');
+      console.log('🔍 No deviceId provided to useRealtimeSensorData - user may not have a device assigned yet');
       setLoading(false);
       return;
     }
@@ -84,7 +84,7 @@ export const useRealtimeSensorData = (deviceId) => {
             },
             lightDetected: data.lightDetected || 0,
             rainLevelRaw: data.rainLevelRaw || 0,
-            relayStatus: data.relayStatus || "off", // Always default to OFF
+            relayStatus: data.relayStatus || "off",
             timestamp: data.timestamp && data.timestamp > 86400000 ? data.timestamp : Date.now(),
             deviceOnline: true
           };
@@ -95,6 +95,9 @@ export const useRealtimeSensorData = (deviceId) => {
           // Track when we last received sensor data for ESP32 online detection
           window.lastESP32UpdateTime = Date.now();
           console.log(`📡 Received sensor data update at ${new Date().toISOString()}`);
+          
+          // Also update online status immediately when we receive fresh data
+          setIsOnline(true);
         } else {
           // No data or empty data - show zeros
           console.log('⚠️ No data or empty data, showing zeros');
@@ -111,7 +114,7 @@ export const useRealtimeSensorData = (deviceId) => {
             },
             lightDetected: 0,
             rainLevelRaw: 0,
-            relayStatus: "off", // Always start with pump OFF
+            relayStatus: "off",
             timestamp: null,
             deviceOnline: false
           });
@@ -276,7 +279,7 @@ export const useRealtimeSensorData = (deviceId) => {
  */
 export const useIrrigationControl = (deviceId) => {
   const [irrigationMode, setIrrigationModeState] = useState('manual');
-  const [pumpStatus, setPumpStatus] = useState('off'); // Always start with pump OFF
+  const [pumpStatus, setPumpStatus] = useState('off');
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -293,34 +296,6 @@ export const useIrrigationControl = (deviceId) => {
     const relayStatusRef = ref(database, `devices/${deviceId}/control/relay/status`);
     const schedulesRef = ref(database, `devices/${deviceId}/schedules`);
 
-    // Ensure pump starts in OFF state when device is first connected
-    const initializePumpState = async () => {
-      try {
-        // Check if relay control exists, if not initialize it with OFF state
-        const relaySnapshot = await new Promise((resolve) => {
-          const unsubscribe = onValue(relayRef, (snapshot) => {
-            unsubscribe();
-            resolve(snapshot);
-          });
-        });
-        
-        if (!relaySnapshot.exists()) {
-          console.log('🔧 Initializing pump state to OFF for new device');
-          await update(relayRef, {
-            status: 'off',
-            mode: 'manual',
-            lastChangedBy: 'system',
-            timestamp: new Date().toISOString()
-          });
-          await update(relayStatusRef, { value: 'off' });
-        }
-      } catch (error) {
-        console.log('⚠️ Could not initialize pump state:', error);
-      }
-    };
-
-    initializePumpState();
-
     const unsubscribeIrrigation = onValue(irrigationRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
@@ -332,9 +307,6 @@ export const useIrrigationControl = (deviceId) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
         setPumpStatus(data.status || 'off');
-      } else {
-        // If no relay data exists, ensure pump is OFF
-        setPumpStatus('off');
       }
     });
 
@@ -344,14 +316,9 @@ export const useIrrigationControl = (deviceId) => {
         const status = snapshot.val();
         console.log('⚡ INSTANT: Relay status update received:', status);
         setPumpStatus(status || 'off');
-      } else {
-        // If no instant relay status exists, ensure pump is OFF
-        setPumpStatus('off');
       }
     }, (error) => {
       console.error('❌ Error in instant relay status subscription:', error);
-      // On error, default to OFF state
-      setPumpStatus('off');
     });
 
     const unsubscribeSchedules = onValue(schedulesRef, (snapshot) => {

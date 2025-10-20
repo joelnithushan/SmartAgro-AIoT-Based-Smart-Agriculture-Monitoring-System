@@ -3,6 +3,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { sendEmailAlert } from '../services/emailService.js';
 import { sendSMSAlert } from '../services/smsService.js';
+import SmartAlertService from '../services/smartAlertService.js';
 
 // Initialize Firebase Admin
 const app = initializeApp();
@@ -116,7 +117,33 @@ async function checkAlertCondition(alert, sensorData, userId, deviceId) {
     if (conditionMet) {
       console.log(`🚨 Alert condition met for ${alert.parameter}: ${currentValue} ${alert.comparison} ${alert.threshold}`);
       
-      // Check debounce to prevent duplicate alerts
+      // Use smart alert service for soil moisture alerts with 2-hour cooldown
+      if (alert.parameter === 'soilMoisturePct' && alert.comparison === '<') {
+        console.log(`🌱 Using smart alert service for soil moisture alert`);
+        
+        // Get all user alerts for smart processing
+        const userAlertsRef = db.collection('users').doc(userId).collection('alerts');
+        const userAlertsSnapshot = await userAlertsRef.where('active', '==', true).get();
+        const userAlerts = userAlertsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        const result = await SmartAlertService.processSoilMoistureAlert(
+          userId, 
+          currentValue, 
+          alert.threshold, 
+          deviceId, 
+          userAlerts
+        );
+        
+        if (result.sent) {
+          console.log(`✅ Smart alert sent successfully`);
+        } else {
+          console.log(`⏰ Smart alert not sent: ${result.reason}`);
+        }
+        
+        return;
+      }
+      
+      // For other alert types, use original debounce logic
       const debounceKey = `${userId}_${alert.id}_${alert.parameter}`;
       const now = Date.now();
       const lastTriggered = alertDebounce.get(debounceKey);

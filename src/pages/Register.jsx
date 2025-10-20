@@ -1,96 +1,329 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { ADMIN_EMAIL } from '../config/config';
+import { useAuth } from '../context/AuthContext';
+import { ADMIN_EMAIL } from '../services/config';
+import { validateRegistrationForm } from '../utils/authValidation';
+import { initializeRecaptcha, clearRecaptcha } from '../config/firebase';
+import { calculatePasswordStrength, getStrengthColorClass, getStrengthTextColorClass } from '../components/common/validations/passwordStrength';
+import { validateEmailWithMailboxLayer, isValidEmailFormat, isDisposableEmail } from '../services/emailValidationService';
 import toast from 'react-hot-toast';
+import { FcGoogle } from 'react-icons/fc';
+import { FaApple } from 'react-icons/fa';
+import { motion } from 'framer-motion';
 
 const Register = () => {
   const [formData, setFormData] = useState({
-    email: '',
+    emailOrMobile: '', // Single input field
     password: '',
-    confirmPassword: '',
-    phoneNumber: '',
-    registrationType: 'email' // 'email' or 'phone'
+    confirmPassword: ''
   });
 
+  const [inputType, setInputType] = useState('email'); // Auto-detected: 'email' or 'phone'
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
-  const [verificationCode, setVerificationCode] = useState('');
-  const [phoneVerificationLoading, setPhoneVerificationLoading] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
+  const [passwordStrength, setPasswordStrength] = useState(null);
 
-  const { signup, googleSignIn, appleSignIn, sendPhoneOTP, verifyPhoneOTP } = useAuth();
+  const { 
+    registerWithEmailAndPassword, 
+    registerWithPhoneAndPassword, 
+    googleSignIn, 
+    appleSignIn
+  } = useAuth();
   const navigate = useNavigate();
+  const recaptchaContainerRef = useRef(null);
+
+  // Initialize reCAPTCHA on component mount
+  useEffect(() => {
+    if (recaptchaContainerRef.current) {
+      try {
+        initializeRecaptcha('recaptcha-container');
+      } catch (error) {
+        console.error('Error initializing reCAPTCHA:', error);
+      }
+    }
+    
+    return () => {
+      clearRecaptcha();
+    };
+  }, []);
+
+  // Auto-detect input type (email or mobile)
+  const detectInputType = (value) => {
+    console.log('Detecting input type for:', value);
+    
+    // Check if input is a valid email format (use same regex as validation)
+    const emailRegex = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+    const isEmail = emailRegex.test(value);
+    console.log('Is email:', isEmail);
+    
+    if (isEmail) {
+      return 'email';
+    }
+    
+    // Check if input is numeric and 10-15 digits (phone number)
+    const numericValue = value.replace(/\D/g, ''); // Remove non-digits
+    const isPhone = numericValue.length >= 10 && numericValue.length <= 15 && /^\+?\d+$/.test(value);
+    console.log('Is phone:', isPhone, 'numericValue:', numericValue);
+    
+    if (isPhone) {
+      return 'phone';
+    }
+    
+    // Default to 'unknown' if unclear
+    console.log('Returning unknown');
+    return 'unknown';
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
+    // Auto-detect input type for emailOrMobile field
+    if (name === 'emailOrMobile') {
+      const detectedType = detectInputType(value);
+      setInputType(detectedType);
+    }
+
     setFormData({
       ...formData,
       [name]: value
     });
+    
+    // Calculate password strength when password changes
+    if (name === 'password') {
+      const strength = calculatePasswordStrength(value);
+      setPasswordStrength(strength);
+    }
+    
+    // Clear specific field error when user starts typing
+    if (formErrors[name]) {
+      setFormErrors({
+        ...formErrors,
+        [name]: ''
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match!');
+    // Prepare validation data based on detected input type
+    const validationData = {
+      ...formData,
+      email: inputType === 'email' ? formData.emailOrMobile : '',
+      phoneNumber: inputType === 'phone' ? formData.emailOrMobile : '',
+      registrationType: inputType
+    };
+    
+    // Debug: Log validation data
+    console.log('Validation data:', validationData);
+    console.log('Input type:', inputType);
+    console.log('Email value:', validationData.email);
+    
+    // Validate form using the validation utility
+    const validation = validateRegistrationForm(validationData);
+    console.log('Validation result:', validation);
+    
+    if (!validation.isValid) {
+      setFormErrors(validation.errors);
+      // Show first error in toast
+      const firstError = Object.values(validation.errors)[0];
+      toast.error(firstError);
       return;
     }
-
-    if (formData.password.length < 6) {
-      toast.error('Password must be at least 6 characters long!');
-      return;
-    }
-
-    if (formData.registrationType === 'email' && !formData.email) {
-      toast.error('Email is required!');
-      return;
-    }
-
-    if (formData.registrationType === 'phone' && !formData.phoneNumber) {
-      toast.error('Phone number is required!');
-      return;
-    }
-
+    
     setLoading(true);
+    setFormErrors({});
 
     try {
-      if (formData.registrationType === 'email') {
-        const result = await signup(formData.email, formData.password);
+      if (inputType === 'email') {
+        // Validate email format first
+        console.log('Second email validation - checking:', formData.emailOrMobile);
+        const emailFormatValid = isValidEmailFormat(formData.emailOrMobile);
+        console.log('isValidEmailFormat result:', emailFormatValid);
+        
+        if (!emailFormatValid) {
+          console.log('Email format validation failed');
+          toast.error('Please enter a valid email address');
+          return;
+        }
+        console.log('Email format validation passed');
+
+        // Check for disposable emails locally first
+        if (isDisposableEmail(formData.emailOrMobile)) {
+          toast.error('Invalid or temporary email. Please use a valid email address.');
+          return;
+        }
+
+        // Validate email with MailboxLayer API (with fallback)
+        toast.loading('Validating email address...', { id: 'email-validation' });
+        
+        try {
+          const emailValidation = await validateEmailWithMailboxLayer(formData.emailOrMobile);
+          toast.dismiss('email-validation');
+
+          if (!emailValidation.success) {
+            // If API fails completely, show warning but allow registration
+            console.warn('Email validation API failed, allowing registration with warning');
+            toast.warning('Email validation service unavailable. Proceeding with registration.');
+          } else if (!emailValidation.isValid) {
+            toast.error('Invalid or temporary email. Please use a valid email address.');
+            return;
+          }
+
+          // Show warning if API had issues but still proceeding
+          if (emailValidation.warning) {
+            console.warn('Email validation warning:', emailValidation.warning);
+          }
+        } catch (error) {
+          // If validation completely fails, allow registration with warning
+          console.warn('Email validation error, allowing registration:', error);
+          toast.dismiss('email-validation');
+          toast.warning('Email validation service unavailable. Proceeding with registration.');
+        }
+
+        // Proceed with Firebase registration
+        const result = await registerWithEmailAndPassword(formData.emailOrMobile, formData.password);
         
         if (result.success) {
-          toast.success('Account created successfully! Please verify your email.');
-          // Navigate to waiting page after successful registration
-          navigate('/waiting', { 
+          toast.success('Verification link sent to your email. Please check your inbox or spam folder.');
+          // Navigate to waiting for verification page
+          navigate('/waiting-verification', { 
             state: { 
-              email: formData.email
+              email: formData.emailOrMobile
             } 
           });
         } else {
-          toast.error(result.error || 'Registration failed');
+          // Debug: Log the actual error message
+          console.log('Registration error:', result.error);
+          
+          // Handle specific Firebase errors with user-friendly messages
+          if (result.error && (result.error.includes('email-already-in-use') || result.error.includes('auth/email-already-in-use') || result.error.includes('Email address is already in use'))) {
+            toast.error('This email is already registered. Please try signing in instead.', {
+              duration: 5000,
+              style: {
+                background: '#fef2f2',
+                color: '#dc2626',
+                border: '1px solid #fecaca'
+              }
+            });
+            // Show a more helpful message with link to login
+            setTimeout(() => {
+              toast.error('Click "Sign in here" below to access your existing account.', {
+                duration: 4000,
+                style: {
+                  background: '#fef3c7',
+                  color: '#d97706',
+                  border: '1px solid #fde68a'
+                }
+              });
+            }, 1000);
+          } else if (result.error && result.error.includes('weak-password')) {
+            toast.error('Password is too weak. Please choose a stronger password.');
+          } else if (result.error && result.error.includes('invalid-email')) {
+            toast.error('Please enter a valid email address.');
+          } else {
+            // Fallback: Check if it's any kind of "already in use" error
+            if (result.error && (result.error.toLowerCase().includes('already') || result.error.toLowerCase().includes('in use'))) {
+              toast.error('This email is already registered. Please try signing in instead.', {
+                duration: 5000,
+                style: {
+                  background: '#fef2f2',
+                  color: '#dc2626',
+                  border: '1px solid #fecaca'
+                }
+              });
+              setTimeout(() => {
+                toast.error('Click "Sign in here" below to access your existing account.', {
+                  duration: 4000,
+                  style: {
+                    background: '#fef3c7',
+                    color: '#d97706',
+                    border: '1px solid #fde68a'
+                  }
+                });
+              }, 1000);
+            } else {
+              toast.error(result.error || 'Registration failed. Please try again.');
+            }
+          }
         }
       } else {
         // Phone registration - send OTP first
-        const phoneResult = await sendPhoneOTP(formData.phoneNumber);
+        // Temporary: Show SMS not available message
+        toast.error('SMS authentication is temporarily unavailable. Please use email registration instead.', {
+          duration: 5000,
+          style: {
+            background: '#fef2f2',
+            color: '#dc2626',
+            border: '1px solid #fecaca'
+          }
+        });
+        return;
+        
+        // Commented out until SMS is properly configured
+        /*
+        const recaptchaVerifier = initializeRecaptcha('recaptcha-container');
+        const phoneResult = await registerWithPhoneAndPassword(formData.emailOrMobile, formData.password, recaptchaVerifier);
+        
         if (phoneResult.success) {
           toast.success('SMS verification code sent!');
-          setShowPhoneVerification(true);
-          // Clear the form after successful OTP sending
-          setFormData({
-            email: '',
-            password: '',
-            confirmPassword: '',
-            phoneNumber: '',
-            registrationType: 'phone'
+          // Navigate to phone verification page
+          navigate('/phone-verification', {
+            state: {
+              phoneNumber: formData.emailOrMobile,
+              confirmationResult: phoneResult.confirmationResult
+            }
           });
         } else {
-          toast.error(phoneResult.error || 'Failed to send SMS verification');
+          // Handle specific phone registration errors
+          if (phoneResult.error && (phoneResult.error.includes('SMS authentication is not enabled') || phoneResult.error.includes('not properly configured') || phoneResult.error.includes('not authorized'))) {
+            toast.error('SMS authentication is not available. Please use email registration instead.', {
+              duration: 6000,
+              style: {
+                background: '#fef2f2',
+                color: '#dc2626',
+                border: '1px solid #fecaca'
+              }
+            });
+            // Show suggestion to switch to email
+            setTimeout(() => {
+              toast.error('Try entering an email address instead of a phone number.', {
+                duration: 4000,
+                style: {
+                  background: '#fef3c7',
+                  color: '#d97706',
+                  border: '1px solid #fde68a'
+                }
+              });
+            }, 2000);
+            // Show additional help
+            setTimeout(() => {
+              toast.error('SMS may need additional Firebase configuration. Contact support if needed.', {
+                duration: 4000,
+                style: {
+                  background: '#f0f9ff',
+                  color: '#0369a1',
+                  border: '1px solid #bae6fd'
+                }
+              });
+            }, 4000);
+          } else if (phoneResult.error && phoneResult.error.includes('invalid phone number')) {
+            toast.error('Please enter a valid phone number with country code (e.g., +1234567890).');
+          } else if (phoneResult.error && phoneResult.error.includes('too many requests')) {
+            toast.error('Too many SMS requests. Please try again later or use email registration.');
+          } else if (phoneResult.error && phoneResult.error.includes('reCAPTCHA verification failed')) {
+            toast.error('reCAPTCHA verification failed. Please try again.');
+          } else {
+            toast.error(phoneResult.error || 'Failed to send SMS verification');
+          }
         }
+        */
       }
     } catch (err) {
-      toast.error('Failed to create account');
+      console.error('Registration error:', err);
+      toast.error('Failed to create account. Please try again.');
     }
     
     setLoading(false);
@@ -140,69 +373,52 @@ const Register = () => {
     setLoading(false);
   };
 
-
-  const handlePhoneVerification = async (e) => {
-    e.preventDefault();
-    setPhoneVerificationLoading(true);
-
-    try {
-      const result = await verifyPhoneOTP(verificationCode);
-      if (result.success) {
-        toast.success('Phone verification successful!');
-        // Phone verification successful, redirect to dashboard
-        navigate('/user/dashboard');
-      } else {
-        toast.error(result.error || 'Phone verification failed');
-      }
-    } catch (err) {
-      toast.error('Failed to verify phone number');
-    }
-    setPhoneVerificationLoading(false);
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-green-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Agriculture Background Image with Overlay */}
+      <div className="absolute inset-0 z-0">
+        <img
+          src="https://images.unsplash.com/photo-1625246333195-78d9c38ad449?auto=format&fit=crop&w=1920&q=80"
+          alt="Smart Farming"
+          className="w-full h-full object-cover blur-sm"
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#E8F5E9]/20 via-[#F1F8E9]/15 to-[#E8F5E9]/20" />
+      </div>
+
+      {/* Register Container */}
+      <div className="relative z-10 max-w-md w-full space-y-6">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-4xl font-black mb-2 text-green-600 tracking-wide drop-shadow-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
+          <h1 className="text-4xl font-bold mb-2 text-[#2E7D32] tracking-wide drop-shadow-sm">
             SmartAgro
           </h1>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Create your SmartAgro Account
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            Create Your Account
           </h2>
-          <p className="text-gray-600">
-            Get started with your free account today
+          <p className="text-gray-700">
+            Join thousands of farmers using smart technology
           </p>
         </div>
 
-        {/* Register Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-
+        {/* Glassy Register Card */}
+        <div className="bg-white/40 backdrop-blur-md rounded-2xl border border-white/50 shadow-2xl p-8">
           {/* Social Sign Up Buttons */}
           <div className="space-y-3 mb-6">
             <button
               onClick={handleGoogleSignIn}
               disabled={loading}
-              className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:shadow-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              className="w-full flex items-center justify-center px-4 py-3 bg-white/50 backdrop-blur-sm border border-white/40 rounded-lg text-sm font-medium text-gray-800 hover:bg-white/70 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 ease-in-out transform hover:scale-105"
             >
-              <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
+              <FcGoogle className="w-5 h-5 mr-3" />
               Sign up with Google
             </button>
 
             <button
               onClick={handleAppleSignIn}
               disabled={loading}
-              className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:shadow-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              className="w-full flex items-center justify-center px-4 py-3 bg-white/50 backdrop-blur-sm border border-white/40 rounded-lg text-sm font-medium text-gray-800 hover:bg-white/70 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 ease-in-out transform hover:scale-105"
             >
-              <svg className="w-5 h-5 mr-3" fill="#000000" viewBox="0 0 24 24">
-                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-              </svg>
+              <FaApple className="w-5 h-5 mr-3" />
               Sign up with Apple
             </button>
           </div>
@@ -210,99 +426,62 @@ const Register = () => {
           {/* Divider */}
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
+              <div className="w-full border-t border-white/50" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or continue with email</span>
+              <span className="px-3 bg-white/30 backdrop-blur-sm rounded-full text-gray-700 font-medium">
+                Or sign up with {inputType === 'email' ? 'email' : 'mobile'}
+              </span>
             </div>
           </div>
 
           {/* Register Form */}
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {/* Registration Type Selector */}
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            {/* Email or Mobile Number Input (Auto-detect) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Registration Method
+              <label htmlFor="emailOrMobile" className="block text-sm font-semibold text-gray-800 mb-2">
+                Email or Mobile Number
               </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setFormData({...formData, registrationType: 'email'})}
-                  className={`px-4 py-3 rounded-lg border-2 transition-all duration-200 ${
-                    formData.registrationType === 'email'
-                      ? 'border-green-500 bg-green-50 text-green-700'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                  }`}
-                >
-                  <div className="flex items-center justify-center space-x-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    <span className="font-medium">Email</span>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({...formData, registrationType: 'phone'})}
-                  className={`px-4 py-3 rounded-lg border-2 transition-all duration-200 ${
-                    formData.registrationType === 'phone'
-                      ? 'border-green-500 bg-green-50 text-green-700'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                  }`}
-                >
-                  <div className="flex items-center justify-center space-x-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                    <span className="font-medium">Phone</span>
-                  </div>
-                </button>
-              </div>
+              <input
+                id="emailOrMobile"
+                name="emailOrMobile"
+                type="text"
+                autoComplete="username"
+                required
+                value={formData.emailOrMobile}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 bg-white/40 backdrop-blur-sm border ${
+                  formErrors.email || formErrors.phoneNumber ? 'border-red-500' : 'border-white/50'
+                } rounded-lg text-gray-800 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 ease-in-out`}
+                placeholder="Enter your email or mobile number"
+              />
+              {formData.emailOrMobile && inputType !== 'unknown' && (
+                <p className="text-xs text-gray-700 mt-1">
+                  {inputType === 'email' ? '📧 Email detected' : '📱 Mobile number detected'}
+                  {inputType === 'phone' && ' (Include country code: +94)'}
+                </p>
+              )}
+              {inputType === 'phone' && (
+                <div className="text-xs text-amber-600 mt-1 bg-amber-50 px-2 py-1 rounded">
+                  <p className="font-medium">⚠️ SMS Authentication Notice:</p>
+                  <ul className="mt-1 space-y-1 text-xs">
+                    <li>• SMS authentication may not be fully configured</li>
+                    <li>• If SMS fails, try using email registration instead</li>
+                    <li>• Make sure to include country code (e.g., +94 for Sri Lanka)</li>
+                    <li>• Contact support if SMS issues persist</li>
+                  </ul>
+                </div>
+              )}
+              {(formErrors.email || formErrors.phoneNumber) && (
+                <p className="text-red-600 text-sm mt-1 font-medium">
+                  {formErrors.email || formErrors.phoneNumber}
+                </p>
+              )}
             </div>
 
-
-            {/* Email or Phone Input */}
-            {formData.registrationType === 'email' ? (
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                  placeholder="Enter your email address"
-                />
-              </div>
-            ) : (
-              <div>
-                <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone Number
-                </label>
-                <input
-                  id="phoneNumber"
-                  name="phoneNumber"
-                  type="tel"
-                  autoComplete="tel"
-                  required
-                  value={formData.phoneNumber}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                  placeholder="Enter your phone number (e.g., +1234567890)"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Include country code (e.g., +94 for Sri Lanka)
-                </p>
-              </div>
-            )}
-
+            {/* Password Field */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-semibold text-gray-800 mb-2">
                 Password
               </label>
               <div className="relative">
@@ -314,8 +493,10 @@ const Register = () => {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                  placeholder="Create a password"
+                  className={`w-full px-4 py-3 pr-12 bg-white/40 backdrop-blur-sm border ${
+                    formErrors.password ? 'border-red-500' : 'border-white/50'
+                  } rounded-lg text-gray-800 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 ease-in-out`}
+                  placeholder="Create a strong password"
                 />
                 <button
                   type="button"
@@ -323,21 +504,62 @@ const Register = () => {
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
                     </svg>
                   ) : (
-                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
                   )}
                 </button>
               </div>
+              {formErrors.password && (
+                <p className="text-red-600 text-sm mt-1 font-medium">{formErrors.password}</p>
+              )}
+              
+              {/* Password Strength Indicator */}
+              {formData.password && passwordStrength && (
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-700">Password Strength:</span>
+                    <span className={`font-medium ${getStrengthTextColorClass(passwordStrength)}`}>
+                      {passwordStrength.label}
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <motion.div
+                      className={`h-2 rounded-full ${getStrengthColorClass(passwordStrength)}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${passwordStrength.percentage}%` }}
+                      transition={{ duration: 0.5, ease: "easeOut" }}
+                    />
+                  </div>
+                  {passwordStrength.feedback.length > 0 && (
+                    <div className="text-xs text-gray-600">
+                      <p className="font-medium mb-1">To improve:</p>
+                      <ul className="space-y-1">
+                        {passwordStrength.feedback.slice(0, 3).map((item, index) => (
+                          <li key={index} className="flex items-center space-x-1">
+                            <span className="text-red-500">•</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              <p className="text-xs text-gray-700 mt-1">
+                Must be at least 8 characters with uppercase, lowercase, and number
+              </p>
             </div>
 
+            {/* Confirm Password Field */}
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-800 mb-2">
                 Confirm Password
               </label>
               <div className="relative">
@@ -349,7 +571,9 @@ const Register = () => {
                   required
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
+                  className={`w-full px-4 py-3 pr-12 bg-white/40 backdrop-blur-sm border ${
+                    formErrors.confirmPassword ? 'border-red-500' : 'border-white/50'
+                  } rounded-lg text-gray-800 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 ease-in-out`}
                   placeholder="Confirm your password"
                 />
                 <button
@@ -358,122 +582,53 @@ const Register = () => {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
                   {showConfirmPassword ? (
-                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
                     </svg>
                   ) : (
-                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
                   )}
                 </button>
               </div>
+              {formErrors.confirmPassword && (
+                <p className="text-red-600 text-sm mt-1 font-medium">{formErrors.confirmPassword}</p>
+              )}
             </div>
 
-            <div>
+            {/* Register Button */}
+            <div className="pt-2">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 px-4 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-semibold transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
               >
-                {loading ? 'Creating account...' : 'Register'}
+                {loading ? 'Creating account...' : 'Create Account'}
               </button>
             </div>
           </form>
 
           {/* Login Link */}
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-800">
               Already have an account?{' '}
               <Link
                 to="/login"
-                className="font-medium text-green-600 hover:text-green-500 transition-colors duration-200"
+                className="font-semibold text-green-700 hover:text-green-800 transition-colors duration-300 ease-in-out"
               >
-                Login
+                Sign in here
               </Link>
             </p>
           </div>
         </div>
 
-
-        {/* Phone Verification Modal */}
-        {showPhoneVerification && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
-              <div className="text-center mb-6">
-                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
-                  <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                  Verify Your Phone
-                </h3>
-                <p className="text-gray-600">
-                  We've sent a verification code to:
-                </p>
-                <p className="text-green-600 font-semibold mt-2">
-                  {formData.phoneNumber}
-                </p>
-                <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-sm text-green-700">
-                    ✅ SMS verification code sent automatically! Please check your messages.
-                  </p>
-                </div>
-              </div>
-
-
-              <form onSubmit={handlePhoneVerification} className="space-y-6">
-                <div>
-                  <label htmlFor="verificationCode" className="block text-sm font-medium text-gray-700 mb-2">
-                    Verification Code
-                  </label>
-                  <input
-                    id="verificationCode"
-                    type="text"
-                    required
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 text-center text-lg tracking-widest"
-                    placeholder="Enter 6-digit code"
-                    maxLength="6"
-                  />
-                </div>
-
-                <div className="flex space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowPhoneVerification(false);
-                      setVerificationCode('');
-                    }}
-                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={phoneVerificationLoading || verificationCode.length !== 6}
-                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 px-4 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {phoneVerificationLoading ? 'Verifying...' : 'Verify Code'}
-                  </button>
-                </div>
-              </form>
-
-              <div className="mt-6 text-center">
-                <p className="text-xs text-gray-500">
-                  Didn't receive the code? Check your messages or try again.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* reCAPTCHA Container (hidden) */}
+        <div id="recaptcha-container" ref={recaptchaContainerRef} className="flex justify-center"></div>
       </div>
     </div>
   );
 };
-
 
 export default Register;
