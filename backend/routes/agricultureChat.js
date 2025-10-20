@@ -24,7 +24,7 @@ const router = express.Router();
 
 // AI service configuration
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || 'REDACTED_DEEPSEEK_API_KEY';
-// Gemini removed - using DeepSeek only
+// Using DeepSeek AI only
 
 // Check if any AI service is available
 if (!DEEPSEEK_API_KEY) {
@@ -689,7 +689,7 @@ router.get('/health', (req, res) => {
       'Structured response formatting',
       'Chat history management',
       'Message editing',
-      'Gemini AI integration'
+      'DeepSeek AI integration'
     ],
     timestamp: new Date().toISOString()
   });

@@ -85,7 +85,7 @@ app.use('/api/v1', cropsRouter);
 app.use('/api/agriculture-chat', agricultureChatRouter);
 
 
-// Gemini removed - using DeepSeek only
+// Using DeepSeek AI only
 const db = admin.apps.length > 0 ? admin.firestore() : null;
 
 // System prompt for agriculture specialization with structured responses
@@ -500,7 +500,7 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    geminiConfigured: false,
+    deepseekConfigured: !!process.env.DEEPSEEK_API_KEY,
     firebaseConfigured: admin.apps.length > 0
   });
 });
@@ -535,7 +535,7 @@ const startServer = async () => {
   
 app.listen(PORT, () => {
     console.log(`🚀 AI Chatbot Server running on port ${PORT}`);
-    console.log(`📡 Gemini API configured: false (removed)`);
+    console.log(`📡 DeepSeek API configured: ${!!process.env.DEEPSEEK_API_KEY}`);
     console.log(`🔥 Firebase configured: ${admin.apps.length > 0}`);
     console.log(`🕐 Server started at: ${getSLTimeForLogging()} (${getSLTimezoneOffset()})`);
     console.log(`🌍 Timezone: Asia/Colombo (Sri Lanka)`);

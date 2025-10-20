@@ -21,7 +21,7 @@ const verifyUser = async (req, res, next) => {
   }
 };
 
-// Analyze device data with Gemini AI
+// Analyze device data with DeepSeek AI
 router.post('/analyze-device', verifyUser, async (req, res) => {
   try {
     const { deviceId, uid, aggregates } = req.body;
@@ -34,7 +34,7 @@ router.post('/analyze-device', verifyUser, async (req, res) => {
     console.log('🔍 Analyzing device data for:', deviceId, 'User:', uid);
     console.log('📊 Aggregates:', aggregates);
 
-    // Build Gemini prompt
+    // Build DeepSeek prompt
     const prompt = `You are an agricultural assistant. Given aggregated 24-hour sensor data for device ${deviceId}:
 soilMoisture_avg: ${aggregates.soilMoisture_avg}%, soilTemperature_avg: ${aggregates.soilTemperature_avg}°C, airTemperature_avg: ${aggregates.airTemp_avg}°C, airHumidity_avg: ${aggregates.airHumidity_avg}%, airQualityIndex_avg: ${aggregates.aqi_avg}
 

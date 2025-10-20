@@ -1,6 +1,6 @@
 /**
  * Response formatter service for agriculture chatbot
- * Formats Gemini API responses with structured sections and emojis
+ * Formats DeepSeek API responses with structured sections and emojis
  */
 
 // Agriculture emoji mapping

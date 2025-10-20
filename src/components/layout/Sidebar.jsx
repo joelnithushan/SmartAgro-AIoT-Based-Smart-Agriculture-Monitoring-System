@@ -317,7 +317,7 @@ const Sidebar = ({
             <div className="text-xs text-gray-500 text-center">
               <div className="flex items-center justify-center space-x-1 mb-1">
                 <span>Powered by</span>
-                <span className="font-semibold text-green-600">Gemini AI</span>
+                <span className="font-semibold text-green-600">DeepSeek AI</span>
               </div>
               <p>Agriculture Assistant</p>
               <div className="flex items-center justify-center space-x-1 mt-2">

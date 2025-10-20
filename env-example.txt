@@ -1,8 +1,8 @@
 # SmartAgro Environment Variables
 # Copy this file to .env in the backend directory and fill in your values
 
-# Google Gemini AI API Key
-GEMINI_API_KEY=your-gemini-api-key-here
+# DeepSeek AI API Key (via OpenRouter)
+DEEPSEEK_API_KEY=your-openrouter-api-key-here
 
 # Firebase Configuration
 FIREBASE_PROJECT_ID=your-firebase-project-id

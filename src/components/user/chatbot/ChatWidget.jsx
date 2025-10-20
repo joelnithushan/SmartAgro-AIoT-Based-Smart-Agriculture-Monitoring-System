@@ -214,7 +214,7 @@ const ChatWidget = forwardRef(({ sensorData, cropData, fullPage, sessionId, onFA
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                   </div>
-                  <span className="text-sm">Gemini is thinking…</span>
+                  <span className="text-sm">AI is thinking…</span>
                 </div>
               </div>
             </div>
