@@ -117,7 +117,8 @@ const ModernAdminDashboard = () => {
       style={{ 
         backgroundImage: 'url(/images/admin-bg.jpg)',
         backgroundColor: '#f9fafb', // Fallback color
-        filter: 'blur(2px)'
+        filter: 'blur(3px)',
+        transform: 'scale(1.1)' // Slight scale to prevent edge blur artifacts
       }}
     >
       {}

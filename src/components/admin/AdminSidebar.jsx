@@ -100,7 +100,8 @@ const AdminSidebar = ({ children }) => {
       style={{ 
         backgroundImage: 'url(/images/admin-bg.jpg)',
         backgroundColor: '#C9FFD4', // Fallback color
-        filter: 'blur(2px)'
+        filter: 'blur(3px)',
+        transform: 'scale(1.1)' // Slight scale to prevent edge blur artifacts
       }}
     >
       {/* Top Navigation Bar */}
