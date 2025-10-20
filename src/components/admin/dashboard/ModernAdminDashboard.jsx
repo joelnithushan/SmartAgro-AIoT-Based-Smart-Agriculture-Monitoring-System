@@ -116,7 +116,8 @@ const ModernAdminDashboard = () => {
       className="min-h-screen bg-cover bg-center bg-fixed bg-no-repeat"
       style={{ 
         backgroundImage: 'url(/images/admin-bg.jpg)',
-        backgroundColor: '#f9fafb' // Fallback color
+        backgroundColor: '#f9fafb', // Fallback color
+        filter: 'blur(2px)'
       }}
     >
       {}

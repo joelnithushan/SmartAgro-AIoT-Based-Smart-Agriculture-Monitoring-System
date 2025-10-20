@@ -99,7 +99,8 @@ const AdminSidebar = ({ children }) => {
       className="min-h-screen bg-cover bg-center bg-fixed bg-no-repeat"
       style={{ 
         backgroundImage: 'url(/images/admin-bg.jpg)',
-        backgroundColor: '#C9FFD4' // Fallback color
+        backgroundColor: '#C9FFD4', // Fallback color
+        filter: 'blur(2px)'
       }}
     >
       {/* Top Navigation Bar */}
