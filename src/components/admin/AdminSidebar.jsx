@@ -96,16 +96,16 @@ const AdminSidebar = ({ children }) => {
 
   return (
     <div 
-      className="min-h-screen bg-cover bg-center bg-fixed bg-no-repeat"
+      className="min-h-screen bg-cover bg-center bg-fixed bg-no-repeat relative"
       style={{ 
         backgroundImage: 'url(/images/admin-bg.jpg)',
-        backgroundColor: '#C9FFD4', // Fallback color
-        filter: 'blur(3px)',
-        transform: 'scale(1.1)' // Slight scale to prevent edge blur artifacts
+        backgroundColor: '#C9FFD4' // Fallback color
       }}
     >
+      {/* Blur overlay */}
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm"></div>
       {/* Top Navigation Bar */}
-      <nav className="bg-white shadow-lg border-b border-gray-200 sticky top-0 z-50">
+      <nav className="bg-white shadow-lg border-b border-gray-200 sticky top-0 z-50 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             {/* Left side - Logo */}

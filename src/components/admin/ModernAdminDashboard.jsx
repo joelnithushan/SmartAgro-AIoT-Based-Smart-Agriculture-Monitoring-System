@@ -113,16 +113,16 @@ const ModernAdminDashboard = () => {
   };
   return (
     <div 
-      className="min-h-screen bg-cover bg-center bg-fixed bg-no-repeat"
+      className="min-h-screen bg-cover bg-center bg-fixed bg-no-repeat relative"
       style={{ 
         backgroundImage: 'url(/images/admin-bg.jpg)',
-        backgroundColor: '#f9fafb', // Fallback color
-        filter: 'blur(3px)',
-        transform: 'scale(1.1)' // Slight scale to prevent edge blur artifacts
+        backgroundColor: '#f9fafb' // Fallback color
       }}
     >
+      {/* Blur overlay */}
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm"></div>
       {}
-      <nav className="bg-white shadow-sm border-b border-gray-200">
+      <nav className="bg-white shadow-sm border-b border-gray-200 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
@@ -142,7 +142,7 @@ const ModernAdminDashboard = () => {
         </div>
       </nav>
       {}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900">Overview</h2>
