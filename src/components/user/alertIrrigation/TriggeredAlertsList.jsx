@@ -11,6 +11,7 @@ const TriggeredAlertsList = () => {
   const [loading, setLoading] = useState(true);
   const [filterDate, setFilterDate] = useState('');
   const [filterTriggeredBy, setFilterTriggeredBy] = useState('all');
+  const [filterAlertType, setFilterAlertType] = useState('all');
   const [selectedAlerts, setSelectedAlerts] = useState([]);
 
   // Load triggered alerts from Firestore
@@ -61,13 +62,23 @@ const TriggeredAlertsList = () => {
     return labels[parameter] || parameter;
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'sent': return 'text-green-600 bg-green-100';
-      case 'failed': return 'text-red-600 bg-red-100';
-      case 'pending': return 'text-yellow-600 bg-yellow-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
+  const getStatusColor = (status, type) => {
+    const baseColors = {
+      sent: {
+        sms: 'text-green-600 bg-green-100',
+        email: 'text-blue-600 bg-blue-100'
+      },
+      failed: {
+        sms: 'text-red-600 bg-red-100',
+        email: 'text-red-600 bg-red-100'
+      },
+      pending: {
+        sms: 'text-yellow-600 bg-yellow-100',
+        email: 'text-orange-600 bg-orange-100'
+      }
+    };
+    
+    return baseColors[status]?.[type] || 'text-gray-600 bg-gray-100';
   };
 
   const markAsSeen = async (alertId) => {
@@ -163,7 +174,15 @@ const TriggeredAlertsList = () => {
     }
     
     if (filterTriggeredBy !== 'all') {
-      return alert.triggeredBy === filterTriggeredBy;
+      if (alert.triggeredBy !== filterTriggeredBy) {
+        return false;
+      }
+    }
+    
+    if (filterAlertType !== 'all') {
+      if (alert.alertType !== filterAlertType) {
+        return false;
+      }
     }
     
     return true;
@@ -190,9 +209,9 @@ const TriggeredAlertsList = () => {
             onChange={(e) => setFilterDate(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
           />
-              </div>
+        </div>
               
-                <div>
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Source</label>
           <select
             value={filterTriggeredBy}
@@ -203,20 +222,35 @@ const TriggeredAlertsList = () => {
             <option value="test">Test</option>
             <option value="auto">Auto</option>
           </select>
-                </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Alert Type</label>
+          <select
+            value={filterAlertType}
+            onChange={(e) => setFilterAlertType(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <option value="all">All Types</option>
+            <option value="email">Email</option>
+            <option value="sms">SMS</option>
+            <option value="both">Both</option>
+          </select>
+        </div>
         
         <div className="flex items-end">
           <button
             onClick={() => {
               setFilterDate('');
               setFilterTriggeredBy('all');
+              setFilterAlertType('all');
             }}
             className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
           >
             Clear Filters
           </button>
-                </div>
-              </div>
+        </div>
+      </div>
               
       {/* Bulk Actions */}
       {selectedAlerts.length > 0 && (
@@ -254,11 +288,12 @@ const TriggeredAlertsList = () => {
         <div className="text-center py-8">
           <div className="text-4xl mb-2">📊</div>
           <p className="text-gray-500">No triggered alerts found</p>
-          {filterDate || filterTriggeredBy !== 'all' ? (
+          {filterDate || filterTriggeredBy !== 'all' || filterAlertType !== 'all' ? (
             <button
               onClick={() => {
                 setFilterDate('');
                 setFilterTriggeredBy('all');
+                setFilterAlertType('all');
               }}
               className="mt-2 text-sm text-green-600 hover:text-green-700"
             >
@@ -267,11 +302,11 @@ const TriggeredAlertsList = () => {
           ) : null}
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+        <div className="overflow-hidden">
+          <table className="w-full divide-y divide-gray-200 table-fixed">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-8 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   <input
                     type="checkbox"
                     checked={selectedAlerts.length === filteredAlerts.length && filteredAlerts.length > 0}
@@ -279,28 +314,28 @@ const TriggeredAlertsList = () => {
                     className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                   />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-32 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   DateTime
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-24 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Parameter
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Threshold
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actual Value
+                <th className="w-20 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actual
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-16 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Source
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-24 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Send Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-16 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-24 px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -308,7 +343,7 @@ const TriggeredAlertsList = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredAlerts.map((alert) => (
                 <tr key={alert.id} className={!alert.seen ? 'bg-blue-50' : ''}>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-2 py-3 text-center">
                     <input
                       type="checkbox"
                       checked={selectedAlerts.includes(alert.id)}
@@ -316,20 +351,20 @@ const TriggeredAlertsList = () => {
                       className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                     />
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-2 py-3 text-xs text-gray-900 truncate">
                     {formatTimestamp(alert.createdAt)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-2 py-3 text-xs text-gray-900 truncate">
                     {getParameterLabel(alert.parameter)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-2 py-3 text-xs text-gray-900 truncate">
                     {alert.comparison} {alert.threshold}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-2 py-3 text-xs text-gray-900 truncate">
                     {alert.actualValue || 'N/A'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  <td className="px-2 py-3 text-center">
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
                       alert.triggeredBy === 'test' 
                         ? 'bg-blue-100 text-blue-800' 
                         : 'bg-green-100 text-green-800'
@@ -337,44 +372,48 @@ const TriggeredAlertsList = () => {
                       {alert.triggeredBy === 'test' ? 'Test' : 'Auto'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex space-x-1">
-                      {alert.sendStatus?.sms && (
-                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getStatusColor(alert.sendStatus.sms)}`}>
-                          SMS: {alert.sendStatus.sms}
-                        </span>
-                      )}
-                      {alert.sendStatus?.email && (
-                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getStatusColor(alert.sendStatus.email)}`}>
-                          Email: {alert.sendStatus.email}
-                        </span>
-                      )}
+                  <td className="px-2 py-3">
+                    <div className="flex flex-col space-y-1">
+                      {alert.alertType === 'sms' || alert.alertType === 'both' ? (
+                        alert.sendStatus?.sms && (
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${getStatusColor(alert.sendStatus.sms, 'sms')}`}>
+                            SMS: {alert.sendStatus.sms}
+                          </span>
+                        )
+                      ) : null}
+                      {alert.alertType === 'email' || alert.alertType === 'both' ? (
+                        alert.sendStatus?.email && (
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${getStatusColor(alert.sendStatus.email, 'email')}`}>
+                            Email: {alert.sendStatus.email}
+                          </span>
+                        )
+                      ) : null}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-2 py-3 text-center">
                     {!alert.seen ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                         New
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                         Seen
                       </span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
+                  <td className="px-2 py-3">
+                    <div className="flex flex-col space-y-1">
                       {!alert.seen && (
                         <button
                           onClick={() => markAsSeen(alert.id)}
-                          className="text-blue-600 hover:text-blue-900"
+                          className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
                         >
                           Mark Seen
                         </button>
                       )}
                       <button
                         onClick={() => deleteAlert(alert.id)}
-                        className="text-red-600 hover:text-red-900"
+                        className="px-2 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
                       >
                         Delete
                       </button>

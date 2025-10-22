@@ -314,9 +314,13 @@ const UserOrders = () => {
               )}
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
-              {deviceRequests.map((request) => (
-                <div key={request.id} className="p-6">
+            <div className="space-y-0">
+              {deviceRequests.map((request, index) => (
+                <div key={request.id} className="relative">
+                  {index > 0 && (
+                    <div className="border-t-2 border-green-500 my-4"></div>
+                  )}
+                  <div className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
@@ -640,6 +644,7 @@ const UserOrders = () => {
                         </div>
                       )}
                     </div>
+                  </div>
                   </div>
                 </div>
               ))}
