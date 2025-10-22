@@ -60,7 +60,7 @@ export const useRealtimeSensorData = (deviceId) => {
         }
         
         const dataAge = currentTime - normalizedTimestamp;
-        const isDataFresh = dataAge < 60000; // 60 seconds for online/offline detection
+        const isDataFresh = dataAge < 300000; // 5 minutes for online/offline detection (more lenient)
 
         console.log(`🕐 Timestamp check: ${dataTimestamp} vs ${currentTime}, age: ${Math.round(dataAge/1000)}s, fresh: ${isDataFresh}`);
         console.log(`🕐 Normalized timestamp: ${normalizedTimestamp}, dataAge: ${dataAge}ms`);
@@ -70,20 +70,26 @@ export const useRealtimeSensorData = (deviceId) => {
           // Debug timestamp
           console.log('🕐 Raw timestamp from Firebase:', data.timestamp, 'Type:', typeof data.timestamp);
           
-          // Data is fresh - process and display it
+          // Data is fresh - process and display it with correct field mapping
           const processedData = {
+            // Soil moisture - use correct field names from ESP32
             soilMoistureRaw: data.soilMoistureRaw || 0,
             soilMoisturePct: data.soilMoisturePct || 0,
+            // Temperature - use correct field names
             airTemperature: data.airTemperature || 0,
-            airHumidity: data.airHumidity || 0,
             soilTemperature: data.soilTemperature || 0,
+            // Humidity - use correct field names
+            airHumidity: data.airHumidity || 0,
+            // Gas levels - use correct field names from ESP32
             airQualityIndex: data.airQualityIndex || 0,
             gases: {
               co2: data.gases?.co2 || 0,
               nh3: data.gases?.nh3 || 0
             },
+            // Environmental sensors
             lightDetected: data.lightDetected || 0,
             rainLevelRaw: data.rainLevelRaw || 0,
+            rainStatus: data.rainStatus || "No Rain",
             relayStatus: data.relayStatus || "off",
             timestamp: data.timestamp && data.timestamp > 86400000 ? data.timestamp : Date.now(),
             deviceOnline: true
@@ -96,7 +102,7 @@ export const useRealtimeSensorData = (deviceId) => {
           window.lastESP32UpdateTime = Date.now();
           console.log(`📡 Received sensor data update at ${new Date().toISOString()}`);
           
-          // Also update online status immediately when we receive fresh data
+          // Set device as online if we have any sensor data (even if not fresh)
           setIsOnline(true);
         } else {
           // No data or empty data - show zeros

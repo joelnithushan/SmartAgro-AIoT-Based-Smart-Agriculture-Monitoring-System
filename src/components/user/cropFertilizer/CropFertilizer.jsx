@@ -3,7 +3,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '../../../services/firebase/firebase';
 import { useRealtimeSensorData } from '../../common/hooks/useRealtimeSensorData';
-import { validateCropData } from '../../common/validations/validation';
+import { validateCropData } from '../../../utils/validation';
 import toast from 'react-hot-toast';
 import CropSelector from './CropSelector';
 import CropDetails from './CropDetails';

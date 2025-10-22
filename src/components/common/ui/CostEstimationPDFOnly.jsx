@@ -45,6 +45,10 @@ const CostEstimationPDFOnly = ({ request, isOpen, onClose }) => {
 
   const costData = request?.costEstimate || request?.costDetails;
   if (!isOpen || !costData || !request) return null;
+  
+  // Debug: Log the entire cost data structure
+  console.log('🔍 CostEstimationPDFOnly - Full Cost Data:', costData);
+  console.log('🔍 CostEstimationPDFOnly - Request Data:', request);
 
   // Use the original LKR values (admin sends LKR, we convert to USD for display)
   // If LKR values are not found, use the USD values as LKR (since admin entered LKR but they were stored as USD)
@@ -53,11 +57,25 @@ const CostEstimationPDFOnly = ({ request, isOpen, onClose }) => {
   const deliveryChargeLKR = costData?.deliveryLKR || costData?.delivery || 0;
   const totalCostLKR = deviceCostLKR + serviceChargeLKR + deliveryChargeLKR;
 
-  // Convert LKR to USD for display
+  // Convert LKR to USD for display - Updated to show USD on left, LKR on right
   const deviceCostUSD = deviceCostLKR / 303.62;
   const serviceChargeUSD = serviceChargeLKR / 303.62;
   const deliveryChargeUSD = deliveryChargeLKR / 303.62;
   const totalCostUSD = totalCostLKR / 303.62;
+  
+  // Debug: Log the conversion values
+  console.log('🔍 CostEstimationPDFOnly - LKR Values:', {
+    deviceCostLKR,
+    serviceChargeLKR,
+    deliveryChargeLKR,
+    totalCostLKR
+  });
+  console.log('🔍 CostEstimationPDFOnly - USD Values:', {
+    deviceCostUSD,
+    serviceChargeUSD,
+    deliveryChargeUSD,
+    totalCostUSD
+  });
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">

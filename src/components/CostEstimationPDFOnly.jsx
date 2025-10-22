@@ -167,7 +167,7 @@ const CostEstimationPDFOnly = ({ request, isOpen, onClose }) => {
                     <td className="px-6 py-4 text-sm text-gray-900 text-right">LKR {serviceChargeLKR.toFixed(2)}</td>
                   </tr>
                   <tr>
-                    <td className="px-6 py-4 text-sm text-gray-900">Delivery Charge</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">Delivery</td>
                     <td className="px-6 py-4 text-sm text-gray-900 text-right">${deliveryChargeUSD.toFixed(2)}</td>
                     <td className="px-6 py-4 text-sm text-gray-900 text-right">LKR {deliveryChargeLKR.toFixed(2)}</td>
                   </tr>

@@ -21,7 +21,23 @@ import {
   confirmPasswordReset,
   verifyPasswordResetCode
 } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  getDoc, 
+  getDocs, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  query, 
+  where, 
+  orderBy, 
+  limit, 
+  serverTimestamp,
+  onSnapshot,
+  setDoc
+} from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
 import { getStorage } from 'firebase/storage';
 
@@ -55,7 +71,27 @@ try {
   storage = null;
 }
 
-export { auth, db, database, storage };
+export { 
+  auth, 
+  db, 
+  database, 
+  storage,
+  // Firestore functions
+  collection,
+  addDoc,
+  getDoc,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  doc,
+  query,
+  where,
+  orderBy,
+  limit,
+  serverTimestamp,
+  onSnapshot,
+  setDoc
+};
 
 // Auth functions with error handling
 export const createUser = (email, password) => {

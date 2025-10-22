@@ -124,7 +124,6 @@ const Farms = () => {
                             {userFarm.userName ? userFarm.userName.charAt(0).toUpperCase() : 'U'}
                           </span>
                         </div>
-                        <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white"></div>
                       </div>
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900">
@@ -151,7 +150,7 @@ const Farms = () => {
                       <div key={`${userFarm.userId}-${index}`} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow duration-200">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-4">
-                            <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-sm">
+                             <div className="h-12 w-12 rounded-lg bg-green-600 flex items-center justify-center shadow-sm">
                               <span className="text-white font-semibold">
                                 {farm.farmName ? farm.farmName.charAt(0).toUpperCase() : 'F'}
                               </span>
@@ -196,7 +195,7 @@ const Farms = () => {
                     </div>
                     <button
                       onClick={() => handleViewFarm(farm)}
-                              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
+                              className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
                             >
                               <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />

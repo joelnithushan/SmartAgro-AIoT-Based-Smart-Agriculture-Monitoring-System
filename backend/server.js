@@ -505,6 +505,84 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Test alert trigger endpoint
+app.post('/test-alert-trigger', async (req, res) => {
+  try {
+    console.log('🧪 Test alert trigger endpoint called');
+    
+    // Test sensor data
+    const testSensorData = {
+      soilMoistureRaw: 2824,  // This should convert to ~24%
+      soilMoisturePct: 24,     // Direct percentage
+      airTemperature: 29.8,
+      airHumidity: 46,
+      soilTemperature: 28.625
+    };
+    
+    const deviceId = 'ESP32_001';
+    const testUserId = 'test-user-123';
+    
+    console.log('📊 Test sensor data:', testSensorData);
+    console.log('👤 Test user ID:', testUserId);
+    console.log('📱 Test device ID:', deviceId);
+    
+    // Create a test alert for the user
+    const testAlert = {
+      parameter: 'soilMoisturePct',
+      comparison: '<',
+      threshold: 30,
+      type: 'email',
+      value: 'test@example.com',
+      active: true,
+      critical: false,
+      createdAt: new Date()
+    };
+    
+    console.log('📝 Creating test alert...');
+    await db.collection('users').doc(testUserId).collection('alerts').add(testAlert);
+    console.log('✅ Test alert created');
+    
+    // Create a test device assignment
+    console.log('📱 Creating test device assignment...');
+    await db.collection('devices').doc(deviceId).set({
+      ownerId: testUserId,
+      assignedTo: testUserId,
+      status: 'active',
+      createdAt: new Date()
+    });
+    console.log('✅ Test device assignment created');
+    
+    // Now test the alert processing
+    console.log('🔍 Processing alerts...');
+    await processAlerts(testSensorData, deviceId);
+    
+    console.log('✅ Alert processing completed!');
+    
+    res.json({
+      success: true,
+      message: 'Test alert trigger completed successfully!',
+      testData: {
+        sensorData: testSensorData,
+        deviceId,
+        userId: testUserId
+      },
+      instructions: [
+        'Check your UI for triggered alerts in the "Triggered Alerts" section',
+        'Check Firestore collections: triggered_alerts/{userId}/alerts',
+        'Check Firestore collections: users/{userId}/triggeredAlerts'
+      ]
+    });
+    
+  } catch (error) {
+    console.error('❌ Error in test alert trigger:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to trigger test alert',
+      details: error.message
+    });
+  }
+});
+
 // Alert processing endpoint (called when sensor data is updated)
 app.post('/process-alerts', async (req, res) => {
   try {
@@ -513,6 +591,8 @@ app.post('/process-alerts', async (req, res) => {
     if (!sensorData || !deviceId) {
       return res.status(400).json({ error: 'Missing sensorData or deviceId' });
     }
+
+    console.log(`🔍 Manual alert processing triggered for device ${deviceId}:`, sensorData);
 
     // Process alerts asynchronously
     processAlerts(sensorData, deviceId).catch(error => {
@@ -525,6 +605,184 @@ app.post('/process-alerts', async (req, res) => {
     res.status(500).json({ error: 'Failed to process alerts' });
   }
 });
+
+// Manual trigger endpoint for testing alerts
+app.post('/trigger-alerts/:deviceId', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const { sensorData } = req.body;
+    
+    if (!sensorData) {
+      return res.status(400).json({ error: 'Missing sensorData in request body' });
+    }
+
+    console.log(`🧪 Manual alert trigger for device ${deviceId}:`, sensorData);
+
+    // Process alerts synchronously for testing
+    await processAlerts(sensorData, deviceId);
+
+    res.json({ 
+      success: true, 
+      message: 'Alerts processed successfully',
+      deviceId,
+      sensorData
+    });
+  } catch (error) {
+    console.error('Error in manual alert trigger:', error);
+    res.status(500).json({ 
+      error: 'Failed to trigger alerts',
+      details: error.message 
+    });
+  }
+});
+
+// Simple test endpoint to trigger alerts with current sensor data
+app.post('/test-alerts', async (req, res) => {
+  try {
+    const testSensorData = {
+      // Test with raw values (typical ESP32 range)
+      soilMoistureRaw: 2824,  // This should convert to ~24%
+      soilMoisturePct: 24,     // Direct percentage (if available)
+      airTemperature: 29.8,
+      airHumidity: 46,
+      soilTemperature: 28.625
+    };
+    
+    const deviceId = 'ESP32_001';
+    
+    console.log(`🧪 Testing alerts with data:`, testSensorData);
+    
+    // Process alerts synchronously for testing
+    await processAlerts(testSensorData, deviceId);
+
+    res.json({ 
+      success: true, 
+      message: 'Test alerts processed successfully',
+      deviceId,
+      sensorData: testSensorData
+    });
+  } catch (error) {
+    console.error('Error in test alert trigger:', error);
+    res.status(500).json({ 
+      error: 'Failed to trigger test alerts',
+      details: error.message 
+    });
+  }
+});
+
+// Test endpoint specifically for raw value conversion
+app.post('/test-raw-conversion', async (req, res) => {
+  try {
+    const { rawValue } = req.body;
+    
+    if (rawValue === undefined) {
+      return res.status(400).json({ error: 'Missing rawValue in request body' });
+    }
+    
+    // Test different raw values
+    const testValues = [
+      { raw: 0, expected: '100%' },
+      { raw: 2048, expected: '50%' },
+      { raw: 4095, expected: '0%' },
+      { raw: rawValue, expected: 'calculated' }
+    ];
+    
+    const conversions = testValues.map(test => {
+      let percentage;
+      if (test.raw >= 0 && test.raw <= 4095) {
+        percentage = Math.max(0, Math.min(100, (4095 - test.raw) / 4095 * 100));
+      } else {
+        percentage = test.raw;
+      }
+      return {
+        rawValue: test.raw,
+        percentage: percentage.toFixed(1),
+        expected: test.expected
+      };
+    });
+    
+    res.json({ 
+      success: true, 
+      message: 'Raw value conversion test',
+      conversions
+    });
+  } catch (error) {
+    console.error('Error in raw conversion test:', error);
+    res.status(500).json({ 
+      error: 'Failed to test raw conversion',
+      details: error.message 
+    });
+  }
+});
+
+// Set up Firebase Realtime Database listener for automatic alert processing
+const setupAlertListener = () => {
+  try {
+    const { getDatabase } = require('firebase-admin/database');
+    const realtimeDb = getDatabase();
+    
+    console.log('🔔 Setting up Firebase Realtime Database listener for alerts...');
+    
+    // Listen to all device sensor data changes
+    const devicesRef = realtimeDb.ref('devices');
+    
+    devicesRef.on('child_changed', async (snapshot) => {
+      try {
+        const deviceId = snapshot.key;
+        const deviceData = snapshot.val();
+        
+        console.log(`📊 Device data changed for ${deviceId}:`, deviceData);
+        
+        // Check if sensor data exists
+        if (deviceData && deviceData.sensors && deviceData.sensors.latest) {
+          const sensorData = deviceData.sensors.latest;
+          
+          console.log(`📊 Sensor data updated for device ${deviceId}:`, sensorData);
+          
+          // Process alerts for this sensor data
+          await processAlerts(sensorData, deviceId);
+        } else {
+          console.log(`⚠️ No sensor data found for device ${deviceId}`);
+        }
+      } catch (error) {
+        console.error('Error processing sensor data change:', error);
+      }
+    });
+    
+    // Also listen to direct sensor data changes
+    const sensorsRef = realtimeDb.ref('devices');
+    sensorsRef.on('child_changed', async (snapshot) => {
+      try {
+        const deviceId = snapshot.key;
+        const deviceData = snapshot.val();
+        
+        if (deviceData && deviceData.sensors) {
+          console.log(`📊 Sensors data changed for device ${deviceId}`);
+          
+          // Check for latest sensor data
+          if (deviceData.sensors.latest) {
+            const sensorData = deviceData.sensors.latest;
+            console.log(`📊 Processing alerts for device ${deviceId} with data:`, sensorData);
+            await processAlerts(sensorData, deviceId);
+          }
+        }
+      } catch (error) {
+        console.error('Error processing sensor change:', error);
+      }
+    });
+    
+    console.log('✅ Alert listener setup complete');
+  } catch (error) {
+    console.error('Error setting up alert listener:', error);
+  }
+};
+
+// Initialize alert listener after Firebase is ready
+if (admin.apps.length > 0) {
+  setupAlertListener();
+} else {
+  console.log('⚠️ Firebase not ready, will setup listener later');
+}
 
 
 const PORT = process.env.PORT || 5000;

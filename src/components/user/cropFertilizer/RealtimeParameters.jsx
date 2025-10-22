@@ -1,6 +1,10 @@
 import React from 'react';
 
 const RealtimeParameters = ({ sensorData, isOnline, loading, selectedCrop, onAnalyze, analyzing }) => {
+  // Debug sensor data
+  console.log('📊 RealtimeParameters - Sensor Data:', sensorData);
+  console.log('📊 RealtimeParameters - Is Online:', isOnline);
+  console.log('📊 RealtimeParameters - Loading:', loading);
   const getParameterStatus = (value, range) => {
     if (!range || !selectedCrop) return 'normal';
     

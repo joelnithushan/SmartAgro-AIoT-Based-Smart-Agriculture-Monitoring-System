@@ -4,6 +4,15 @@ import { getDatabase } from 'firebase-admin/database';
 
 const router = express.Router();
 
+// Test endpoint to verify server is working
+router.get('/test', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'Irrigation API is working',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Helper function to verify user authentication
 const verifyUser = async (req, res, next) => {
   try {
@@ -278,14 +287,23 @@ router.post('/auto-control/:deviceId', async (req, res) => {
     const { deviceId } = req.params;
     const { soilMoisture, turnOnThreshold, turnOffThreshold } = req.body;
 
-    if (soilMoisture === undefined || !turnOnThreshold || !turnOffThreshold) {
+    console.log(`🤖 Auto irrigation request for device ${deviceId}:`, {
+      soilMoisture,
+      turnOnThreshold,
+      turnOffThreshold,
+      body: req.body,
+      headers: req.headers
+    });
+
+    if (soilMoisture === undefined || turnOnThreshold === undefined || turnOffThreshold === undefined) {
+      console.error('Missing required fields:', { soilMoisture, turnOnThreshold, turnOffThreshold });
       return res.status(400).json({ 
         error: 'Missing required fields: soilMoisture, turnOnThreshold, turnOffThreshold' 
       });
     }
 
     const realtimeDb = getDatabase();
-    const deviceRef = realtimeDb.ref(`devices/${deviceId}/controls/relayCommand`);
+    const deviceRef = realtimeDb.ref(`devices/${deviceId}/control/relay/status`);
     
     let pumpAction = null;
     let reason = '';
@@ -300,10 +318,29 @@ router.post('/auto-control/:deviceId', async (req, res) => {
     }
 
     if (pumpAction) {
-      // Update relay control for ESP32 (ESP32 expects simple string value)
-      await deviceRef.set(pumpAction);
-
-      console.log(`🤖 Auto irrigation: ${pumpAction} - ${reason}`);
+      try {
+        // Update relay control for ESP32
+        await deviceRef.set(pumpAction);
+        
+        // Also update the main relay control for consistency
+        const mainRelayRef = realtimeDb.ref(`devices/${deviceId}/control/relay`);
+        await mainRelayRef.update({
+          status: pumpAction,
+          mode: 'automatic',
+          lastChangedBy: 'auto-irrigation-system',
+          timestamp: Date.now()
+        });
+        
+        console.log(`✅ Auto irrigation: ${pumpAction} - ${reason}`);
+      } catch (realtimeError) {
+        console.error('Error updating Firebase Realtime Database:', realtimeError);
+        return res.status(500).json({ 
+          error: 'Failed to update device control',
+          details: realtimeError.message 
+        });
+      }
+    } else {
+      console.log(`ℹ️ No auto irrigation action needed - moisture within optimal range`);
     }
 
     res.json({ 
@@ -314,7 +351,10 @@ router.post('/auto-control/:deviceId', async (req, res) => {
 
   } catch (error) {
     console.error('Error in auto irrigation control:', error);
-    res.status(500).json({ error: 'Failed to process auto irrigation control' });
+    res.status(500).json({ 
+      error: 'Failed to process auto irrigation control',
+      details: error.message 
+    });
   }
 });
 

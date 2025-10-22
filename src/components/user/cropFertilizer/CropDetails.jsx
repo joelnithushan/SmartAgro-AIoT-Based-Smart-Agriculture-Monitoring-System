@@ -161,21 +161,6 @@ const CropDetails = ({ crop, sensorData, onEdit, onDelete }) => {
         </div>
       </div>
 
-      {/* Action Bar */}
-      <div className="mt-6 flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-        <div className="text-sm text-gray-600">
-          Added on {crop.addedAt ? new Date(crop.addedAt.toDate()).toLocaleDateString() : 'Unknown'}
-        </div>
-        <button
-          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-          onClick={() => {
-            // TODO: Implement add to farm functionality
-            alert('Add to Farm functionality coming soon!');
-          }}
-        >
-          Add Crop to Farm
-        </button>
-      </div>
     </div>
   );
 };

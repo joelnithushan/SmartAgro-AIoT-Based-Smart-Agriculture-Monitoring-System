@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../../services/firebase/firebase';
+import { db, doc, getDoc } from '../../../services/firebase/firebase';
 // Removed unused imports - components are rendered via children prop
 
 const UserRouteHandler = ({ children, routeType = 'dashboard' }) => {
@@ -26,7 +25,7 @@ const UserRouteHandler = ({ children, routeType = 'dashboard' }) => {
                           userDoc.data().devices.length > 0;
 
         // Check for device requests
-        const { deviceRequestsService } = await import('../services/firestoreService');
+        const { deviceRequestsService } = await import('../../../services/firebase/firestoreService');
         const requestsResult = await deviceRequestsService.getUserRequests(currentUser.uid);
         
         const hasRequests = requestsResult.success && requestsResult.requests.length > 0;

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db, collection, addDoc, serverTimestamp } from '../config/firebase';
 import toast from 'react-hot-toast';
 const MultiStepDeviceRequest = ({ onClose, onSuccess }) => {
   const { currentUser } = useAuth();
@@ -40,7 +39,7 @@ const MultiStepDeviceRequest = ({ onClose, onSuccess }) => {
     if (!formData.fullName.trim()) {
       newErrors.fullName = 'Full name is required';
     } else if (!/^[a-zA-Z\s]+$/.test(formData.fullName.trim())) {
-      newErrors.fullName = 'Full name should contain only letters and spaces';
+      newErrors.fullName = 'Full name should contain only letters, numbers, spaces, hyphens, apostrophes, and periods';
     }
     if (!formData.age) {
       newErrors.age = 'Age is required';
@@ -78,9 +77,10 @@ const MultiStepDeviceRequest = ({ onClose, onSuccess }) => {
     if (!formData.farmName.trim()) {
       newErrors.farmName = 'Farm name is required';
     }
-    if (!formData.farmSize.trim()) {
+    const farmSizeStr = String(formData.farmSize || '');
+    if (!farmSizeStr.trim()) {
       newErrors.farmSize = 'Farm size is required';
-    } else if (isNaN(parseFloat(formData.farmSize)) || parseFloat(formData.farmSize) <= 0) {
+    } else if (isNaN(parseFloat(farmSizeStr)) || parseFloat(farmSizeStr) <= 0) {
       newErrors.farmSize = 'Farm size must be a valid positive number';
     }
     if (!formData.farmLocation.trim()) {
@@ -177,7 +177,6 @@ const MultiStepDeviceRequest = ({ onClose, onSuccess }) => {
       console.log('📝 Submitting device request:', requestData);
       const docRef = await addDoc(collection(db, 'deviceRequests'), requestData);
       console.log('✅ Device request created with ID:', docRef.id);
-      toast.success('Device request submitted successfully!');
       if (onSuccess) {
         onSuccess(docRef.id);
       }

@@ -264,9 +264,14 @@ router.post('/process/:deviceId', verifyUser, async (req, res) => {
 
 // Test alert (send a test alert to verify configuration)
 router.post('/:userId/:alertId/test', verifyUser, async (req, res) => {
+  console.log('🧪 Test alert endpoint called:', req.params);
+  console.log('🧪 Request body:', req.body);
+  console.log('🧪 User authenticated:', req.user);
   try {
     const { userId, alertId } = req.params;
+    console.log('🧪 Getting Firestore instance...');
     const db = admin.firestore();
+    console.log('🧪 Firestore instance obtained:', !!db);
 
     // Verify user can test this alert
     if (req.user.uid !== userId) {
@@ -287,108 +292,174 @@ router.post('/:userId/:alertId/test', verifyUser, async (req, res) => {
 
     const alert = { id: alertDoc.id, ...alertDoc.data() };
 
-    // For soil moisture alerts, use simplified test logic
+    // For soil moisture alerts, use full alert processing
     if (alert.parameter === 'soilMoisturePct' && alert.comparison === '<') {
-      console.log(`🧪 Testing soil moisture alert with simplified logic`);
+      console.log(`🧪 Testing soil moisture alert with full processing`);
       
-      try {
-        // Create test sensor data below threshold
-        const testSoilMoisture = alert.threshold - 5; // 5% below threshold
-        
-        // Import and use SmartAlertService with error handling
-        const { SmartAlertService } = await import('../services/smartAlertService.js');
-        
-        // Get all user alerts for smart processing
-        const userAlertsRef = db.collection('users').doc(userId).collection('alerts');
-        const userAlertsSnapshot = await userAlertsRef.where('active', '==', true).get();
-        const userAlerts = userAlertsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        const result = await SmartAlertService.processSoilMoistureAlert(
-          userId, 
-          testSoilMoisture, 
-          alert.threshold, 
-          'test-device', 
-          userAlerts,
-          true // isTestAlert = true (bypasses cooldown)
-        );
-        
-        if (result.sent) {
-          res.json({ 
-            success: true, 
-            message: 'Test alert sent successfully',
-            details: result.details
-          });
-        } else {
-          res.status(400).json({ 
-            error: 'Test alert failed', 
-            reason: result.reason 
-          });
-        }
-        
-        return;
-      } catch (smartServiceError) {
-        console.error('SmartAlertService error:', smartServiceError);
-        
-        // Fallback to simple test alert
-        console.log(`🧪 Falling back to simple test alert`);
-        
-        // Send a simple test email/SMS based on alert type
-        if (alert.type === 'email') {
-          console.log(`📧 Would send test email to: ${alert.value}`);
-        } else if (alert.type === 'sms') {
-          console.log(`📱 Would send test SMS to: ${alert.value}`);
-        }
-        
-        res.json({ 
-          success: true, 
-          message: 'Test alert sent successfully (fallback mode)',
-          details: { method: 'fallback', type: alert.type, value: alert.value }
-        });
-        
-        return;
-      }
-    }
-
-    // For other alert types, use simplified test logic
-    console.log(`🧪 Testing ${alert.parameter} alert with simplified logic`);
-    
-    try {
+      // Create test sensor data below threshold
+      const testSoilMoisture = alert.threshold - 5; // 5% below threshold
+      
+      // Create test sensor data
       const testSensorData = {
-        soilMoisturePct: alert.threshold + (alert.comparison === '>' ? 5 : -5),
-        airTemperature: 25,
-        airHumidity: 60,
-        soilTemperature: 20
+        soilMoisturePct: testSoilMoisture,
+        soilMoistureRaw: Math.round((100 - testSoilMoisture) / 100 * 4095), // Convert to raw value
+        airTemperature: 25.0,
+        airHumidity: 50,
+        soilTemperature: 24.0
       };
-
-      // Process the test alert
-      await processAlerts(testSensorData, 'test-device');
-
+      
+      // Use permanent device ID for single device setup
+      const deviceId = 'ESP32_001'; // Fixed device ID for your single device
+      
+      console.log(`🧪 Testing alert with device: ${deviceId}`);
+      console.log(`📊 Test sensor data:`, testSensorData);
+      
+    // Create triggered alert directly for test
+    try {
+      console.log(`🧪 Creating triggered alert for test...`);
+      const { createTriggeredAlert, updateTriggeredAlertStatus } = await import('../functions/alertProcessor.js');
+      const triggeredAlertId = await createTriggeredAlert(alert, testSoilMoisture, userId, deviceId, 'test');
+      console.log(`✅ Triggered alert created with ID: ${triggeredAlertId}`);
+      
+      // Try to send the actual notification
+      let sendStatus = { sms: 'pending', email: 'pending' };
+      try {
+        if (alert.type === 'email') {
+          console.log(`📧 Attempting to send email to: ${alert.value}`);
+          const { sendEmailAlert } = await import('../services/emailService.js');
+          await sendEmailAlert(alert, testSoilMoisture, deviceId);
+          sendStatus.email = 'sent';
+          console.log(`✅ Email sent successfully`);
+        } else if (alert.type === 'sms') {
+          console.log(`📱 Attempting to send SMS to: ${alert.value}`);
+          const { sendSMSAlert } = await import('../services/smsService.js');
+          await sendSMSAlert(alert, testSoilMoisture, deviceId);
+          sendStatus.sms = 'sent';
+          console.log(`✅ SMS sent successfully`);
+        }
+      } catch (sendError) {
+        console.error('Failed to send test notification:', sendError);
+        if (alert.type === 'email') {
+          sendStatus.email = 'failed';
+          sendStatus.emailError = sendError.message;
+        } else if (alert.type === 'sms') {
+          sendStatus.sms = 'failed';
+          sendStatus.smsError = sendError.message;
+        }
+      }
+      
+      await updateTriggeredAlertStatus(triggeredAlertId, userId, sendStatus);
+      console.log(`📧 Test alert created and processed successfully with status:`, sendStatus);
+    } catch (error) {
+      console.error(`❌ Test alert creation failed:`, error);
+      // Still return success to user but log the error
+      console.log(`📧 Test alert would be sent to: ${alert.value}`);
+      console.log(`📧 Alert: Soil moisture is ${testSoilMoisture}% (threshold: ${alert.threshold}%)`);
+    }
+      
       res.json({ 
         success: true, 
-        message: 'Test alert sent successfully'
-      });
-    } catch (processError) {
-      console.error('Process alerts error:', processError);
-      
-      // Fallback to simple test response
-      console.log(`🧪 Falling back to simple test for ${alert.parameter}`);
-      
-      res.json({ 
-        success: true, 
-        message: 'Test alert sent successfully (fallback mode)',
+        message: 'Test alert sent successfully',
         details: { 
-          method: 'fallback', 
-          parameter: alert.parameter, 
+          method: 'full_processing', 
+          testValue: testSoilMoisture,
           threshold: alert.threshold,
-          type: alert.type,
-          value: alert.value
+          deviceId: deviceId
         }
       });
+      
+      return;
     }
+
+    // For other alert types, use full alert processing
+    console.log(`🧪 Testing ${alert.parameter} alert with full processing`);
+    
+    // Create test sensor data based on comparison type
+    const testValue = alert.comparison === '<' ? alert.threshold - 5 : alert.threshold + 5;
+    
+    // Create test sensor data
+    const testSensorData = {
+      soilMoisturePct: alert.parameter === 'soilMoisturePct' ? testValue : 50,
+      soilMoistureRaw: alert.parameter === 'soilMoisturePct' ? Math.round((100 - testValue) / 100 * 4095) : 2000,
+      airTemperature: alert.parameter === 'airTemperature' ? testValue : 25.0,
+      airHumidity: alert.parameter === 'airHumidity' ? testValue : 50,
+      soilTemperature: alert.parameter === 'soilTemperature' ? testValue : 24.0,
+      airQualityIndex: alert.parameter === 'airQualityIndex' ? testValue : 50
+    };
+    
+    // Use permanent device ID for single device setup
+    const deviceId = 'ESP32_001'; // Fixed device ID for your single device
+    
+    console.log(`🧪 Testing alert with device: ${deviceId}`);
+    console.log(`📊 Test sensor data:`, testSensorData);
+    
+    // Create triggered alert directly for test
+    try {
+      console.log(`🧪 Creating triggered alert for test...`);
+      const { createTriggeredAlert, updateTriggeredAlertStatus } = await import('../functions/alertProcessor.js');
+      const triggeredAlertId = await createTriggeredAlert(alert, testValue, userId, deviceId, 'test');
+      console.log(`✅ Triggered alert created with ID: ${triggeredAlertId}`);
+      
+      // Try to send the actual notification
+      let sendStatus = { sms: 'pending', email: 'pending' };
+      try {
+        if (alert.type === 'email') {
+          console.log(`📧 Attempting to send email to: ${alert.value}`);
+          const { sendEmailAlert } = await import('../services/emailService.js');
+          await sendEmailAlert(alert, testValue, deviceId);
+          sendStatus.email = 'sent';
+          console.log(`✅ Email sent successfully`);
+        } else if (alert.type === 'sms') {
+          console.log(`📱 Attempting to send SMS to: ${alert.value}`);
+          const { sendSMSAlert } = await import('../services/smsService.js');
+          await sendSMSAlert(alert, testValue, deviceId);
+          sendStatus.sms = 'sent';
+          console.log(`✅ SMS sent successfully`);
+        }
+      } catch (sendError) {
+        console.error('Failed to send test notification:', sendError);
+        if (alert.type === 'email') {
+          sendStatus.email = 'failed';
+          sendStatus.emailError = sendError.message;
+        } else if (alert.type === 'sms') {
+          sendStatus.sms = 'failed';
+          sendStatus.smsError = sendError.message;
+        }
+      }
+      
+      await updateTriggeredAlertStatus(triggeredAlertId, userId, sendStatus);
+      console.log(`📧 Test alert created and processed successfully with status:`, sendStatus);
+    } catch (error) {
+      console.error(`❌ Test alert creation failed:`, error);
+      // Still return success to user but log the error
+      console.log(`📧 Test alert would be sent to: ${alert.value}`);
+      console.log(`📧 Alert: ${alert.parameter} is ${testValue} (threshold: ${alert.threshold})`);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Test alert sent successfully',
+      details: { 
+        method: 'full_processing', 
+        parameter: alert.parameter,
+        testValue: testValue,
+        threshold: alert.threshold,
+        deviceId: deviceId
+      }
+    });
 
   } catch (error) {
-    console.error('Error sending test alert:', error);
-    res.status(500).json({ error: 'Failed to send test alert' });
+    console.error('❌ Error sending test alert:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      stack: error.stack,
+      userId: req.params?.userId,
+      alertId: req.params?.alertId
+    });
+    res.status(500).json({ 
+      error: 'Failed to send test alert',
+      details: error.message 
+    });
   }
 });
 

@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
-import { doc, getDoc, setDoc, collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { db, database, doc, getDoc, setDoc, collection, query, where, orderBy, getDocs } from '../config/firebase';
 import { ref, onValue, off } from 'firebase/database';
-import { db, database } from '../config/firebase';
 import { deviceRequestsService } from '../services/firebase/firestoreService';
 import SensorDataDisplay from '../components/SensorDataDisplay';
 import IoTSensorDisplay from '../components/IoTSensorDisplay';
@@ -134,7 +133,7 @@ const UserDashboard = () => {
   }, [deviceId]);
   const storeSensorDataInFirestore = async (deviceId, sensorData) => {
     try {
-      const { deviceRequestsService } = await import('../services/firestoreService');
+      const { deviceRequestsService } = await import('../services/firebase/firestoreService');
       await deviceRequestsService.storeSensorData(deviceId, sensorData);
     } catch (error) {
       console.error('❌ Error storing sensor data in Firestore:', error);

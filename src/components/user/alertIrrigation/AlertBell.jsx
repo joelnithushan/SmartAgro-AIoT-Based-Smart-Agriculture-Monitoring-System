@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../../../services/firebase/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { db } from '../../../config/firebase';
+import { collection, onSnapshot, query, orderBy, where, updateDoc, doc, limit } from 'firebase/firestore';
 import { useAuth } from '../../../context/AuthContext';
 import { formatAlertTime } from '../../common/hooks/timeUtils';
 
@@ -8,20 +8,40 @@ const AlertBell = () => {
   const { user } = useAuth();
   const [triggeredAlerts, setTriggeredAlerts] = useState([]);
   const [showAlerts, setShowAlerts] = useState(false);
+  const [unseenCount, setUnseenCount] = useState(0);
 
   // Load triggered alerts from Firestore
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      console.log('🔔 AlertBell: No user found, skipping listener setup');
+      return;
+    }
 
-    const triggeredAlertsRef = collection(db, 'users', user.uid, 'triggeredAlerts');
-    const q = query(triggeredAlertsRef, orderBy('triggeredAt', 'desc'));
+    console.log('🔔 AlertBell: Setting up listener for user:', user.uid);
+    
+    // Use new collection structure
+    const triggeredAlertsRef = collection(db, 'triggered_alerts', user.uid, 'alerts');
+    const q = query(triggeredAlertsRef, orderBy('createdAt', 'desc'), limit(10));
+    
+    console.log('🔔 AlertBell: Query created, setting up listener...');
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      console.log('🔔 AlertBell: Received triggered alerts snapshot:', snapshot.docs.length, 'alerts');
       const alertsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
+      console.log('🔔 AlertBell: Processed alerts data:', alertsData);
       setTriggeredAlerts(alertsData);
+      
+      // Count unseen alerts
+      const unseen = alertsData.filter(alert => !alert.seen).length;
+      setUnseenCount(unseen);
+      console.log('🔔 AlertBell: Unseen count:', unseen);
+    }, (error) => {
+      console.error('❌ AlertBell: Error loading triggered alerts:', error);
+      setTriggeredAlerts([]);
+      setUnseenCount(0);
     });
 
     return () => unsubscribe();
@@ -32,6 +52,8 @@ const AlertBell = () => {
   };
 
   const getParameterLabel = (parameter) => {
+    if (!parameter) return 'Unknown Parameter';
+    
     const labels = {
       soilMoisturePct: 'Soil Moisture',
       soilTemperature: 'Soil Temperature',
@@ -45,25 +67,50 @@ const AlertBell = () => {
   };
 
   const getAlertIcon = (alert) => {
+    if (!alert) return '🔔';
     if (alert.critical) {
       return '🔴'; // Critical alert
     }
     return '🟡'; // Regular alert
   };
 
+  const markAlertsAsSeen = async () => {
+    if (!user || triggeredAlerts.length === 0) return;
+    
+    try {
+      const unseenAlerts = triggeredAlerts.filter(alert => !alert.seen);
+      const updatePromises = unseenAlerts.map(alert => {
+        const alertRef = doc(db, 'triggered_alerts', user.uid, 'alerts', alert.id);
+        return updateDoc(alertRef, { seen: true });
+      });
+      
+      await Promise.all(updatePromises);
+      console.log('Marked alerts as seen');
+    } catch (error) {
+      console.error('Error marking alerts as seen:', error);
+    }
+  };
+
+  const handleBellClick = () => {
+    setShowAlerts(!showAlerts);
+    if (!showAlerts) {
+      markAlertsAsSeen();
+    }
+  };
+
   return (
     <div className="relative">
       {/* Alert Bell Button */}
       <button
-        onClick={() => setShowAlerts(!showAlerts)}
+        onClick={handleBellClick}
         className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 rounded-full"
       >
         <span className="text-2xl">🔔</span>
         
-        {/* Alert Count Badge */}
-        {triggeredAlerts.length > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-            {triggeredAlerts.length}
+        {/* Red Dot Badge for Unseen Alerts */}
+        {unseenCount > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
+            {unseenCount}
           </span>
         )}
       </button>
@@ -93,7 +140,7 @@ const AlertBell = () => {
               </div>
             ) : (
               <div className="p-2">
-                {triggeredAlerts.map((alert) => (
+                {triggeredAlerts.filter(alert => alert && alert.id).map((alert) => (
                   <div
                     key={alert.id}
                     className={`p-3 mb-2 rounded-lg border-l-4 ${
@@ -109,23 +156,28 @@ const AlertBell = () => {
                           <span className={`text-sm font-medium ${
                             alert.critical ? 'text-red-800' : 'text-yellow-800'
                           }`}>
-                            {getParameterLabel(alert.parameter)}
+                            {alert.alertType || getParameterLabel(alert.parameter)}
                           </span>
                           {alert.critical && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
                               Critical
                             </span>
                           )}
+                          {!alert.seen && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                              New
+                            </span>
+                          )}
                         </div>
                         <p className="text-sm text-gray-600 mt-1">
-                          {alert.comparison} {alert.threshold} 
-                          <span className="ml-1">(Current: {alert.currentValue})</span>
+                          {alert.comparison || 'Unknown'} {alert.threshold || 'N/A'} 
+                          <span className="ml-1">(Current: {alert.actualValue || alert.currentValue || 'N/A'})</span>
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
-                          {alert.type.toUpperCase()} to {alert.contactValue}
+                          {(alert.type || alert.alertType || 'Unknown').toUpperCase()} to {alert.contactValue || 'N/A'}
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
-                          {formatTimestamp(alert.triggeredAt)}
+                          {formatTimestamp(alert.createdAt || alert.timestamp || alert.triggeredAt)}
                         </p>
                       </div>
                     </div>

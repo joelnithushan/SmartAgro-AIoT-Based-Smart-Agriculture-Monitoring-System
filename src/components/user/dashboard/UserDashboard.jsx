@@ -134,7 +134,7 @@ const UserDashboard = () => {
   }, [deviceId]);
   const storeSensorDataInFirestore = async (deviceId, sensorData) => {
     try {
-      const { deviceRequestsService } = await import('../services/firestoreService');
+      const { deviceRequestsService } = await import('../../../services/firebase/firestoreService');
       await deviceRequestsService.storeSensorData(deviceId, sensorData);
     } catch (error) {
       console.error('❌ Error storing sensor data in Firestore:', error);

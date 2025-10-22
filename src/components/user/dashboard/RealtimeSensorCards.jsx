@@ -153,7 +153,7 @@ const RealtimeSensorCards = ({ sensorData, isOnline, deviceId }) => {
       {/* Primary Sensor Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Soil Moisture */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-green-200 p-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border-2 border-green-500 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Soil Moisture</p>
@@ -170,7 +170,7 @@ const RealtimeSensorCards = ({ sensorData, isOnline, deviceId }) => {
         </div>
 
         {/* Air Temperature */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-green-200 p-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border-2 border-green-500 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Air Temperature</p>
@@ -186,7 +186,7 @@ const RealtimeSensorCards = ({ sensorData, isOnline, deviceId }) => {
         </div>
 
         {/* Air Humidity */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-green-200 p-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border-2 border-green-500 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Air Humidity</p>
@@ -202,7 +202,7 @@ const RealtimeSensorCards = ({ sensorData, isOnline, deviceId }) => {
         </div>
 
         {/* Soil Temperature */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-green-200 p-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border-2 border-green-500 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Soil Temperature</p>
@@ -221,7 +221,7 @@ const RealtimeSensorCards = ({ sensorData, isOnline, deviceId }) => {
       {/* Secondary Sensor Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Air Quality */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-green-200 p-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border-2 border-green-500 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Air Quality</p>
@@ -231,13 +231,13 @@ const RealtimeSensorCards = ({ sensorData, isOnline, deviceId }) => {
               <p className="text-xs text-gray-500">{getStatusText(sensorData.airQualityIndex, 'airQuality')}</p>
             </div>
             <div className="h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center">
-              <span className="text-2xl">⚠️</span>
+              <span className="text-2xl">🌬️</span>
             </div>
           </div>
         </div>
 
         {/* Gas Levels */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-green-200 p-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border-2 border-green-500 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Gas Levels</p>
@@ -256,7 +256,7 @@ const RealtimeSensorCards = ({ sensorData, isOnline, deviceId }) => {
         </div>
 
         {/* Light Detection */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-green-200 p-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border-2 border-green-500 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Light Detection</p>
@@ -272,7 +272,7 @@ const RealtimeSensorCards = ({ sensorData, isOnline, deviceId }) => {
         </div>
 
         {/* Rain Detection */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-green-200 p-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border-2 border-green-500 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Rain Detection</p>
@@ -289,7 +289,7 @@ const RealtimeSensorCards = ({ sensorData, isOnline, deviceId }) => {
         </div>
 
         {/* System Status */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-green-200 p-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border-2 border-green-500 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">System Status</p>
@@ -310,7 +310,7 @@ const RealtimeSensorCards = ({ sensorData, isOnline, deviceId }) => {
       {/* Control Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Relay Status */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-green-200 p-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border-2 border-green-500 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Relay Status</p>
@@ -326,7 +326,7 @@ const RealtimeSensorCards = ({ sensorData, isOnline, deviceId }) => {
         </div>
 
         {/* Data Quality */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-green-200 p-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border-2 border-green-500 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Data Quality</p>
@@ -344,7 +344,7 @@ const RealtimeSensorCards = ({ sensorData, isOnline, deviceId }) => {
         </div>
 
         {/* Last Update */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-green-200 p-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border-2 border-green-500 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Last Update</p>
@@ -362,7 +362,7 @@ const RealtimeSensorCards = ({ sensorData, isOnline, deviceId }) => {
         </div>
 
         {/* Device Info */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-green-200 p-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border-2 border-green-500 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Device Info</p>
@@ -379,7 +379,7 @@ const RealtimeSensorCards = ({ sensorData, isOnline, deviceId }) => {
       </div>
 
       {/* Data Summary */}
-      <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-green-200 p-6">
+      <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-md border-2 border-green-500 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Environmental Summary</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="text-center p-4 bg-white/60 backdrop-blur-sm rounded-lg">

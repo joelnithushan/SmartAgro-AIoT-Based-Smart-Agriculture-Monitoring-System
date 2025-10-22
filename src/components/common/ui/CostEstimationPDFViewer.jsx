@@ -98,6 +98,7 @@ const CostEstimationPDFViewer = ({ request, isOpen, onClose }) => {
   // Debug: Log the cost data structure
   console.log('🔍 CostEstimationPDFViewer - Request:', request);
   console.log('🔍 CostEstimationPDFViewer - Cost Data:', costData);
+  console.log('🔍 CostEstimationPDFViewer - Full Cost Data Structure:', JSON.stringify(costData, null, 2));
   
   // Use the original LKR values (admin sends LKR, we convert to USD for display)
   // If LKR values are not found, use the USD values as LKR (since admin entered LKR but they were stored as USD)
@@ -113,11 +114,25 @@ const CostEstimationPDFViewer = ({ request, isOpen, onClose }) => {
     totalCostLKR
   });
 
-  // Convert LKR to USD for display
+  // Convert LKR to USD for display - Updated to show USD on left, LKR on right
   const deviceCostUSD = deviceCostLKR / 303.62;
   const serviceChargeUSD = serviceChargeLKR / 303.62;
   const deliveryChargeUSD = deliveryChargeLKR / 303.62;
   const totalCostUSD = totalCostLKR / 303.62;
+  
+  // Debug: Log the conversion values
+  console.log('🔍 CostEstimationPDFViewer - LKR Values:', {
+    deviceCostLKR,
+    serviceChargeLKR,
+    deliveryChargeLKR,
+    totalCostLKR
+  });
+  console.log('🔍 CostEstimationPDFViewer - USD Values:', {
+    deviceCostUSD,
+    serviceChargeUSD,
+    deliveryChargeUSD,
+    totalCostUSD
+  });
 
   if (!isOpen || !costData) return null;
 

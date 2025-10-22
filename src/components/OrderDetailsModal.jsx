@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db, doc, getDoc, updateDoc, serverTimestamp } from '../config/firebase';
 import { useCurrency } from '../context/CurrencyContext';
 const OrderDetailsModal = ({ isOpen, onClose, requestId }) => {
   const { formatCurrency } = useCurrency();
@@ -396,7 +395,7 @@ const OrderDetailsModal = ({ isOpen, onClose, requestId }) => {
                     order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                     order.status === 'cost-estimated' ? 'bg-blue-100 text-blue-800' :
                     order.status === 'user-accepted' ? 'bg-green-100 text-green-800' :
-                    order.status === 'device-assigned' ? 'bg-purple-100 text-purple-800' :
+                    order.status === 'device-assigned' ? 'bg-green-100 text-green-800' :
                     order.status === 'completed' ? 'bg-emerald-100 text-emerald-800' :
                     order.status === 'rejected' ? 'bg-red-100 text-red-800' :
                     'bg-gray-100 text-gray-800'
@@ -537,25 +536,25 @@ const OrderDetailsModal = ({ isOpen, onClose, requestId }) => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Device Cost</label>
                       <p className="mt-1 text-sm text-gray-900">
-                        {formatCurrency(order.costDetails.deviceCost)} / LKR {order.costDetails.deviceCostLKR?.toFixed(2) || '0.00'}
+                        ${((order.costDetails.deviceCostLKR || 0) / 303.62).toFixed(2)} / LKR {order.costDetails.deviceCostLKR?.toFixed(2) || '0.00'}
                       </p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Service Charge</label>
                       <p className="mt-1 text-sm text-gray-900">
-                        {formatCurrency(order.costDetails.serviceCharge)} / LKR {order.costDetails.serviceChargeLKR?.toFixed(2) || '0.00'}
+                        ${((order.costDetails.serviceChargeLKR || 0) / 303.62).toFixed(2)} / LKR {order.costDetails.serviceChargeLKR?.toFixed(2) || '0.00'}
                       </p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Delivery</label>
                       <p className="mt-1 text-sm text-gray-900">
-                        {formatCurrency(order.costDetails.deliveryCharge)} / LKR {order.costDetails.deliveryLKR?.toFixed(2) || '0.00'}
+                        ${((order.costDetails.deliveryLKR || 0) / 303.62).toFixed(2)} / LKR {order.costDetails.deliveryLKR?.toFixed(2) || '0.00'}
                       </p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Total Cost</label>
                       <p className="mt-1 text-lg font-semibold text-green-600">
-                        {formatCurrency(order.costDetails.totalCost)} / LKR {order.costDetails.totalCostLKR?.toFixed(2) || '0.00'}
+                        ${((order.costDetails.totalCostLKR || 0) / 303.62).toFixed(2)} / LKR {order.costDetails.totalCostLKR?.toFixed(2) || '0.00'}
                       </p>
                     </div>
                   </div>
@@ -704,7 +703,7 @@ const OrderDetailsModal = ({ isOpen, onClose, requestId }) => {
                       <button
                         onClick={handleAssignDevice}
                         disabled={loading || !deviceId.trim()}
-                        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 disabled:opacity-50"
+                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 disabled:opacity-50"
                       >
                         {loading ? 'Assigning...' : 'Assign Device'}
                       </button>
@@ -817,12 +816,12 @@ const OrderDetailsModal = ({ isOpen, onClose, requestId }) => {
                   )}
                   {order.status === 'device-assigned' && (
                     <>
-                      <div className="bg-purple-50 rounded-lg p-4 mb-3">
-                        <h4 className="text-sm font-semibold text-purple-800 mb-2">📱 Device Assignment</h4>
-                        <p className="text-sm text-purple-700">
+                      <div className="bg-green-50 rounded-lg p-4 mb-3">
+                        <h4 className="text-sm font-semibold text-green-800 mb-2">📱 Device Assignment</h4>
+                        <p className="text-sm text-green-700">
                           <span className="font-medium">Assigned Device ID:</span> {order.assignedDeviceId}
                         </p>
-                        <p className="text-xs text-purple-600 mt-1">
+                        <p className="text-xs text-green-600 mt-1">
                           Device assigned on: {order.deviceAssignedAt ? new Date(order.deviceAssignedAt.seconds * 1000).toLocaleDateString() : 'N/A'}
                         </p>
                       </div>

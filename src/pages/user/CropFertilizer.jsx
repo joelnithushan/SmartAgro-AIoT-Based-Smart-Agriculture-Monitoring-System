@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '../../services/firebase/firebase';
 import { useRealtimeSensorData } from '../../hooks/useRealtimeSensorData';
-import { validateCropData } from '../../components/common/validations/validation';
+import { validateCropData } from '../../utils/validation';
 import toast from 'react-hot-toast';
 import CropSelector from '../../components/user/cropFertilizer/CropSelector';
 import CropDetails from '../../components/user/cropFertilizer/CropDetails';
@@ -108,12 +108,23 @@ const CropFertilizer = () => {
   const [currentDeviceId, setCurrentDeviceId] = useState(null);
   const { sensorData, isOnline, loading: sensorLoading } = useRealtimeSensorData(currentDeviceId);
 
-  // Load user's device ID
+  // Debug sensor data
+  useEffect(() => {
+    console.log('📊 CropFertilizer - Device ID:', currentDeviceId);
+    console.log('📊 CropFertilizer - Sensor Data:', sensorData);
+    console.log('📊 CropFertilizer - Is Online:', isOnline);
+    console.log('📊 CropFertilizer - Loading:', sensorLoading);
+  }, [currentDeviceId, sensorData, isOnline, sensorLoading]);
+
+  // Load user's device ID from Firestore device requests
   useEffect(() => {
     if (!user?.uid) return;
 
+    console.log('🔍 Loading device ID for user:', user.uid);
+
     const requestsQuery = query(
       collection(db, 'deviceRequests'),
+      where('userId', '==', user.uid),
       orderBy('createdAt', 'desc')
     );
 
@@ -123,12 +134,24 @@ const CropFertilizer = () => {
         ...doc.data()
       }));
 
-      const userRequests = requests.filter(req => req.userId === user.uid);
-      const assignedRequest = userRequests.find(req => req.status === 'assigned' || req.status === 'completed');
+      console.log('📱 User device requests:', requests);
+
+      const assignedRequest = requests.find(req => 
+        req.status === 'assigned' || 
+        req.status === 'completed' || 
+        req.status === 'device-assigned'
+      );
       
       if (assignedRequest && assignedRequest.deviceId) {
+        console.log('✅ Found assigned device:', assignedRequest.deviceId);
         setCurrentDeviceId(assignedRequest.deviceId);
+      } else {
+        console.log('❌ No assigned device found for user');
+        setCurrentDeviceId(null);
       }
+    }, (error) => {
+      console.error('❌ Error loading device requests:', error);
+      setCurrentDeviceId(null);
     });
 
     return () => unsubscribe();

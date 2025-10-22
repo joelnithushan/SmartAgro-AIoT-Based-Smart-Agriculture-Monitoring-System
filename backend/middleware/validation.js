@@ -5,7 +5,7 @@ const VALIDATION_PATTERNS = {
   EMAIL: /^[A-Za-z0-9]([A-Za-z0-9._%+-]*[A-Za-z0-9])?@[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}$/,
   MOBILE: /^(?:7[0-9]{8}|0[0-9]{8}|\+94[0-9]{8})$/,
   PASSWORD: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-  CROP_NAME: /^[A-Za-z ]+$/
+  CROP_NAME: /^[A-Za-z0-9\s\-'\.]+$/
 };
 
 const validateNIC = (nic) => {
@@ -58,7 +58,7 @@ const validateCropName = (cropName) => {
   if (!cropName || typeof cropName !== 'string') throw new Error('Crop name is required');
   const trimmedName = cropName.trim();
   if (trimmedName.length < 2) throw new Error('Crop name must be at least 2 characters long');
-  if (!VALIDATION_PATTERNS.CROP_NAME.test(trimmedName)) throw new Error('Crop name can only contain letters and spaces');
+  if (!VALIDATION_PATTERNS.CROP_NAME.test(trimmedName)) throw new Error('Crop name can only contain letters, numbers, spaces, hyphens, apostrophes, and periods');
   return true;
 };
 

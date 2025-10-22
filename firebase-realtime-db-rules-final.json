@@ -1,0 +1,696 @@
+{
+  "rules": {
+    "devices": {
+      "$deviceId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        
+        "sensors": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          
+          "latest": {
+            ".read": "auth != null",
+            ".write": true,
+            ".validate": "newData.hasChildren(['soilMoistureRaw', 'airTemperature', 'timestamp'])",
+            
+            "soilMoistureRaw": {
+              ".read": "auth != null",
+              ".write": true,
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "soilMoisturePct": {
+              ".read": "auth != null",
+              ".write": true,
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+            },
+            "airTemperature": {
+              ".read": "auth != null",
+              ".write": true,
+              ".validate": "newData.isNumber() && newData.val() >= -50 && newData.val() <= 100"
+            },
+            "airHumidity": {
+              ".read": "auth != null",
+              ".write": true,
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+            },
+            "soilTemperature": {
+              ".read": "auth != null",
+              ".write": true,
+              ".validate": "newData.isNumber() && newData.val() >= -50 && newData.val() <= 100"
+            },
+            "airQualityIndex": {
+              ".read": "auth != null",
+              ".write": true,
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "gases": {
+              ".read": "auth != null",
+              ".write": true,
+              
+              "co2": {
+                ".read": "auth != null",
+                ".write": true,
+                ".validate": "newData.isNumber() && newData.val() >= 0"
+              },
+              "nh3": {
+                ".read": "auth != null",
+                ".write": true,
+                ".validate": "newData.isNumber() && newData.val() >= 0"
+              }
+            },
+            "lightDetected": {
+              ".read": "auth != null",
+              ".write": true,
+              ".validate": "newData.isNumber() && (newData.val() == 0 || newData.val() == 1)"
+            },
+            "rainLevelRaw": {
+              ".read": "auth != null",
+              ".write": true,
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "rainStatus": {
+              ".read": "auth != null",
+              ".write": true,
+              ".validate": "newData.isString()"
+            },
+            "relayStatus": {
+              ".read": "auth != null",
+              ".write": true,
+              ".validate": "newData.isString() && (newData.val() == 'on' || newData.val() == 'off')"
+            },
+            "timestamp": {
+              ".read": "auth != null",
+              ".write": true,
+              ".validate": "newData.isNumber() && newData.val() > 0"
+            }
+          },
+          
+          "history": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            
+            "$timestamp": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              
+              "soilMoistureRaw": {
+                ".read": "auth != null",
+                ".write": "auth != null",
+                ".validate": "newData.isNumber() && newData.val() >= 0"
+              },
+              "soilMoisturePct": {
+                ".read": "auth != null",
+                ".write": "auth != null",
+                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+              },
+              "airTemperature": {
+                ".read": "auth != null",
+                ".write": "auth != null",
+                ".validate": "newData.isNumber() && newData.val() >= -50 && newData.val() <= 100"
+              },
+              "airHumidity": {
+                ".read": "auth != null",
+                ".write": "auth != null",
+                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+              },
+              "soilTemperature": {
+                ".read": "auth != null",
+                ".write": "auth != null",
+                ".validate": "newData.isNumber() && newData.val() >= -50 && newData.val() <= 100"
+              },
+              "airQualityIndex": {
+                ".read": "auth != null",
+                ".write": "auth != null",
+                ".validate": "newData.isNumber() && newData.val() >= 0"
+              },
+              "gases": {
+                ".read": "auth != null",
+                ".write": "auth != null",
+                
+                "co2": {
+                  ".read": "auth != null",
+                  ".write": "auth != null",
+                  ".validate": "newData.isNumber() && newData.val() >= 0"
+                },
+                "nh3": {
+                  ".read": "auth != null",
+                  ".write": "auth != null",
+                  ".validate": "newData.isNumber() && newData.val() >= 0"
+                }
+              },
+              "lightDetected": {
+                ".read": "auth != null",
+                ".write": "auth != null",
+                ".validate": "newData.isNumber() && (newData.val() == 0 || newData.val() == 1)"
+              },
+              "rainLevelRaw": {
+                ".read": "auth != null",
+                ".write": "auth != null",
+                ".validate": "newData.isNumber() && newData.val() >= 0"
+              },
+              "rainStatus": {
+                ".read": "auth != null",
+                ".write": "auth != null",
+                ".validate": "newData.isString()"
+              },
+              "relayStatus": {
+                ".read": "auth != null",
+                ".write": "auth != null",
+                ".validate": "newData.isString() && (newData.val() == 'on' || newData.val() == 'off')"
+              },
+              "timestamp": {
+                ".read": "auth != null",
+                ".write": "auth != null",
+                ".validate": "newData.isNumber() && newData.val() > 0"
+              }
+            }
+          }
+        },
+        
+        "controls": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          
+          "relayCommand": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            ".validate": "newData.isString() && (newData.val() == 'on' || newData.val() == 'off')"
+          },
+          
+          "relayStatus": {
+            ".read": "auth != null",
+            ".write": true,
+            ".validate": "newData.isString() && (newData.val() == 'on' || newData.val() == 'off')"
+          },
+          
+          "irrigationMode": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            ".validate": "newData.isString() && (newData.val() == 'manual' || newData.val() == 'auto' || newData.val() == 'scheduled')"
+          },
+          
+          "thresholds": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            
+            "soilMoistureLow": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+            },
+            "soilMoistureHigh": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+            },
+            "temperatureLow": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.isNumber() && newData.val() >= -50 && newData.val() <= 100"
+            },
+            "temperatureHigh": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.isNumber() && newData.val() >= -50 && newData.val() <= 100"
+            },
+            "humidityLow": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+            },
+            "humidityHigh": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+            }
+          }
+        },
+        
+        "schedules": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          
+          "$scheduleId": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            
+            "name": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.isString() && newData.val().length > 0"
+            },
+            "enabled": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.isBoolean()"
+            },
+            "startTime": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.isString()"
+            },
+            "endTime": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.isString()"
+            },
+            "days": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.hasChildren()"
+            },
+            "duration": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.isNumber() && newData.val() > 0"
+            }
+          }
+        },
+        
+        "meta": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          
+          "lastSeen": {
+            ".read": "auth != null",
+            ".write": true,
+            ".validate": "newData.isNumber() && newData.val() > 0"
+          },
+          
+          "ownerId": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            ".validate": "newData.isString() && newData.val().length > 0"
+          },
+          
+          "status": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            ".validate": "newData.isString() && (newData.val() == 'online' || newData.val() == 'offline' || newData.val() == 'maintenance')"
+          },
+          
+          "relayActiveLow": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            ".validate": "newData.isBoolean()"
+          },
+          
+          "irrigationMode": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            ".validate": "newData.isString() && (newData.val() == 'manual' || newData.val() == 'auto' || newData.val() == 'scheduled')"
+          },
+          
+          "firmwareVersion": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            ".validate": "newData.isString()"
+          },
+          
+          "deviceType": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            ".validate": "newData.isString()"
+          },
+          
+          "location": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            ".validate": "newData.isString()"
+          }
+        },
+        
+        "irrigation": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          
+          "events": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            
+            "$eventId": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              
+              "timestamp": {
+                ".read": "auth != null",
+                ".write": "auth != null",
+                ".validate": "newData.isNumber() && newData.val() > 0"
+              },
+              "type": {
+                ".read": "auth != null",
+                ".write": "auth != null",
+                ".validate": "newData.isString()"
+              },
+              "duration": {
+                ".read": "auth != null",
+                ".write": "auth != null",
+                ".validate": "newData.isNumber() && newData.val() >= 0"
+              },
+              "status": {
+                ".read": "auth != null",
+                ".write": "auth != null",
+                ".validate": "newData.isString()"
+              }
+            }
+          },
+          
+          "autoMode": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            ".validate": "newData.isBoolean()"
+          },
+          
+          "pumpStatus": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            ".validate": "newData.isString() && (newData.val() == 'on' || newData.val() == 'off')"
+          },
+          
+          "lastWatered": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            ".validate": "newData.isNumber() && newData.val() > 0"
+          }
+        }
+      }
+    },
+    
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid",
+        
+        "assignedDevices": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.uid == $uid"
+        },
+        
+        "activeDeviceId": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.uid == $uid",
+          ".validate": "newData.isString()"
+        },
+        
+        "devices": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.uid == $uid"
+        },
+        
+        "chats": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.uid == $uid",
+          
+          "$chatId": {
+            ".read": "auth != null && auth.uid == $uid",
+            ".write": "auth != null && auth.uid == $uid",
+            
+            "messages": {
+              ".read": "auth != null && auth.uid == $uid",
+              ".write": "auth != null && auth.uid == $uid",
+              
+              "$messageId": {
+                ".read": "auth != null && auth.uid == $uid",
+                ".write": "auth != null && auth.uid == $uid"
+              }
+            }
+          }
+        },
+        
+        "settings": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.uid == $uid",
+          
+          "$settingsId": {
+            ".read": "auth != null && auth.uid == $uid",
+            ".write": "auth != null && auth.uid == $uid"
+          }
+        },
+        
+        "alerts": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.uid == $uid",
+          
+          "$alertId": {
+            ".read": "auth != null && auth.uid == $uid",
+            ".write": "auth != null && auth.uid == $uid",
+            
+            "parameter": {
+              ".read": "auth != null && auth.uid == $uid",
+              ".write": "auth != null && auth.uid == $uid",
+              ".validate": "newData.isString()"
+            },
+            "comparison": {
+              ".read": "auth != null && auth.uid == $uid",
+              ".write": "auth != null && auth.uid == $uid",
+              ".validate": "newData.isString()"
+            },
+            "value": {
+              ".read": "auth != null && auth.uid == $uid",
+              ".write": "auth != null && auth.uid == $uid",
+              ".validate": "newData.isNumber()"
+            },
+            "enabled": {
+              ".read": "auth != null && auth.uid == $uid",
+              ".write": "auth != null && auth.uid == $uid",
+              ".validate": "newData.isBoolean()"
+            }
+          }
+        }
+      }
+    },
+    
+    "deviceRequests": {
+      "$requestId": {
+        ".read": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+        ".write": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+        
+        "userId": {
+          ".read": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+          ".write": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "status": {
+          ".read": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+          ".write": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+          ".validate": "newData.isString()"
+        },
+        "deviceId": {
+          ".read": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+          ".write": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+          ".validate": "newData.isString()"
+        },
+        "costDetails": {
+          ".read": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+          ".write": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+          
+          "deviceCostLKR": {
+            ".read": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+            ".write": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "serviceCostLKR": {
+            ".read": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+            ".write": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "deliveryCostLKR": {
+            ".read": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+            ".write": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "totalCostLKR": {
+            ".read": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+            ".write": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          }
+        },
+        "assignedDeviceId": {
+          ".read": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+          ".write": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+          ".validate": "newData.isString()"
+        },
+        "deviceAssignedAt": {
+          ".read": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+          ".write": "auth != null && (root.child('deviceRequests').child($requestId).child('userId').val() == auth.uid || auth.token.email == 'joelnithushan6@gmail.com')",
+          ".validate": "newData.hasChildren(['seconds', 'nanoseconds'])"
+        }
+      }
+    },
+    
+    "notifications": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid",
+        
+        "$notificationId": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.uid == $uid",
+          
+          "title": {
+            ".read": "auth != null && auth.uid == $uid",
+            ".write": "auth != null && auth.uid == $uid",
+            ".validate": "newData.isString()"
+          },
+          "message": {
+            ".read": "auth != null && auth.uid == $uid",
+            ".write": "auth != null && auth.uid == $uid",
+            ".validate": "newData.isString()"
+          },
+          "type": {
+            ".read": "auth != null && auth.uid == $uid",
+            ".write": "auth != null && auth.uid == $uid",
+            ".validate": "newData.isString()"
+          },
+          "read": {
+            ".read": "auth != null && auth.uid == $uid",
+            ".write": "auth != null && auth.uid == $uid",
+            ".validate": "newData.isBoolean()"
+          },
+          "timestamp": {
+            ".read": "auth != null && auth.uid == $uid",
+            ".write": "auth != null && auth.uid == $uid",
+            ".validate": "newData.isNumber() && newData.val() > 0"
+          }
+        }
+      }
+    },
+    
+    "alerts": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid",
+        
+        "$alertId": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.uid == $uid",
+          
+          "parameter": {
+            ".read": "auth != null && auth.uid == $uid",
+            ".write": "auth != null && auth.uid == $uid",
+            ".validate": "newData.isString()"
+          },
+          "comparison": {
+            ".read": "auth != null && auth.uid == $uid",
+            ".write": "auth != null && auth.uid == $uid",
+            ".validate": "newData.isString()"
+          },
+          "value": {
+            ".read": "auth != null && auth.uid == $uid",
+            ".write": "auth != null && auth.uid == $uid",
+            ".validate": "newData.isNumber()"
+          },
+          "enabled": {
+            ".read": "auth != null && auth.uid == $uid",
+            ".write": "auth != null && auth.uid == $uid",
+            ".validate": "newData.isBoolean()"
+          },
+          "createdAt": {
+            ".read": "auth != null && auth.uid == $uid",
+            ".write": "auth != null && auth.uid == $uid",
+            ".validate": "newData.hasChildren(['seconds', 'nanoseconds'])"
+          }
+        }
+      }
+    },
+    
+    "irrigation": {
+      "$deviceId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        
+        "autoMode": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".validate": "newData.isBoolean()"
+        },
+        
+        "pumpStatus": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".validate": "newData.isString() && (newData.val() == 'on' || newData.val() == 'off')"
+        },
+        
+        "lastWatered": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        
+        "schedules": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          
+          "$scheduleId": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            
+            "name": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.isString() && newData.val().length > 0"
+            },
+            "enabled": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.isBoolean()"
+            },
+            "startTime": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.isString()"
+            },
+            "endTime": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.isString()"
+            },
+            "days": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.hasChildren()"
+            },
+            "duration": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              ".validate": "newData.isNumber() && newData.val() > 0"
+            }
+          }
+        }
+      }
+    },
+    
+    "system": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      
+      "maintenance": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.isBoolean()"
+      },
+      
+      "version": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.isString()"
+      },
+      
+      "lastUpdate": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.isNumber() && newData.val() > 0"
+      }
+    },
+    
+    "test": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}
+
+
+
+

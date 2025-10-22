@@ -7,13 +7,13 @@ DEEPSEEK_API_KEY=your-openrouter-api-key-here
 DEEPSEEK_MODEL=deepseek/deepseek-r1-0528-qwen3-8b:free
 
 # SendGrid Email Configuration
-SENDGRID_API_KEY=SG.your-sendgrid-api-key-here
-SENDGRID_FROM_EMAIL=alerts@yourdomain.com
+SENDGRID_API_KEY=REDACTED_SENDGRID_API_KEY
+SENDGRID_FROM_EMAIL=joelfiverr06@gmail.com
 
 # Twilio SMS Configuration
-TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-TWILIO_AUTH_TOKEN=your-twilio-auth-token-here
-TWILIO_PHONE_NUMBER=+1234567890
+TWILIO_ACCOUNT_SID=REDACTED_TWILIO_ACCOUNT_SID
+TWILIO_AUTH_TOKEN=REDACTED_TWILIO_AUTH_TOKEN
+TWILIO_PHONE_NUMBER=REDACTED_TWILIO_PHONE_NUMBER
 
 # Server Configuration
 PORT=5000

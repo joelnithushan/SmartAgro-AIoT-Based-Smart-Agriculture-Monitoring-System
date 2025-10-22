@@ -8,10 +8,8 @@ import {
   XMarkIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../context/AuthContext';
-import { usersService, deviceRequestsService } from '../services/firebase/firestoreService';
 import userApi from '../services/auth/userApi';
-import { collection, query, where, orderBy, limit, getDocs, updateDoc, doc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db, collection, query, where, getDocs, doc, getDoc } from '../config/firebase';
 import Settings from './user/profile/Settings';
 import toast from 'react-hot-toast';
 
@@ -255,7 +253,7 @@ const UserProfile = () => {
     loadProfile();
   }, [loadProfile]);
 
-  const nameRegex = /^[A-Za-z][A-Za-z\s]{1,49}$/; // 2-50 chars, letters and spaces only
+  const nameRegex = /^[A-Za-z0-9\s\-'\.][A-Za-z0-9\s\-'\.]{1,49}$/; // 2-50 chars, letters, numbers, spaces, hyphens, apostrophes, and periods
   const phoneRegex = /^(?:\+94\d{9}|0\d{9}|\+\d{7,15})$/; // +94XXXXXXXXX or 0XXXXXXXXX or international +########
   const ageValid = (val) => {
     const n = Number(val);
@@ -274,7 +272,7 @@ const UserProfile = () => {
     
     // Validate fields
     if (profile.fullName && !nameRegex.test(profile.fullName.trim())) {
-      toast.error('Full name must contain only letters and spaces (2–50 chars).');
+      toast.error('Full name must contain only letters, numbers, spaces, hyphens, apostrophes, and periods (2–50 chars).');
       return;
     }
     if (profile.mobileNumber && !phoneRegex.test(String(profile.mobileNumber).trim())) {
@@ -553,14 +551,6 @@ const UserProfile = () => {
     }
   };
 
-  const getProviderName = (providerId) => {
-    switch (providerId) {
-      case 'google.com': return 'Google';
-      case 'apple.com': return 'Apple';
-      case 'password': return 'Email/Password';
-      default: return 'Unknown';
-    }
-  };
 
   if (loading) {
     return (
@@ -668,8 +658,8 @@ const UserProfile = () => {
                       value={profile.fullName}
                       onChange={(e) => handleInputChange('fullName', e.target.value)}
                       disabled={!isEditing}
-                      pattern="[A-Za-z][A-Za-z\s]{1,49}"
-                      title="Name must contain only letters and spaces (2–50 characters)."
+                      pattern="[A-Za-z0-9\s\-'\.][A-Za-z0-9\s\-'\.]{1,49}"
+                      title="Name must contain only letters, numbers, spaces, hyphens, apostrophes, and periods (2–50 characters)."
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-50 disabled:text-gray-500"
                     />
                   </div>

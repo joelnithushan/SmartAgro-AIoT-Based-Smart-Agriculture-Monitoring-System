@@ -170,9 +170,10 @@
     "invalidNIC": "Please enter a valid NIC number",
     "passwordTooShort": "Password must be at least 8 characters",
     "passwordsDoNotMatch": "Passwords do not match",
-    "invalidName": "Name can only contain letters and spaces",
+    "invalidName": "Name can only contain letters, numbers, spaces, hyphens, apostrophes, and periods",
     "invalidAge": "Age must be between 0 and 100",
-    "invalidCropName": "Crop name can only contain letters and spaces"
+    "invalidCropName": "Crop name can only contain letters, spaces, hyphens, apostrophes, and periods",
+    "invalidVariety": "Variety can only contain letters, numbers, spaces, hyphens, apostrophes, and periods"
   },
   "messages": {
     "profileUpdated": "Profile updated successfully",

@@ -14,7 +14,7 @@ import {
   onSnapshot, 
   serverTimestamp 
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db } from '../../config/firebase';
 
 // Device Requests Service
 export const deviceRequestsService = {

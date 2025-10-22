@@ -196,43 +196,38 @@ export const processSensorData = (rawData) => {
       }
       
       return {
-        time: new Date(timestamp).toLocaleTimeString('en-US', { 
-          hour12: false, 
+        time: new Date(timestamp).toLocaleTimeString([], { 
           hour: '2-digit', 
           minute: '2-digit', 
           second: '2-digit' 
         }),
         date: new Date(timestamp).toLocaleDateString(),
         timestamp: timestamp,
-        // Temperature - try multiple field names
-        temperature: item.airTemperature || item.air_temperature || item.temperature || 
-                    item.airTemp || item.temp || 0,
-        // Humidity - try multiple field names  
-        humidity: item.airHumidity || item.air_humidity || item.humidity || 
-                 item.humidityPct || item.humidity_pct || 0,
-        // Soil Moisture - try multiple field names and convert raw values to percentage
-        soilMoisture: convertSoilMoistureToPercentage(
-          item.soilMoisturePct || item.soil_moisture_pct || item.soilMoisture || 
-          item.soil_moisture || item.soilMoistureRaw || item.soil_moisture_raw || 0
-        ),
-        // Gas Level - try multiple field names
-        gasLevel: item.airQualityIndex || item.air_quality_index || item.gasLevel || 
-                 item.gas_level || item.mq135 || item.airQuality || item.air_quality || 
-                 item.gases?.co2 || item.gases?.nh3 || 0,
-        // Additional fields
-        airTemp: item.airTemperature || item.air_temperature || item.temperature || 
-                item.airTemp || item.temp || 0,
-        airHumidity: item.airHumidity || item.air_humidity || item.humidity || 
-                    item.humidityPct || item.humidity_pct || 0,
-        soilTemp: item.soilTemperature || item.soil_temperature || item.soilTemp || 
-                 item.soil_temp || 0,
-        airQuality: item.airQualityIndex || item.air_quality_index || item.airQuality || 
-                   item.air_quality || item.gasLevel || item.gas_level || item.mq135 || 
-                   item.gases?.co2 || item.gases?.nh3 || 0,
-        light: item.lightDetected || item.light_detected || item.lightLevel || 
-               item.light_level || item.ldr || 0,
-        rain: item.rainLevelRaw || item.rain_level_raw || item.rainSensor || 
-              item.rain_sensor || item.rain || 0
+        // Temperature - use correct field names from ESP32
+        temperature: parseFloat(item.airTemperature || 0),
+        // Humidity - use correct field names from ESP32
+        humidity: parseFloat(item.airHumidity || 0),
+        // Soil Moisture - use correct field name from ESP32 and ensure it's a number
+        soilMoisture: (() => {
+          const soilMoisturePct = parseFloat(item.soilMoisturePct || 0);
+          // Ensure it's a valid number and within 0-100 range
+          const result = Math.max(0, Math.min(100, soilMoisturePct));
+          return Math.round(result * 10) / 10;
+        })(),
+        // Gas Level - use correct field names from ESP32
+        gasLevel: (() => {
+          const airQualityIndex = parseFloat(item.airQualityIndex || 0);
+          // Ensure it's a valid number and non-negative
+          const result = Math.max(0, airQualityIndex);
+          return Math.round(result * 10) / 10;
+        })(),
+        // Additional fields with proper number conversion
+        airTemp: parseFloat(item.airTemperature || 0),
+        airHumidity: parseFloat(item.airHumidity || 0),
+        soilTemp: parseFloat(item.soilTemperature || 0),
+        airQuality: parseFloat(item.airQualityIndex || 0),
+        light: parseFloat(item.lightDetected || 0),
+        rain: parseFloat(item.rainLevelRaw || 0)
       };
     })
     .filter(item => item !== null)

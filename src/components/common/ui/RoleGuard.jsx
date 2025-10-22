@@ -9,6 +9,7 @@ const RoleGuard = ({ children, requiredRole = null }) => {
   const location = useLocation();
   const [roleLoading, setRoleLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
+  const [hasShownError, setHasShownError] = useState(false);
   const checkUserRoleAndRedirect = useCallback(async () => {
     if (authLoading) return;
     if (!user) {
@@ -21,15 +22,23 @@ const RoleGuard = ({ children, requiredRole = null }) => {
       setUserRole(role);
       const redirectRoute = await getRedirectRoute(user, location.pathname);
       if (redirectRoute) {
-        if ((role === 'user' && isAdminRoute(location.pathname)) || 
-            (role === 'admin' && isUserRoute(location.pathname))) {
-          toast.error('Access denied. Redirecting to your dashboard.');
+        // Only show error if user is trying to access wrong route (not from login/root)
+        const isFromLoginOrRoot = location.pathname === '/' || location.pathname === '/login' || location.pathname === '/register';
+        
+        // Completely disable error messages for login redirects
+        if (!isFromLoginOrRoot && ((role === 'user' && isAdminRoute(location.pathname)) || 
+            (role === 'admin' && isUserRoute(location.pathname)))) {
+          // Only show error for actual unauthorized access attempts, not login redirects
+          // Removed the error toast completely for now
         }
         navigate(redirectRoute, { replace: true });
         return;
       }
       if (requiredRole && role !== requiredRole) {
-        toast.error('Access denied. Insufficient permissions.');
+        if (!hasShownError) {
+          toast.error('Access denied. Insufficient permissions.');
+          setHasShownError(true);
+        }
         const dashboardRoute = role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
         navigate(dashboardRoute, { replace: true });
         return;
@@ -43,6 +52,7 @@ const RoleGuard = ({ children, requiredRole = null }) => {
     }
   }, [authLoading, user, location.pathname, navigate, requiredRole]);
   useEffect(() => {
+    setHasShownError(false); // Reset error flag when user or location changes
     checkUserRoleAndRedirect();
   }, [checkUserRoleAndRedirect]);
   if (authLoading || roleLoading) {

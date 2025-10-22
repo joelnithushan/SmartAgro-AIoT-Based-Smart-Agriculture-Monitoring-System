@@ -265,13 +265,13 @@ const FertilizerSchedule = ({ crops }) => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                         <button
                           onClick={() => handleEdit(fertilizer)}
-                          className="text-blue-600 hover:text-blue-900"
+                          className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleDelete(fertilizer.id)}
-                          className="text-red-600 hover:text-red-900"
+                          className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
                         >
                           Delete
                         </button>
@@ -285,10 +285,97 @@ const FertilizerSchedule = ({ crops }) => {
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="text-center py-8">
-            <div className="text-4xl mb-4">📅</div>
+          <div className="mb-4">
             <h4 className="text-lg font-medium text-gray-900 mb-2">Calendar View</h4>
-            <p className="text-gray-600">Calendar view coming soon!</p>
+            <p className="text-gray-600">View your fertilizer schedules on a calendar</p>
+          </div>
+          
+          {/* Calendar Grid */}
+          <div className="grid grid-cols-7 gap-1 mb-4">
+            {/* Calendar Header */}
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+              <div key={day} className="p-2 text-center text-sm font-medium text-gray-500 bg-gray-50">
+                {day}
+              </div>
+            ))}
+            
+            {/* Calendar Days */}
+            {Array.from({ length: 35 }, (_, i) => {
+              const date = new Date();
+              const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+              const startDate = new Date(firstDay);
+              startDate.setDate(startDate.getDate() - firstDay.getDay());
+              const currentDate = new Date(startDate);
+              currentDate.setDate(startDate.getDate() + i);
+              
+              const isCurrentMonth = currentDate.getMonth() === date.getMonth();
+              const isToday = currentDate.toDateString() === new Date().toDateString();
+              
+              // Find fertilizers for this date
+              const dayFertilizers = fertilizers.filter(fertilizer => {
+                const fertilizerDate = fertilizer.applicationDate?.toDate?.() || new Date(fertilizer.applicationDate);
+                return fertilizerDate.toDateString() === currentDate.toDateString();
+              });
+              
+              return (
+                <div
+                  key={i}
+                  className={`min-h-[80px] p-1 border border-gray-200 ${
+                    dayFertilizers.length > 0 
+                      ? 'bg-green-100 border-green-400' 
+                      : isCurrentMonth 
+                        ? 'bg-white' 
+                        : 'bg-gray-50'
+                  } ${isToday ? 'bg-blue-50 border-blue-300' : ''}`}
+                >
+                  <div className={`text-sm ${
+                    dayFertilizers.length > 0 
+                      ? 'text-green-800 font-bold' 
+                      : isCurrentMonth 
+                        ? 'text-gray-900' 
+                        : 'text-gray-400'
+                  } ${isToday ? 'font-bold text-blue-600' : ''}`}>
+                    {currentDate.getDate()}
+                  </div>
+                  
+                  {/* Fertilizer indicators */}
+                  <div className="space-y-1">
+                    {dayFertilizers.slice(0, 2).map((fertilizer, idx) => (
+                      <div
+                        key={idx}
+                        className="text-xs bg-green-100 text-green-800 px-1 py-0.5 rounded truncate cursor-pointer hover:bg-green-200"
+                        title={`${fertilizer.fertilizerName} - ${getCropName(fertilizer.cropId)}`}
+                        onClick={() => handleEdit(fertilizer)}
+                      >
+                        {fertilizer.fertilizerName}
+                      </div>
+                    ))}
+                    {dayFertilizers.length > 2 && (
+                      <div className="text-xs text-gray-500">
+                        +{dayFertilizers.length - 2} more
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
+          {/* Legend */}
+          <div className="flex items-center justify-between text-sm text-gray-600">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-green-100 border border-green-300 rounded mr-2"></div>
+                <span>Fertilizer Schedule</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-blue-50 border border-blue-300 rounded mr-2"></div>
+                <span>Today</span>
+              </div>
+            </div>
+            <div className="text-xs text-gray-500">
+              Click on a fertilizer to edit
+            </div>
           </div>
         </div>
       )}

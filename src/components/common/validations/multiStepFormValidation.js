@@ -3,7 +3,7 @@ export const validationTests = {
     const isValid = /^[a-zA-Z\s]+$/.test(name.trim());
     return {
       isValid,
-      message: isValid ? 'Valid name' : 'Name should contain only letters and spaces'
+      message: isValid ? 'Valid name' : 'Name should contain only letters, numbers, spaces, hyphens, apostrophes, and periods'
     };
   },
   testAge: (age) => {

@@ -24,8 +24,11 @@ export const VALIDATION_PATTERNS = {
   // Password - Min 8 chars, uppercase, lowercase, number, special char
   PASSWORD: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
   
-  // Crop name - String only (alphabets and spaces)
-  CROP_NAME: /^[A-Za-z ]+$/,
+  // Crop name - Allow letters, spaces, hyphens, apostrophes, and periods only (no numbers)
+  CROP_NAME: /^[A-Za-z\s\-'\.]+$/,
+  
+  // Variety - Allow letters, numbers, spaces, hyphens, apostrophes, and periods
+  VARIETY: /^[A-Za-z0-9\s\-'\.]+$/,
   
   // Quantity - Numeric only (positive)
   QUANTITY: /^[0-9]+(\.[0-9]{1,2})?$/
@@ -61,7 +64,7 @@ export const validateName = (name) => {
   }
   
   if (!VALIDATION_PATTERNS.NAME.test(trimmedName)) {
-    return { isValid: false, error: 'Name can only contain letters and spaces' };
+    return { isValid: false, error: 'Name can only contain letters, numbers, spaces, hyphens, apostrophes, and periods' };
   }
   
   return { isValid: true };
@@ -196,7 +199,25 @@ export const validateCropName = (cropName) => {
   }
   
   if (!VALIDATION_PATTERNS.CROP_NAME.test(trimmedName)) {
-    return { isValid: false, error: 'Crop name can only contain letters and spaces' };
+    return { isValid: false, error: 'Crop name can only contain letters, spaces, hyphens, apostrophes, and periods' };
+  }
+  
+  return { isValid: true };
+};
+
+export const validateVariety = (variety) => {
+  if (!variety || typeof variety !== 'string') {
+    return { isValid: false, error: 'Variety is required' };
+  }
+  
+  const trimmedVariety = variety.trim();
+  
+  if (trimmedVariety.length < 1) {
+    return { isValid: false, error: 'Variety must be at least 1 character long' };
+  }
+  
+  if (!VALIDATION_PATTERNS.VARIETY.test(trimmedVariety)) {
+    return { isValid: false, error: 'Variety can only contain letters, numbers, spaces, hyphens, apostrophes, and periods' };
   }
   
   return { isValid: true };
@@ -271,7 +292,7 @@ export const validateCropData = (cropData) => {
   
   // Validate variety if provided
   if (cropData.variety) {
-    const varietyValidation = validateName(cropData.variety);
+    const varietyValidation = validateVariety(cropData.variety);
     if (!varietyValidation.isValid) {
       errors.variety = varietyValidation.error;
     }
@@ -433,6 +454,7 @@ const validation = {
   validatePassword,
   validateDate,
   validateCropName,
+  validateVariety,
   validateQuantity,
   validateUserProfile,
   validateCropData,

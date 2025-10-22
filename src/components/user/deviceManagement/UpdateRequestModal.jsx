@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../../services/firebase/firebase';
+import { db, doc, updateDoc, serverTimestamp } from '../../../services/firebase/firebase';
 import toast from 'react-hot-toast';
 const UpdateRequestModal = ({ request, onClose, onSuccess }) => {
   const { currentUser } = useAuth();
@@ -40,7 +39,7 @@ const UpdateRequestModal = ({ request, onClose, onSuccess }) => {
     if (!formData.fullName.trim()) {
       newErrors.fullName = 'Full name is required';
     } else if (!/^[a-zA-Z\s]+$/.test(formData.fullName.trim())) {
-      newErrors.fullName = 'Full name should contain only letters and spaces';
+      newErrors.fullName = 'Full name should contain only letters, numbers, spaces, hyphens, apostrophes, and periods';
     }
     if (!formData.age) {
       newErrors.age = 'Age is required';

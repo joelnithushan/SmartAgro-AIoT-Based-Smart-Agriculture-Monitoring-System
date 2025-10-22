@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import alertApi from '../../../services/api/alertApi';
 import toast from 'react-hot-toast';
+import { formatAlertDate } from '../../../utils/dateUtils';
 
 const AlertList = ({ alerts, onEditAlert, onDeleteAlert, loading }) => {
   const { user } = useAuth();
@@ -110,7 +111,7 @@ const AlertList = ({ alerts, onEditAlert, onDeleteAlert, loading }) => {
                 </p>
                 {alert.createdAt && (
                   <p className="text-xs text-gray-500">
-                    Created: {new Date(alert.createdAt.seconds * 1000).toLocaleDateString()}
+                    Created: {formatAlertDate(alert.createdAt)}
                   </p>
                 )}
               </div>

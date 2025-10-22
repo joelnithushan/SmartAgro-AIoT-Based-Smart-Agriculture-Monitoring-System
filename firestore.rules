@@ -164,11 +164,11 @@ service cloud.firestore {
       match /fertilizers/{fertilizerId} {
         allow read: if isOwner(userId) || isAdmin();
         allow create: if isOwner(userId) && 
-                         isValidName(request.resource.data.fertilizerName) &&
-                         isFutureDate(request.resource.data.applicationDate);
+                         request.resource.data.fertilizerName is string &&
+                         request.resource.data.fertilizerName.size() > 0;
         allow update: if isOwner(userId) && 
-                         (!('fertilizerName' in request.resource.data) || isValidName(request.resource.data.fertilizerName)) &&
-                         (!('applicationDate' in request.resource.data) || isFutureDate(request.resource.data.applicationDate));
+                         (!('fertilizerName' in request.resource.data) || 
+                          (request.resource.data.fertilizerName is string && request.resource.data.fertilizerName.size() > 0));
         allow delete: if isOwner(userId) || isAdmin();
         
         match /occurrences/{occId} {
@@ -233,6 +233,15 @@ service cloud.firestore {
     // Triggered alerts collection (root level)
     match /triggeredAlerts/{alertId} {
       allow read, write: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // New triggered_alerts collection structure
+    match /triggered_alerts/{userId} {
+      allow read, write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      
+      match /alerts/{alertId} {
+        allow read, write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      }
     }
     
     // Fertilizers collection (root level)
