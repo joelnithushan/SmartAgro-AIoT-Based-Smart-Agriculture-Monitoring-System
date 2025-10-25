@@ -72,7 +72,7 @@ const Login = () => {
       {/* Agriculture Background Image with Overlay */}
       <div className="absolute inset-0 z-0">
         <img
-          src="https://images.unsplash.com/photo-1530836369250-ef72a3f5cda8?auto=format&fit=crop&w=1920&q=80"
+          src="/images/login-bg.jpg"
           alt="Smart Agriculture"
           className="w-full h-full object-cover blur-sm"
         />

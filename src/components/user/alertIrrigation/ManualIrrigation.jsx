@@ -290,7 +290,7 @@ const ManualIrrigation = () => {
           <h3 className="text-lg font-medium text-gray-900">Irrigation Schedules</h3>
           <button
             onClick={() => setShowScheduleModal(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-md"
           >
             + Add Schedule
           </button>
@@ -329,14 +329,14 @@ const ManualIrrigation = () => {
                   
                   <button
                     onClick={() => handleEditSchedule(schedule)}
-                    className="px-3 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors"
+                    className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors shadow-sm"
                   >
                     Edit
                   </button>
                   
                   <button
                     onClick={() => handleDeleteSchedule(schedule)}
-                    className="px-3 py-1 text-xs font-medium text-red-800 bg-red-100 rounded-md hover:bg-red-200 transition-colors"
+                    className="px-3 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors shadow-sm"
                   >
                     Delete
                   </button>
@@ -436,7 +436,7 @@ const ManualIrrigation = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
                   >
                     {loading ? (
                       <div className="flex items-center justify-center">
@@ -460,7 +460,7 @@ const ManualIrrigation = () => {
                       });
                     }}
                     disabled={loading}
-                    className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
                   >
                     Cancel
                   </button>

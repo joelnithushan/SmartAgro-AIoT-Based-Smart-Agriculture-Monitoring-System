@@ -28,6 +28,39 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
+// Generate custom token for ESP32 device
+router.post('/generate-device-token', verifyToken, async (req, res) => {
+  try {
+    const { uid } = req.user;
+    const { deviceId } = req.body;
+    
+    if (!deviceId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Device ID is required'
+      });
+    }
+
+    // Create custom token for the device
+    const customToken = await admin.auth().createCustomToken(uid, {
+      deviceId: deviceId,
+      role: 'device'
+    });
+    
+    res.json({
+      success: true,
+      token: customToken,
+      deviceId: deviceId
+    });
+  } catch (error) {
+    console.error('Error generating device token:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate device token'
+    });
+  }
+});
+
 // Get user profile
 router.get('/profile', verifyToken, async (req, res) => {
   try {

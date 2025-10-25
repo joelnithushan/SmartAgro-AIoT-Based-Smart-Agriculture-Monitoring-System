@@ -124,25 +124,33 @@ const ForgotPassword = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Agriculture Background Image with Overlay */}
+      {/* Modern Background with Images and Gradients */}
       <div className="absolute inset-0 z-0">
+        {/* Primary agriculture background image */}
         <img
-          src="https://images.unsplash.com/photo-1464226184884-fa280b87c399?auto=format&fit=crop&w=1920&q=80"
-          alt="Smart Agriculture"
-          className="w-full h-full object-cover blur-sm"
+          src="https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=1920&q=80"
+          alt="Green Agriculture Fields"
+          className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-[#E8F5E9]/20 via-[#F1F8E9]/15 to-[#E8F5E9]/20" />
+        {/* Secondary agriculture overlay image */}
+        <img
+          src="https://images.unsplash.com/photo-1574943320219-553eb213f72d?auto=format&fit=crop&w=1920&q=80"
+          alt="Smart Agriculture Technology"
+          className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-25"
+        />
+        {/* Agriculture-themed gradient overlays */}
+        <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 via-emerald-50/40 to-lime-50/50" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-green-100/30 via-emerald-100/20 to-lime-100/25" />
+        {/* Agriculture-themed decorative shapes */}
+        <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-br from-green-400/25 to-emerald-400/20 rounded-full blur-xl"></div>
+        <div className="absolute bottom-20 right-20 w-40 h-40 bg-gradient-to-tl from-lime-400/20 to-green-400/25 rounded-full blur-xl"></div>
+        <div className="absolute top-1/2 left-1/3 w-24 h-24 bg-gradient-to-br from-emerald-400/20 to-green-400/25 rounded-full blur-lg"></div>
       </div>
 
       {/* Forgot Password Container */}
       <div className="relative z-10 max-w-md w-full space-y-6">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-green-100/80 backdrop-blur-sm mb-6 shadow-lg">
-            <svg className="h-10 w-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-            </svg>
-          </div>
           
           <h1 className="text-4xl font-bold mb-2 text-[#2E7D32] tracking-wide drop-shadow-sm">
             SmartAgro
@@ -158,7 +166,7 @@ const ForgotPassword = () => {
         </div>
 
         {/* Glassy Forgot Password Card */}
-        <div className="bg-white/40 backdrop-blur-md rounded-2xl border border-white/50 shadow-2xl p-8">
+        <div className="bg-white/60 backdrop-blur-lg rounded-2xl border border-white/60 shadow-2xl p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="emailOrPhone" className="block text-sm font-semibold text-gray-800 mb-2">
@@ -232,7 +240,7 @@ const ForgotPassword = () => {
         
         {/* Help Text */}
         <div className="text-center">
-          <div className="bg-white/30 backdrop-blur-md border border-white/40 rounded-2xl p-6 shadow-lg">
+          <div className="bg-white/50 backdrop-blur-lg border border-white/60 rounded-2xl p-6 shadow-lg">
             <h4 className="font-semibold text-gray-800 mb-3 flex items-center justify-center space-x-2">
               <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

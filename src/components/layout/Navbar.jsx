@@ -100,7 +100,7 @@ const Navbar = () => {
                   </Link>
                   <Link
                     to="/register"
-                    className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
                   >
                     Register
                   </Link>
@@ -198,7 +198,7 @@ const Navbar = () => {
                   </Link>
                   <Link
                     to="/register"
-                    className="block px-3 py-2 rounded-md text-base font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 transition-colors duration-200 mt-2"
+                    className="block px-3 py-2 rounded-md text-base font-medium bg-green-600 text-white hover:bg-green-700 transition-colors duration-200 mt-2"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Register

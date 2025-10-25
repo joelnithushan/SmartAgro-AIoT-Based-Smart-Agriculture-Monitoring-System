@@ -54,7 +54,7 @@ export default function Home() {
           </p>
                   <Link
                     to="/login"
-            className="inline-block px-10 py-4 bg-[#4CAF50] text-white text-lg font-semibold rounded-full hover:bg-[#2E7D32] transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl transform hover:scale-105"
+            className="inline-block px-10 py-4 bg-[#2E7D32] text-white text-lg font-semibold rounded-full hover:bg-[#1B5E20] transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl transform hover:scale-105"
                   >
             Get Started
                   </Link>
@@ -143,7 +143,7 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 to="/register"
-                className="px-10 py-4 bg-[#4CAF50] text-white text-lg font-semibold rounded-full hover:bg-[#2E7D32] transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl transform hover:scale-105"
+                className="px-10 py-4 bg-[#2E7D32] text-white text-lg font-semibold rounded-full hover:bg-[#1B5E20] transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl transform hover:scale-105"
               >
                 Create Account
               </Link>

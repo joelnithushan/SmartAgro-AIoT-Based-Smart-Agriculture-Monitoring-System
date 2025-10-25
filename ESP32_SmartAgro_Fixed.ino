@@ -27,12 +27,12 @@ const char* WIFI_PASSWORD = "Thavam62";
 // Firebase Configuration
 const char* FIREBASE_HOST = "https://smartagro-solution-default-rtdb.asia-southeast1.firebasedatabase.app";
 const char* DEVICE_ID = "ESP32_001"; // Change this for each device
-const char* FIREBASE_AUTH_TOKEN = ""; // Add your Firebase auth token here
+const char* FIREBASE_AUTH_TOKEN = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJodHRwczovL2lkZW50aXR5dG9vbGtpdC5nb29nbGVhcGlzLmNvbS9nb29nbGUuaWRlbnRpdHkuaWRlbnRpdHl0b29sa2l0LnYxLklkZW50aXR5VG9vbGtpdCIsImlhdCI6MTc2MTI0NTA2OSwiZXhwIjoxNzYxMjQ4NjY5LCJpc3MiOiJmaXJlYmFzZS1hZG1pbnNkay1mYnN2Y0BzbWFydGFncm8tc29sdXRpb24uaWFtLmdzZXJ2aWNlYWNjb3VudC5jb20iLCJzdWIiOiJmaXJlYmFzZS1hZG1pbnNkay1mYnN2Y0BzbWFydGFncm8tc29sdXRpb24uaWFtLmdzZXJ2aWNlYWNjb3VudC5jb20iLCJ1aWQiOiJFU1AzMl8wMDEiLCJjbGFpbXMiOnsiZGV2aWNlSWQiOiJFU1AzMl8wMDEiLCJyb2xlIjoiZGV2aWNlIiwidHlwZSI6ImVzcDMyIn19.DO3fTfFIJBe0eLMYCiDklMH2sdidw4U1ppWXkfLyPbQjXaMg4ooQeRgdRaYT4CmJFYAxJqd2zz-0s81AFP3QPE5yReJoJVYomGBju0M13diiF3i97m8qlf2wiXo-0_X3bR1ZGjQayVyG-w0NqMD5LibU3quDS0vXkKF8gQ8KDL7YjvXKmGJSf0k04mcfj_wzto250xxrZ_rKxKoJAl1znC2S_7QadUO-Pyn5yU32dbvdbh3K2ZrBL28HRytCE6rZGUmdZKIU5lkBrIRkqQCxnXK7WWR5SV7TdOBr-bZg3XG8JJmyiumImoB1yKBr0yp1d-ppnZDG9Rxen5Zvtcn9Og";
 
 // Pin Definitions
 #define SOIL_MOISTURE_PIN 34
 #define DHT_PIN 4
-#define RELAY_PIN 14  // ACTIVE LOW: LOW = ON, HIGH = OFF
+#define RELAY_PIN 14  // ACTIVE LOW: LOW = ON, HIGH = OFF (with pull-up resistor)
 #define RAIN_SENSOR_PIN 32
 #define MQ135_PIN 35
 #define LDR_PIN 15
@@ -127,8 +127,11 @@ void setup() {
   pinMode(SOIL_MOISTURE_PIN, INPUT);
   pinMode(MQ135_PIN, INPUT);
 
-  // Initialize relay to OFF
-  digitalWrite(RELAY_PIN, HIGH);
+  // Initialize relay to OFF with internal pull-up for safety
+  pinMode(RELAY_PIN, INPUT_PULLUP);  // Enable internal pull-up resistor
+  delay(10);  // Brief delay to ensure pull-up is active
+  pinMode(RELAY_PIN, OUTPUT);  // Switch to output mode (pull-up remains active)
+  digitalWrite(RELAY_PIN, HIGH);  // Relay OFF initially (HIGH = OFF for active low relay)
 
   // Initialize sensors
   dht.begin();
@@ -357,11 +360,11 @@ void checkFirebaseCommands() {
 
 void controlRelay(String status) {
   if (status == "on") {
-    digitalWrite(RELAY_PIN, LOW);  // Active LOW
+    digitalWrite(RELAY_PIN, LOW);  // Active LOW relay - LOW = Pump ON
     controlData.relayStatus = "on";
     Serial.println("💧 Pump ON");
   } else {
-    digitalWrite(RELAY_PIN, HIGH);
+    digitalWrite(RELAY_PIN, HIGH);  // Active LOW relay - HIGH = Pump OFF
     controlData.relayStatus = "off";
     Serial.println("💧 Pump OFF");
   }
