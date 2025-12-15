@@ -1,7 +1,9 @@
 import sgMail from '@sendgrid/mail';
 
 // Initialize SendGrid with provided API key
-const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || 'REDACTED_SENDGRID_API_KEY';
+// NOTE: API key must be provided via environment variable (SENDGRID_API_KEY)
+// Never hard-code real SendGrid keys in source control.
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
 
 if (SENDGRID_API_KEY && SENDGRID_API_KEY !== 'placeholder') {
   try {
