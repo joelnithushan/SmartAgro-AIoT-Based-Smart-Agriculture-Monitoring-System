@@ -100,6 +100,10 @@ Thumbs.db
 firebase-debug.log
 firebase-debug.*.log
 
+# Firebase service account keys (do NOT commit real keys)
+backend/config/serviceAccountKey.json
+backend/config/serviceAccountKey.local.backup.json
+
 # Backup files
 backups/
 
