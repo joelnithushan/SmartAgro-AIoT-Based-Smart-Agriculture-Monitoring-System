@@ -36,7 +36,8 @@ export default function Home() {
             alt="Smart Farming"
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-black bg-opacity-40" />
+          {/* Slightly lighter overlay to increase brightness */}
+          <div className="absolute inset-0 bg-black bg-opacity-20" />
         </div>
 
         <motion.div
@@ -121,7 +122,8 @@ export default function Home() {
             alt="Agriculture Field"
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-black bg-opacity-50" />
+          {/* Lighter overlay here as well for a brighter CTA background */}
+          <div className="absolute inset-0 bg-black bg-opacity-30" />
       </div>
 
         <motion.div
