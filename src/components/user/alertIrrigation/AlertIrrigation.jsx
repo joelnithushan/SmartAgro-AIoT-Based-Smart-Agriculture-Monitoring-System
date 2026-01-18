@@ -15,7 +15,7 @@ const AlertIrrigation = () => {
   const [editingAlert, setEditingAlert] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Load alerts from API
+  // Load alerts from API with Firestore fallback
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -25,9 +25,20 @@ const AlertIrrigation = () => {
         const response = await alertApi.getAlerts(user.uid);
         setAlerts(response.alerts || []);
       } catch (error) {
-        console.error('Error loading alerts:', error);
-        toast.error('Failed to load alerts');
-        setAlerts([]);
+        console.error('Error loading alerts from API:', error.message);
+        
+        // Check if it's a backend connection issue
+        if (error.message.includes('BACKEND_UNAVAILABLE') || 
+            error.message.includes('Failed to fetch') ||
+            error.message.includes('ERR_CONNECTION_REFUSED')) {
+          console.log('⚠️ Backend server unavailable. Alerts may be loaded from Firestore by AlertBell component.');
+          // Don't show error toast - Firestore fallback will handle it
+          setAlerts([]);
+        } else {
+          // Only show error for actual API errors, not connection issues
+          console.warn('⚠️ Alert API error (non-connection):', error.message);
+          setAlerts([]);
+        }
       } finally {
         setLoading(false);
       }

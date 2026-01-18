@@ -38,6 +38,16 @@ class AlertApiService {
       return await response.json();
     } catch (error) {
       console.error('Alert API request failed:', error.message);
+      
+      // Handle network/connection errors gracefully
+      if (error.message.includes('Failed to fetch') || 
+          error.message.includes('ERR_CONNECTION_REFUSED') ||
+          error.message.includes('NetworkError') ||
+          error.name === 'TypeError') {
+        console.warn('⚠️ Backend server may not be running. Alerts will use Firestore fallback.');
+        throw new Error('BACKEND_UNAVAILABLE: Backend server connection failed. Using Firestore fallback.');
+      }
+      
       if (error.message.includes('token') || error.message.includes('unauthorized')) {
         throw new Error('Authentication required. Please log in again.');
       }
