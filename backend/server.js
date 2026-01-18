@@ -25,10 +25,32 @@ const initializeFirebase = async () => {
   
   if (!admin.apps.length) {
     try {
-      // Try to load service account key from file
+      // Try to load service account key from file (try main file first, then backup)
       const { createRequire } = await import('module');
       const require = createRequire(import.meta.url);
-      const serviceAccount = require('./config/serviceAccountKey.json');
+      const fs = await import('fs');
+      const path = await import('path');
+      
+      const mainKeyPath = './config/serviceAccountKey.json';
+      const backupKeyPath = './config/serviceAccountKey.local.backup.json';
+      
+      let serviceAccount = null;
+      let keyFilePath = mainKeyPath;
+      
+      // Try main file first
+      if (fs.existsSync(path.resolve(mainKeyPath))) {
+        serviceAccount = require(mainKeyPath);
+        console.log('📋 Loaded service account from main file');
+      } 
+      // Fallback to backup file if main doesn't exist
+      else if (fs.existsSync(path.resolve(backupKeyPath))) {
+        serviceAccount = require(backupKeyPath);
+        keyFilePath = backupKeyPath;
+        console.log('📋 Loaded service account from backup file');
+        console.log('💡 Tip: Copy serviceAccountKey.local.backup.json to serviceAccountKey.json for cleaner setup');
+      } else {
+        throw new Error(`Service account key file not found. Expected: ${mainKeyPath} or ${backupKeyPath}`);
+      }
       
       console.log('📋 Service account loaded:', {
         project_id: serviceAccount.project_id,
@@ -38,7 +60,7 @@ const initializeFirebase = async () => {
       
       if (serviceAccount.private_key && !serviceAccount.private_key.includes('MOCK')) {
         // Set the project ID environment variable
-        process.env.GOOGLE_APPLICATION_CREDENTIALS = './config/serviceAccountKey.json';
+        process.env.GOOGLE_APPLICATION_CREDENTIALS = keyFilePath;
         process.env.GCLOUD_PROJECT = serviceAccount.project_id;
         
         admin.initializeApp({
@@ -55,14 +77,34 @@ const initializeFirebase = async () => {
           const testDb = admin.firestore();
           console.log('✅ Firestore instance created successfully');
         } catch (firestoreError) {
-          console.log('⚠️  Firestore test failed:', firestoreError.message);
+          console.error('⚠️  Firestore test failed:', firestoreError.message);
+        }
+        
+        // Test Realtime Database connection
+        try {
+          const { getDatabase } = await import('firebase-admin/database');
+          const rtdb = getDatabase();
+          console.log('✅ Realtime Database instance created successfully');
+        } catch (rtdbError) {
+          console.error('⚠️  Realtime Database test failed:', rtdbError.message);
         }
       } else {
         console.log('⚠️  Firebase service account not configured - using demo mode');
       }
     } catch (error) {
-      console.log('⚠️  Firebase initialization failed:', error.message);
-      console.log('   Using demo mode for development');
+      console.error('⚠️  Firebase initialization failed:', error.message);
+      console.log('   Attempting to initialize without credentials (limited functionality)');
+      
+      // Initialize without credentials as fallback
+      try {
+        admin.initializeApp({
+          projectId: 'smartagro-solution',
+          databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://smartagro-solution-default-rtdb.asia-southeast1.firebasedatabase.app'
+        });
+        console.log('⚠️  Firebase initialized without credentials - some features may not work');
+      } catch (fallbackError) {
+        console.error('❌ Firebase fallback initialization also failed:', fallbackError.message);
+      }
     }
   } else {
     console.log('✅ Firebase Admin SDK already initialized');

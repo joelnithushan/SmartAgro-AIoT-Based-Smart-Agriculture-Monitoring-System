@@ -57,20 +57,37 @@ const firebaseConfig = {
 let app, auth, db, database, storage;
 
 try {
+  // Validate required Firebase config values
+  if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.databaseURL) {
+    throw new Error('Missing required Firebase configuration. Please check environment variables or fallback values.');
+  }
+  
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
   database = getDatabase(app);
   storage = getStorage(app);
   console.log('✅ Firebase initialized successfully');
+  console.log('📋 Project ID:', firebaseConfig.projectId);
+  console.log('🔗 Database URL:', firebaseConfig.databaseURL);
 } catch (error) {
-  console.error('❌ Firebase initialization failed:', error);
+  console.error('❌ Firebase initialization failed:', error.message);
+  console.error('🔍 Configuration check:', {
+    hasApiKey: !!firebaseConfig.apiKey,
+    hasProjectId: !!firebaseConfig.projectId,
+    hasDatabaseURL: !!firebaseConfig.databaseURL,
+    authDomain: firebaseConfig.authDomain
+  });
+  
   // Create mock objects for graceful degradation
   app = null;
   auth = null;
   db = null;
   database = null;
   storage = null;
+  
+  // Log helpful error message
+  console.error('⚠️  Firebase is required for device monitoring. Please check your configuration.');
 }
 
 export { 
