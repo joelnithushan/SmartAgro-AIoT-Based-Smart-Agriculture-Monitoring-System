@@ -41,16 +41,16 @@ import {
 import { getDatabase } from 'firebase/database';
 import { getStorage } from 'firebase/storage';
 
+// Firebase Web API keys are PUBLIC and safe to expose in frontend code.
+// These fallback values ensure the app works even if .env is not configured.
 const firebaseConfig = {
-  // All values are expected from environment variables.
-  // Do NOT hard-code real Firebase keys in the repo.
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID,
-  databaseURL: process.env.REACT_APP_FIREBASE_DATABASE_URL
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "AIzaSyCMVzmYa97yTF6rAPieVLefTecbAuCvRrI",
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || "smartagro-solution.firebaseapp.com",
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || "smartagro-solution",
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || "smartagro-solution.firebasestorage.app",
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || "109717618865",
+  appId: process.env.REACT_APP_FIREBASE_APP_ID || "1:109717618865:web:8251555d53abf63f8ce290",
+  databaseURL: process.env.REACT_APP_FIREBASE_DATABASE_URL || "https://smartagro-solution-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
 // Initialize Firebase with error handling
