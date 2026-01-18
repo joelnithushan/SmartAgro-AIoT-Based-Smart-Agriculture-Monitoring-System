@@ -37,6 +37,13 @@ export const useRealtimeSensorData = (deviceId) => {
       return;
     }
 
+    if (!database) {
+      console.error('❌ Firebase Realtime Database not initialized. Cannot fetch sensor data.');
+      setError('Firebase database connection not available. Please check your configuration.');
+      setLoading(false);
+      return;
+    }
+
     console.log('📡 Setting up real-time sensor data for device:', deviceId);
 
     const latestRef = ref(database, `devices/${deviceId}/sensors/latest`);

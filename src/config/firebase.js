@@ -57,14 +57,26 @@ const firebaseConfig = {
 let app, auth, db, database, storage;
 
 try {
+  // Validate required Firebase config values
+  if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+    throw new Error('Missing required Firebase configuration. Please check environment variables or fallback values.');
+  }
+  
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
   database = getDatabase(app);
   storage = getStorage(app);
   console.log('✅ Firebase initialized successfully');
+  console.log('📋 Project ID:', firebaseConfig.projectId);
 } catch (error) {
-  console.error('❌ Firebase initialization failed:', error);
+  console.error('❌ Firebase initialization failed:', error.message);
+  console.error('🔍 Configuration check:', {
+    hasApiKey: !!firebaseConfig.apiKey,
+    hasProjectId: !!firebaseConfig.projectId,
+    authDomain: firebaseConfig.authDomain
+  });
+  console.log('⚠️  Using mock configuration - Firebase features will be limited');
   // Create mock objects for graceful degradation
   app = null;
   auth = null;
