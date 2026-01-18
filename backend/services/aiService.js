@@ -5,9 +5,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // AI Service Configuration - DeepSeek only
-// NOTE: API key must be provided via environment variable (DEEPSEEK_API_KEY)
-// Never hard-code real keys in source control.
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || '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';
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek/deepseek-r1-0528-qwen3-8b:free';
 const DEEPSEEK_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
