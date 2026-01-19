@@ -25,7 +25,19 @@ const verifyUser = async (req, res, next) => {
 router.get('/:userId', verifyUser, async (req, res) => {
   try {
     const { userId } = req.params;
+    
+    // Check if Firebase Admin is initialized
+    if (!admin.apps.length) {
+      console.error('❌ Firebase Admin not initialized in alerts route');
+      return res.status(500).json({ error: 'Firebase Admin not initialized' });
+    }
+    
     const db = admin.firestore();
+    
+    if (!db) {
+      console.error('❌ Firestore not available in alerts route');
+      return res.status(500).json({ error: 'Firestore not available' });
+    }
 
     // Verify user can access these alerts
     if (req.user.uid !== userId) {
@@ -47,8 +59,12 @@ router.get('/:userId', verifyUser, async (req, res) => {
     res.json({ alerts });
 
   } catch (error) {
-    console.error('Error getting alerts:', error);
-    res.status(500).json({ error: 'Failed to get alerts' });
+    console.error('❌ Error getting alerts:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to get alerts',
+      details: error.message 
+    });
   }
 });
 
@@ -57,7 +73,19 @@ router.post('/:userId', verifyUser, async (req, res) => {
   try {
     const { userId } = req.params;
     const { type, value, parameter, threshold, comparison, critical, active } = req.body;
+    
+    // Check if Firebase Admin is initialized
+    if (!admin.apps.length) {
+      console.error('❌ Firebase Admin not initialized in alerts POST route');
+      return res.status(500).json({ error: 'Firebase Admin not initialized' });
+    }
+    
     const db = admin.firestore();
+    
+    if (!db) {
+      console.error('❌ Firestore not available in alerts POST route');
+      return res.status(500).json({ error: 'Firestore not available' });
+    }
 
     // Verify user can create alerts
     if (req.user.uid !== userId) {
@@ -111,8 +139,12 @@ router.post('/:userId', verifyUser, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error creating alert:', error);
-    res.status(500).json({ error: 'Failed to create alert' });
+    console.error('❌ Error creating alert:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to create alert',
+      details: error.message 
+    });
   }
 });
 
@@ -121,7 +153,19 @@ router.put('/:userId/:alertId', verifyUser, async (req, res) => {
   try {
     const { userId, alertId } = req.params;
     const { type, value, parameter, threshold, comparison, critical, active } = req.body;
+    
+    // Check if Firebase Admin is initialized
+    if (!admin.apps.length) {
+      console.error('❌ Firebase Admin not initialized in alerts PUT route');
+      return res.status(500).json({ error: 'Firebase Admin not initialized' });
+    }
+    
     const db = admin.firestore();
+    
+    if (!db) {
+      console.error('❌ Firestore not available in alerts PUT route');
+      return res.status(500).json({ error: 'Firestore not available' });
+    }
 
     // Verify user can update this alert
     if (req.user.uid !== userId) {
@@ -182,7 +226,19 @@ router.put('/:userId/:alertId', verifyUser, async (req, res) => {
 router.delete('/:userId/:alertId', verifyUser, async (req, res) => {
   try {
     const { userId, alertId } = req.params;
+    
+    // Check if Firebase Admin is initialized
+    if (!admin.apps.length) {
+      console.error('❌ Firebase Admin not initialized in alerts DELETE route');
+      return res.status(500).json({ error: 'Firebase Admin not initialized' });
+    }
+    
     const db = admin.firestore();
+    
+    if (!db) {
+      console.error('❌ Firestore not available in alerts DELETE route');
+      return res.status(500).json({ error: 'Firestore not available' });
+    }
 
     // Verify user can delete this alert
     if (req.user.uid !== userId) {
@@ -198,8 +254,12 @@ router.delete('/:userId/:alertId', verifyUser, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error deleting alert:', error);
-    res.status(500).json({ error: 'Failed to delete alert' });
+    console.error('❌ Error deleting alert:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to delete alert',
+      details: error.message 
+    });
   }
 });
 
@@ -269,9 +329,21 @@ router.post('/:userId/:alertId/test', verifyUser, async (req, res) => {
   console.log('🧪 User authenticated:', req.user);
   try {
     const { userId, alertId } = req.params;
+    
+    // Check if Firebase Admin is initialized
+    if (!admin.apps.length) {
+      console.error('❌ Firebase Admin not initialized in alerts TEST route');
+      return res.status(500).json({ error: 'Firebase Admin not initialized' });
+    }
+    
     console.log('🧪 Getting Firestore instance...');
     const db = admin.firestore();
     console.log('🧪 Firestore instance obtained:', !!db);
+    
+    if (!db) {
+      console.error('❌ Firestore not available in alerts TEST route');
+      return res.status(500).json({ error: 'Firestore not available' });
+    }
 
     // Verify user can test this alert
     if (req.user.uid !== userId) {

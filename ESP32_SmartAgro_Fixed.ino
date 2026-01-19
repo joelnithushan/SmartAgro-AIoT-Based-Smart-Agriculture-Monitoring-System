@@ -20,14 +20,14 @@
 // CONFIGURATION
 // ============================================================================
 
-// WiFi Configuration
-const char* WIFI_SSID = "THAVANAYAGAM";
-const char* WIFI_PASSWORD = "Thavam62";
+// WiFi Configuration - CHANGE THESE TO YOUR NETWORK
+const char* WIFI_SSID = "YOUR_WIFI_SSID";
+const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
 // Firebase Configuration
 const char* FIREBASE_HOST = "https://smartagro-solution-default-rtdb.asia-southeast1.firebasedatabase.app";
 const char* DEVICE_ID = "ESP32_001"; // Change this for each device
-const char* FIREBASE_AUTH_TOKEN = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJodHRwczovL2lkZW50aXR5dG9vbGtpdC5nb29nbGVhcGlzLmNvbS9nb29nbGUuaWRlbnRpdHkuaWRlbnRpdHl0b29sa2l0LnYxLklkZW50aXR5VG9vbGtpdCIsImlhdCI6MTc2MTI0NTA2OSwiZXhwIjoxNzYxMjQ4NjY5LCJpc3MiOiJmaXJlYmFzZS1hZG1pbnNkay1mYnN2Y0BzbWFydGFncm8tc29sdXRpb24uaWFtLmdzZXJ2aWNlYWNjb3VudC5jb20iLCJzdWIiOiJmaXJlYmFzZS1hZG1pbnNkay1mYnN2Y0BzbWFydGFncm8tc29sdXRpb24uaWFtLmdzZXJ2aWNlYWNjb3VudC5jb20iLCJ1aWQiOiJFU1AzMl8wMDEiLCJjbGFpbXMiOnsiZGV2aWNlSWQiOiJFU1AzMl8wMDEiLCJyb2xlIjoiZGV2aWNlIiwidHlwZSI6ImVzcDMyIn19.DO3fTfFIJBe0eLMYCiDklMH2sdidw4U1ppWXkfLyPbQjXaMg4ooQeRgdRaYT4CmJFYAxJqd2zz-0s81AFP3QPE5yReJoJVYomGBju0M13diiF3i97m8qlf2wiXo-0_X3bR1ZGjQayVyG-w0NqMD5LibU3quDS0vXkKF8gQ8KDL7YjvXKmGJSf0k04mcfj_wzto250xxrZ_rKxKoJAl1znC2S_7QadUO-Pyn5yU32dbvdbh3K2ZrBL28HRytCE6rZGUmdZKIU5lkBrIRkqQCxnXK7WWR5SV7TdOBr-bZg3XG8JJmyiumImoB1yKBr0yp1d-ppnZDG9Rxen5Zvtcn9Og";
+const char* FIREBASE_AUTH_TOKEN = ""; // Not needed - using Firebase rules with .write: true
 
 // Pin Definitions
 #define SOIL_MOISTURE_PIN 34
@@ -329,10 +329,8 @@ void checkFirebaseCommands() {
   http.begin(url);
   http.setTimeout(FIREBASE_TIMEOUT);
   
-  // Add Firebase authentication header if token is provided
-  if (strlen(FIREBASE_AUTH_TOKEN) > 0) {
-    http.addHeader("Authorization", "Bearer " + String(FIREBASE_AUTH_TOKEN));
-  }
+  // Auth disabled - using Firebase rules with .write: true
+  // (Expired token was causing 401 errors)
   
   int httpCode = http.GET();
   
@@ -378,10 +376,8 @@ void updateFirebaseControlStatus(String status) {
   
   http.begin(url);
   
-  // Add Firebase authentication header if token is provided
-  if (strlen(FIREBASE_AUTH_TOKEN) > 0) {
-    http.addHeader("Authorization", "Bearer " + String(FIREBASE_AUTH_TOKEN));
-  }
+  // Auth disabled - using Firebase rules with .write: true
+  // (Expired token was causing 401 errors)
   http.addHeader("Content-Type", "application/json");
   
   String payload = "\"" + status + "\"";
@@ -402,10 +398,8 @@ void sendSensorData() {
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
   
-  // Add Firebase authentication header if token is provided
-  if (strlen(FIREBASE_AUTH_TOKEN) > 0) {
-    http.addHeader("Authorization", "Bearer " + String(FIREBASE_AUTH_TOKEN));
-  }
+  // Auth disabled - using Firebase rules with .write: true
+  // (Expired token was causing 401 errors)
   
   http.setTimeout(FIREBASE_TIMEOUT);
 
@@ -456,10 +450,8 @@ void updateMetadata() {
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
   
-  // Add Firebase authentication header if token is provided
-  if (strlen(FIREBASE_AUTH_TOKEN) > 0) {
-    http.addHeader("Authorization", "Bearer " + String(FIREBASE_AUTH_TOKEN));
-  }
+  // Auth disabled - using Firebase rules with .write: true
+  // (Expired token was causing 401 errors)
   
   String payload = String(millis());
   int response = http.PUT(payload);

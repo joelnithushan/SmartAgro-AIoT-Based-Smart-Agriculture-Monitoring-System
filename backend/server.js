@@ -758,10 +758,10 @@ app.post('/test-raw-conversion', async (req, res) => {
 });
 
 // Set up Firebase Realtime Database listener for automatic alert processing
-const setupAlertListener = () => {
+const setupAlertListener = async () => {
   try {
-    const { getDatabase } = require('firebase-admin/database');
-    const realtimeDb = getDatabase();
+    const { getDatabase } = await import('firebase-admin/database');
+    const realtimeDb = getDatabase(admin.app());
     
     console.log('🔔 Setting up Firebase Realtime Database listener for alerts...');
     
@@ -821,7 +821,7 @@ const setupAlertListener = () => {
 
 // Initialize alert listener after Firebase is ready
 if (admin.apps.length > 0) {
-  setupAlertListener();
+  setupAlertListener().catch(err => console.error('Error setting up alert listener:', err));
 } else {
   console.log('⚠️ Firebase not ready, will setup listener later');
 }

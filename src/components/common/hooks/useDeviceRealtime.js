@@ -334,12 +334,23 @@ export const useDeviceRealtime = (deviceId) => {
       
       console.log(`📦 Relay control payload:`, controlPayload);
       
-      // Write to instant relay control path for immediate response
-      const relayStatusRef = ref(database, `devices/${deviceId}/control/relay/status`);
-      console.log(`📡 Writing to: devices/${deviceId}/control/relay/status`);
+      // Write to relay command path that ESP32 is monitoring (plural "controls")
+      // ESP32 reads from: devices/${DEVICE_ID}/controls/relayCommand
+      const relayCommandRef = ref(database, `devices/${deviceId}/controls/relayCommand`);
+      console.log(`📡 Writing to: devices/${deviceId}/controls/relayCommand`);
       
-      await update(relayStatusRef, controlPayload);
-      console.log(`✅ INSTANT: Relay control command sent successfully`);
+      // ESP32 expects simple string "on" or "off", not object
+      await update(relayCommandRef, status);
+      console.log(`✅ INSTANT: Relay control command sent to ESP32 (${status})`);
+      
+      // Also update the structured control path for consistency
+      try {
+        const relayStatusRef = ref(database, `devices/${deviceId}/control/relay/status`);
+        await update(relayStatusRef, controlPayload);
+        console.log(`✅ Also updated structured control path for UI consistency`);
+      } catch (relayError) {
+        console.warn('⚠️ Failed to update structured control path, but ESP32 command sent:', relayError);
+      }
       
       // Update local state immediately for instant UI feedback
       setRelayStatus(status);

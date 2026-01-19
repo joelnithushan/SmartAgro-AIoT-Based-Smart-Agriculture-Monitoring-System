@@ -104,6 +104,10 @@ firebase-debug.*.log
 backend/config/serviceAccountKey.json
 backend/config/serviceAccountKey.local.backup.json
 
+# Temporary files
+FIREBASE_FIX.txt
+backend/database.rules.json
+
 # Backup files
 backups/
 

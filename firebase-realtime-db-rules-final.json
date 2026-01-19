@@ -3,11 +3,11 @@
     "devices": {
       "$deviceId": {
         ".read": "auth != null",
-        ".write": "auth != null",
+        ".write": true,
         
         "sensors": {
           ".read": "auth != null",
-          ".write": "auth != null",
+          ".write": true,
           
           "latest": {
             ".read": "auth != null",
@@ -88,80 +88,80 @@
           
           "history": {
             ".read": "auth != null",
-            ".write": "auth != null",
+            ".write": true,
             
             "$timestamp": {
               ".read": "auth != null",
-              ".write": "auth != null",
+              ".write": true,
               
               "soilMoistureRaw": {
                 ".read": "auth != null",
-                ".write": "auth != null",
+                ".write": true,
                 ".validate": "newData.isNumber() && newData.val() >= 0"
               },
               "soilMoisturePct": {
                 ".read": "auth != null",
-                ".write": "auth != null",
+                ".write": true,
                 ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
               },
               "airTemperature": {
                 ".read": "auth != null",
-                ".write": "auth != null",
+                ".write": true,
                 ".validate": "newData.isNumber() && newData.val() >= -50 && newData.val() <= 100"
               },
               "airHumidity": {
                 ".read": "auth != null",
-                ".write": "auth != null",
+                ".write": true,
                 ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
               },
               "soilTemperature": {
                 ".read": "auth != null",
-                ".write": "auth != null",
+                ".write": true,
                 ".validate": "newData.isNumber() && newData.val() >= -50 && newData.val() <= 100"
               },
               "airQualityIndex": {
                 ".read": "auth != null",
-                ".write": "auth != null",
+                ".write": true,
                 ".validate": "newData.isNumber() && newData.val() >= 0"
               },
               "gases": {
                 ".read": "auth != null",
-                ".write": "auth != null",
+                ".write": true,
                 
                 "co2": {
                   ".read": "auth != null",
-                  ".write": "auth != null",
+                  ".write": true,
                   ".validate": "newData.isNumber() && newData.val() >= 0"
                 },
                 "nh3": {
                   ".read": "auth != null",
-                  ".write": "auth != null",
+                  ".write": true,
                   ".validate": "newData.isNumber() && newData.val() >= 0"
                 }
               },
               "lightDetected": {
                 ".read": "auth != null",
-                ".write": "auth != null",
+                ".write": true,
                 ".validate": "newData.isNumber() && (newData.val() == 0 || newData.val() == 1)"
               },
               "rainLevelRaw": {
                 ".read": "auth != null",
-                ".write": "auth != null",
+                ".write": true,
                 ".validate": "newData.isNumber() && newData.val() >= 0"
               },
               "rainStatus": {
                 ".read": "auth != null",
-                ".write": "auth != null",
+                ".write": true,
                 ".validate": "newData.isString()"
               },
               "relayStatus": {
                 ".read": "auth != null",
-                ".write": "auth != null",
+                ".write": true,
                 ".validate": "newData.isString() && (newData.val() == 'on' || newData.val() == 'off')"
               },
               "timestamp": {
                 ".read": "auth != null",
-                ".write": "auth != null",
+                ".write": true,
                 ".validate": "newData.isNumber() && newData.val() > 0"
               }
             }
@@ -170,11 +170,11 @@
         
         "controls": {
           ".read": "auth != null",
-          ".write": "auth != null",
+          ".write": true,
           
           "relayCommand": {
             ".read": "auth != null",
-            ".write": "auth != null",
+            ".write": true,
             ".validate": "newData.isString() && (newData.val() == 'on' || newData.val() == 'off')"
           },
           
@@ -270,7 +270,7 @@
         
         "meta": {
           ".read": "auth != null",
-          ".write": "auth != null",
+          ".write": true,
           
           "lastSeen": {
             ".read": "auth != null",
@@ -286,7 +286,7 @@
           
           "status": {
             ".read": "auth != null",
-            ".write": "auth != null",
+            ".write": true,
             ".validate": "newData.isString() && (newData.val() == 'online' || newData.val() == 'offline' || newData.val() == 'maintenance')"
           },
           
@@ -304,13 +304,13 @@
           
           "firmwareVersion": {
             ".read": "auth != null",
-            ".write": "auth != null",
+            ".write": true,
             ".validate": "newData.isString()"
           },
           
           "deviceType": {
             ".read": "auth != null",
-            ".write": "auth != null",
+            ".write": true,
             ".validate": "newData.isString()"
           },
           
@@ -690,8 +690,3 @@
     }
   }
 }
-
-
-
-
-

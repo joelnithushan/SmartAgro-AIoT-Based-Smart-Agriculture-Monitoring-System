@@ -156,8 +156,26 @@ router.get('/settings', verifyToken, async (req, res) => {
   try {
     const { uid } = req.user;
     
+    // Check if Firebase Admin is initialized
+    if (!admin.apps.length) {
+      console.error('❌ Firebase Admin not initialized in users/settings route');
+      return res.status(500).json({ 
+        success: false,
+        error: 'Firebase Admin not initialized' 
+      });
+    }
+    
+    const db = admin.firestore();
+    if (!db) {
+      console.error('❌ Firestore not available in users/settings route');
+      return res.status(500).json({ 
+        success: false,
+        error: 'Firestore not available' 
+      });
+    }
+    
     // Get settings from Firestore
-    const settingsRef = admin.firestore().collection('users').doc(uid).collection('settings').doc('preferences');
+    const settingsRef = db.collection('users').doc(uid).collection('settings').doc('preferences');
     const settingsDoc = await settingsRef.get();
     
     if (settingsDoc.exists) {
@@ -176,10 +194,12 @@ router.get('/settings', verifyToken, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Settings get error:', error);
+    console.error('❌ Settings get error:', error.message);
+    console.error('❌ Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      error: 'Failed to get settings'
+      error: 'Failed to get settings',
+      details: error.message
     });
   }
 });

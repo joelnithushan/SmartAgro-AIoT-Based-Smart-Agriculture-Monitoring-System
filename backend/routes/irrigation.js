@@ -34,7 +34,19 @@ const verifyUser = async (req, res, next) => {
 router.get('/status/:userId', verifyUser, async (req, res) => {
   try {
     const { userId } = req.params;
+    
+    // Check if Firebase Admin is initialized
+    if (!admin.apps.length) {
+      console.error('❌ Firebase Admin not initialized');
+      return res.status(500).json({ error: 'Firebase Admin not initialized' });
+    }
+    
     const db = admin.firestore();
+    
+    if (!db) {
+      console.error('❌ Firestore not available');
+      return res.status(500).json({ error: 'Firestore not available' });
+    }
 
     // Get user's irrigation settings
     const irrigationDoc = await db.collection('users').doc(userId).collection('irrigation').doc('settings').get();
@@ -76,8 +88,16 @@ router.get('/status/:userId', verifyUser, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error getting irrigation status:', error);
-    res.status(500).json({ error: 'Failed to get irrigation status' });
+    console.error('❌ Error getting irrigation status:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      error: 'Failed to get irrigation status',
+      details: error.message 
+    });
   }
 });
 

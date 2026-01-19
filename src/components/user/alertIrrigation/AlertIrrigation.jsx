@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import { db } from '../../../config/firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import alertApi from '../../../services/api/alertApi';
 import AlertForm from './AlertForm';
 import AlertList from './AlertList';
@@ -17,35 +19,55 @@ const AlertIrrigation = () => {
 
   // Load alerts from API with Firestore fallback
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid || !db) return;
+
+    let unsubscribe = null;
 
     const loadAlerts = async () => {
       try {
         setLoading(true);
         const response = await alertApi.getAlerts(user.uid);
         setAlerts(response.alerts || []);
+        setLoading(false);
       } catch (error) {
         console.error('Error loading alerts from API:', error.message);
         
-        // Check if it's a backend connection issue
-        if (error.message.includes('BACKEND_UNAVAILABLE') || 
-            error.message.includes('Failed to fetch') ||
-            error.message.includes('ERR_CONNECTION_REFUSED')) {
-          console.log('⚠️ Backend server unavailable. Alerts may be loaded from Firestore by AlertBell component.');
-          // Don't show error toast - Firestore fallback will handle it
+        // Fallback to Firestore direct access if API fails
+        console.log('⚠️ API failed, falling back to Firestore direct access...');
+        try {
+          const alertsRef = collection(db, 'users', user.uid, 'alerts');
+          const q = query(alertsRef, orderBy('createdAt', 'desc'));
+          
+          unsubscribe = onSnapshot(q, (snapshot) => {
+            const alertsData = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }));
+            console.log('✅ Loaded alerts from Firestore:', alertsData.length);
+            setAlerts(alertsData);
+            setLoading(false);
+          }, (firestoreError) => {
+            console.error('❌ Firestore fallback also failed:', firestoreError);
+            setAlerts([]);
+            setLoading(false);
+          });
+        } catch (firestoreError) {
+          console.error('❌ Firestore fallback error:', firestoreError);
           setAlerts([]);
-        } else {
-          // Only show error for actual API errors, not connection issues
-          console.warn('⚠️ Alert API error (non-connection):', error.message);
-          setAlerts([]);
+          setLoading(false);
         }
-      } finally {
-        setLoading(false);
       }
     };
 
     loadAlerts();
-  }, [user?.uid]);
+
+    // Cleanup function
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [user?.uid, db]);
 
   const handleEditAlert = (alert) => {
     setEditingAlert(alert);

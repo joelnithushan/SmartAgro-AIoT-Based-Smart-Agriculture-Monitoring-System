@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import { db } from '../../../config/firebase';
+import { collection, doc, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import alertApi from '../../../services/api/alertApi';
 import toast from 'react-hot-toast';
 import { formatAlertDate } from '../../../utils/dateUtils';
@@ -21,20 +23,95 @@ const AlertList = ({ alerts, onEditAlert, onDeleteAlert, loading }) => {
         onDeleteAlert(alertId);
       }
     } catch (error) {
-      console.error('Error deleting alert:', error);
-      toast.error(error.message || 'Failed to delete alert');
+      console.error('Error deleting alert via API:', error);
+      
+      // Fallback to Firestore direct delete
+      try {
+        console.log('⚠️ API delete failed, falling back to Firestore direct delete...');
+        const alertRef = doc(db, 'users', user.uid, 'alerts', alertId);
+        await deleteDoc(alertRef);
+        toast.success('Alert deleted successfully (Firestore)');
+        if (onDeleteAlert) {
+          onDeleteAlert(alertId);
+        }
+      } catch (firestoreError) {
+        console.error('❌ Firestore delete also failed:', firestoreError);
+        toast.error('Failed to delete alert. Please check your connection.');
+      }
     } finally {
       setDeletingId(null);
     }
   };
 
   const handleTestAlert = async (alertId) => {
+    const alert = alerts.find(a => a.id === alertId);
+    if (!alert) {
+      toast.error('Alert not found');
+      return;
+    }
+
     try {
+      // Try backend API first
       await alertApi.testAlert(user.uid, alertId);
       toast.success('Test alert sent successfully');
     } catch (error) {
-      console.error('Error sending test alert:', error);
-      toast.error(error.message || 'Failed to send test alert');
+      console.error('Error sending test alert via API:', error);
+      
+      // Fallback: Create triggered alert directly in Firestore
+      try {
+        console.log('⚠️ API failed, creating test alert directly in Firestore...');
+        
+        // Calculate test value based on alert comparison
+        let testValue;
+        if (alert.comparison === '<' || alert.comparison === '<=') {
+          testValue = alert.threshold - 5; // Below threshold for < or <=
+        } else {
+          testValue = alert.threshold + 5; // Above threshold for > or >=
+        }
+        
+        // Ensure test value is reasonable (not negative)
+        if (testValue < 0) testValue = 0;
+        if (testValue > 100 && ['soilMoisturePct', 'airHumidity'].includes(alert.parameter)) {
+          testValue = 100;
+        }
+        
+        // Ensure user document exists in triggered_alerts
+        const userDocRef = doc(db, 'triggered_alerts', user.uid);
+        await setDoc(userDocRef, {
+          userId: user.uid,
+          lastUpdated: serverTimestamp()
+        }, { merge: true });
+        
+        // Create the triggered alert in alerts subcollection
+        const alertsRef = collection(db, 'triggered_alerts', user.uid, 'alerts');
+        const triggeredAlertData = {
+          alertId: alert.id,
+          sourceAlertId: alert.id,
+          parameter: alert.parameter,
+          threshold: alert.threshold,
+          comparison: alert.comparison,
+          actualValue: testValue,
+          triggeredBy: 'test',
+          sendStatus: { 
+            sms: alert.type === 'sms' ? 'pending' : 'not_applicable',
+            email: alert.type === 'email' ? 'pending' : 'not_applicable'
+          },
+          seen: false,
+          createdAt: serverTimestamp(),
+          deviceId: 'ESP32_001', // Default device
+          alertType: alert.type,
+          contactValue: alert.value,
+          critical: alert.critical || false
+        };
+        
+        await addDoc(alertsRef, triggeredAlertData);
+        
+        console.log('✅ Test alert created in Firestore:', triggeredAlertData);
+        toast.success(`Test alert created! Check the "Triggered Alerts" section below.`);
+      } catch (firestoreError) {
+        console.error('❌ Firestore test alert creation failed:', firestoreError);
+        toast.error('Failed to create test alert. Please check your connection and permissions.');
+      }
     }
   };
 

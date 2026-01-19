@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import { db } from '../../../config/firebase';
+import { collection, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import alertApi from '../../../services/api/alertApi';
 import toast from 'react-hot-toast';
 
@@ -69,12 +71,47 @@ const AlertForm = ({ showForm, setShowForm, editingAlert, setEditingAlert, onAle
 
       if (editingAlert) {
         // Update existing alert
-        await alertApi.updateAlert(user.uid, editingAlert.id, alertData);
-        toast.success('Alert updated successfully');
+        try {
+          await alertApi.updateAlert(user.uid, editingAlert.id, alertData);
+          toast.success('Alert updated successfully');
+        } catch (apiError) {
+          console.error('Error updating alert via API:', apiError);
+          // Fallback to Firestore direct update
+          try {
+            console.log('⚠️ API update failed, falling back to Firestore direct update...');
+            const alertRef = doc(db, 'users', user.uid, 'alerts', editingAlert.id);
+            await updateDoc(alertRef, {
+              ...alertData,
+              updatedAt: serverTimestamp()
+            });
+            toast.success('Alert updated successfully (Firestore)');
+          } catch (firestoreError) {
+            console.error('❌ Firestore update also failed:', firestoreError);
+            throw new Error('Failed to update alert. Please check your connection.');
+          }
+        }
       } else {
         // Create new alert
-        await alertApi.createAlert(user.uid, alertData);
-        toast.success('Alert created successfully');
+        try {
+          await alertApi.createAlert(user.uid, alertData);
+          toast.success('Alert created successfully');
+        } catch (apiError) {
+          console.error('Error creating alert via API:', apiError);
+          // Fallback to Firestore direct create (requires Firestore rules to allow)
+          try {
+            console.log('⚠️ API create failed, falling back to Firestore direct create...');
+            const alertsRef = collection(db, 'users', user.uid, 'alerts');
+            await addDoc(alertsRef, {
+              ...alertData,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+            toast.success('Alert created successfully (Firestore)');
+          } catch (firestoreError) {
+            console.error('❌ Firestore create also failed:', firestoreError);
+            throw new Error('Failed to create alert. Please check your connection and permissions.');
+          }
+        }
       }
 
       setShowForm(false);

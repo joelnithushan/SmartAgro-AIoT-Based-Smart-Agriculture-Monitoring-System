@@ -371,10 +371,11 @@ export const useIrrigationControl = (deviceId) => {
     try {
       console.log(`🔄 Attempting to control pump: ${status} for device: ${deviceId}`);
       
-      // First, try to write to the instant relay control path for immediate response
-      const relayStatusRef = ref(database, `devices/${deviceId}/control/relay/status`);
-      await update(relayStatusRef, { value: status });
-      console.log(`✅ Instant relay status updated: ${status}`);
+      // First, write to the path ESP32 is monitoring (plural "controls")
+      // ESP32 reads from: devices/${DEVICE_ID}/controls/relayCommand
+      const relayCommandRef = ref(database, `devices/${deviceId}/controls/relayCommand`);
+      await update(relayCommandRef, status); // ESP32 expects simple string "on" or "off"
+      console.log(`✅ Relay command sent to ESP32: ${status}`);
       
       // Then update the main relay control for consistency (with error handling)
       try {

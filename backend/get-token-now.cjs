@@ -1,6 +1,23 @@
 // Quick token generator for ESP32
 const admin = require('firebase-admin');
-const serviceAccount = require('./config/serviceAccountKey.json');
+const fs = require('fs');
+const path = require('path');
+
+// Try to load service account key with fallback
+let serviceAccount;
+const keyPath = path.join(__dirname, 'config', 'serviceAccountKey.json');
+const backupKeyPath = path.join(__dirname, 'config', 'serviceAccountKey.local.backup.json');
+
+if (fs.existsSync(keyPath)) {
+  serviceAccount = require('./config/serviceAccountKey.json');
+  console.log('✅ Using serviceAccountKey.json');
+} else if (fs.existsSync(backupKeyPath)) {
+  serviceAccount = require('./config/serviceAccountKey.local.backup.json');
+  console.log('✅ Using serviceAccountKey.local.backup.json');
+} else {
+  console.error('❌ No service account key found!');
+  process.exit(1);
+}
 
 // Initialize Firebase Admin
 admin.initializeApp({

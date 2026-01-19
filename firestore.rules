@@ -186,8 +186,15 @@ service cloud.firestore {
         allow read, write: if isOwner(userId) || isAdmin();
       }
       
+      // FIXED: Added explicit schedules subcollection rule for irrigation
       match /irrigation/{docId} {
         allow read, write: if isOwner(userId) || isAdmin();
+        
+        // CRITICAL FIX: Added schedules subcollection access
+        // This was missing and causing permission errors when accessing irrigation/settings/schedules
+        match /schedules/{scheduleId} {
+          allow read, write: if isOwner(userId) || isAdmin();
+        }
       }
     }
     

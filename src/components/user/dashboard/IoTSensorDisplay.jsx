@@ -92,23 +92,29 @@ const IoTSensorDisplay = ({ deviceId }) => {
 
   const toggleIrrigation = async (action) => {
     try {
-      const irrigationRef = ref(database, `devices/${deviceId}/irrigation`);
-      const pumpRef = ref(database, `devices/${deviceId}/sensors/latest`);
-      
       if (action === 'pump') {
         const newPumpStatus = irrigationStatus.pumpStatus === 'on' ? 'off' : 'on';
         
-        // Update irrigation status
+        // First, write to the path ESP32 is monitoring (plural "controls")
+        // ESP32 reads from: devices/${DEVICE_ID}/controls/relayCommand
+        const relayCommandRef = ref(database, `devices/${deviceId}/controls/relayCommand`);
+        await update(relayCommandRef, newPumpStatus); // ESP32 expects simple string "on" or "off"
+        console.log(`✅ Relay command sent to ESP32: ${newPumpStatus}`);
+        
+        // Also update other paths for UI consistency
+        const irrigationRef = ref(database, `devices/${deviceId}/irrigation`);
+        const pumpRef = ref(database, `devices/${deviceId}/sensors/latest`);
+        
         await update(irrigationRef, {
           pumpStatus: newPumpStatus,
           lastUpdated: new Date().toISOString()
         });
         
-        // Update sensor data to reflect pump status
         await update(pumpRef, {
           waterPump: newPumpStatus === 'on',
           relay: newPumpStatus === 'on',
           pump: newPumpStatus === 'on',
+          relayStatus: newPumpStatus,
           timestamp: new Date().toISOString()
         });
         
